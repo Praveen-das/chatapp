@@ -1,0 +1,78 @@
+.connections {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 10px;
+  overflow-y: scroll;
+}
+
+.connections::-webkit-scrollbar{
+  display: none;
+}
+
+.person{
+  width: 100%;
+  min-height: 70px;
+  background-color: rgba(255, 255, 255, 0.048);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  padding-inline: 20px;
+  /* pointer-events: none; */
+  cursor: pointer;
+}
+
+.msg_input {
+  display: flex;
+  gap: 15px;
+  height: 40px;
+  width: 100%;
+}
+
+.msg_input input {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  outline: none;
+  border: none;
+  padding-left: 20px;
+}
+
+.message_box {
+  width: 100%;
+  height: 100%;
+  background-color: var(--body);
+  border-radius: 10px;
+}
+
+.button {
+  background-color: #ffffff;
+  border-radius: 8px;
+  border-style: none;
+  box-sizing: border-box;
+  color: #000000;
+  cursor: pointer;
+  display: inline-block;
+  font-size: 16px;
+  height: 100%;
+  line-height: 20px;
+  list-style: none;
+  margin: 0;
+  outline: none;
+  padding: 10px 16px;
+  position: relative;
+  text-align: center;
+  text-decoration: none;
+  transition: color 100ms;
+  vertical-align: baseline;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  white-space: nowrap;
+}
+
+.button:hover,
+.button:focus {
+  background-color: #e5e4e2;
+}
