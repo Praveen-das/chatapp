@@ -5,8 +5,10 @@ interface SocketProviderProps {
 }
 
 interface IMessageReply {
+    username: string
     message: string
     offsetTop: number
+    attachment?: IAttachment
 }
 
 interface IReadReceipt {
@@ -14,13 +16,29 @@ interface IReadReceipt {
     status: number
 }
 
-interface IAttachment {
-    type: 'image'
+interface IImageAttachment {
+    id: string
+    userId: string
     url: string
     thumbnail: string
-    isUploaded: boolean
-    size: number
 }
+
+type IImageType = 'image'
+
+type IAttachmentStatus = 'loaded' | 'uploaded' | 'error'
+
+interface IAttachment {
+    type: IImageType
+    status: IAttachmentStatus
+    data: IImageAttachment
+}
+
+type IMediaStore = Map<string, IUserMedia>
+
+interface IUserMedia {
+    [key: string]: IImageAttachment[]
+}
+
 
 interface IMessage {
     id: string
@@ -55,28 +73,10 @@ interface IDeleteRequest {
     messages: any[]
 }
 
-
-interface ISocketContext {
-    sendMessage: (payload: IMessage, conversation: IIConversation) => any
-    users: IUser[]
-    registerConversation: (conversation: IIConversation | IGroupConversation, message?: IMessage) => void
-    disconectSocket: () => void
-    connectSocket: () => void
-    sendReadReceiptChangeRequest: (updates: IUpdates) => void
-    sendMessageDeleteRequest: (req: IDeleteRequest, all = false) => void
-    onMessageForward: (conversation: IIConversation, messages: IMessage[]) => void
-    sendGroupCreationRequest: (displayName: string, participants: string[]) => void
-    addOrRemoveBlockedUser: (req: IUBlockReq) => void
-    blockedUsers: IUBlockReq[],
-    blockedByUsers: IUBlockReq[],
-    sendUserBlockRequest: (req: IUBlockReq) => void,
-    sendUserUnBlockRequest: (req: IUBlockReq) => void
-}
-
 interface IUBlockReq {
     userId: string
     blockedId: string
-    createtAt: number
+    createtAt?: number
 }
 
 interface IGroupMember {
@@ -86,21 +86,32 @@ interface IGroupMember {
     id?: string,
 }
 
-interface IUser {
-    host: 'user'
-    self?: boolean
-    socketId: string
-    userId: string
-    username: string
-    connected: boolean
-    messages: IMessage[]
-    requests: IRequest[]
-    lastSeen?: number
-    latestMessage?: {
-        message: string,
-        timestamp: number
-    }
+interface IRule {
+    isVisible: boolean
 }
+
+interface IUserRules {
+    profilePicture: IRule
+    bio: IRule
+    lastSeen: IRule
+    readReceipts: IRule
+}
+
+interface IUser {
+    id: string
+    username: string
+    bio: string
+    profilePicture: string
+    rules?: IUserRules
+    status?: 'online' | 'offline'
+    status?: 'online' | 'offline'
+    lastSeen: number
+    createdAt: number
+    updatedAt: number
+    self?: boolean
+}
+
+interface IUserNotificationPref { chatNotification: boolean, groupNotification: boolean }
 
 interface ISelectedConversation {
     id: string
@@ -122,22 +133,36 @@ interface IGroup {
     }
 }
 
-interface IIConversation {
+interface IConversation {
     id: string
     host?: 'user' | 'group'
-    members: string[]
+    members: IUser[]
     createdAt: number
     updatedAt: number
     messages?: IMessage[]
     recentMessage?: IMessage
 }
 
+interface IGroupCreationReq {
+    displayName: string
+    members: {
+        _id: string,
+    }
+}
+
+interface IGroupMember extends IUser{
+    isAdmin:boolean
+}
+
 interface IGroupConversation {
     id: string
     channelId?: string
+    invitationId?: string
     displayName?: string
+    desc?: string
     host?: 'user' | 'group'
-    members: string[]
+    members: IGroupMember[]
+    createdBy: string
     admins: string[],
     messages?: IMessage[]
     createdAt: number
@@ -154,8 +179,11 @@ interface IUnreadMessageMeta {
     id: string
 }
 
-type IConversation = IUser | IGroup
-
 type IArrayMap = [string, IMessage[]]
+
+type IModal<T = any> = {
+    activeModal: string,
+    state?: T
+}
 
 

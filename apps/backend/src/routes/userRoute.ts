@@ -1,12 +1,13 @@
 import { Router } from 'express'
-import Messages from '../models/MessageModel'
+import userController from '../controller/userController'
 
 const router = Router()
 
 router
-    .route('/')
-    .get((req, res) => {
-        // Messages.find()
-    })
+    .get('/', userController._getAllUsers)
+    .post('/', userController._createUser)
+    .get('/:id', userController._getUserById)
+    .put('/:id', userController._updateUser)
+    .delete('/:id', userController._deleteUser)
 
 export default router

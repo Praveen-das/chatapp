@@ -1,23 +1,25 @@
 import sessionStore from "../session";
 import { ISocket } from "../interfaces/socketInterfaces";
-import { findUserMessages, findUserGroups, findUserConversations } from "./userServices";
+import { findUserMessages, findUserGroups, findUserConversations, getAllContacts } from "./userServices";
 
 export const getConversations = async (socket: ISocket) => {
     if (!socket.userId) return;
 
     const [
-        connectedUsers,
+        contacts,
         conversations,
         groups,
     ] = await Promise.all([
-        sessionStore.findAllSessions(),
+        getAllContacts(),
         findUserConversations(socket.userId),
         findUserGroups(socket.userId),
     ]);
 
-    connectedUsers.forEach((_user) => {
-        _user.self = _user.socketId === socket.id;
+    contacts.forEach((_user) => {
+        _user.self = _user.id === socket.userId;
     })
+
+    contacts.sort((a: any, b: any) => b.self - a.self)
 
     groups.forEach((group) => {
         socket.join(group.channelId!);
@@ -25,5 +27,5 @@ export const getConversations = async (socket: ISocket) => {
 
     conversations.push(...groups as any)
 
-    return { connectedUsers, conversations };
+    return { contacts, conversations };
 };

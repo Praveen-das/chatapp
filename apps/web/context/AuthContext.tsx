@@ -1,86 +1,76 @@
 "use client"
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useEffect, useRef, useState } from 'react'
 
-interface Props {
-    children: React.ReactNode
-}
+export type IContext = ReturnType<typeof useContextData>
 
-interface IContext {
-    user: {
-        id: string
-        username: string
-        blockedUsers: string[]
-    } | null
-    addUserToBlockedList: (userId: string) => void
-    removeUserFromBlockedList: (userId: string) => void
-}
+export const Context = createContext<IContext | null>(null)
 
-const Context = createContext<IContext | null>(null)
-
-export const useAuth = () => {
-    const state = useContext(Context)
-    if (!state) throw new Error(`Context not found`)
-
-    return state
-}
-
-const getUser = () => {
-    const _user: string | null = sessionStorage.getItem('user')
-    let user: IContext['user'] = _user && JSON.parse(_user)
-
-    if (!_user) {
-        const id = crypto.randomUUID()
-        user = {
-            id,
-            username: 'user_' + id.slice(0, 10),
-            blockedUsers: []
-        }
-        sessionStorage.setItem('user', JSON.stringify(user))
-    }
-
-    return user
-}
-
-export default function AuthContext({ children }: Props) {
-    const [user, setUser] = useState<IContext['user']>(null)
+const useContextData = () => {
+    const [user, setUser] = useState<IUser | null>(null)
+    const userRef = useRef<IUser | null>(null)
 
     useEffect(() => {
-        const _user = getUser()
-        setUser(_user)
+        (async () => {
+            const _user = await getUser()
+
+            userRef.current = _user
+            setUser(_user)
+        })()
 
         return () => {
             setUser(null)
         }
     }, [])
 
-    const addUserToBlockedList = (conversationId: string) => {
-        setUser(_user => {
-            if (!_user) return null
-            const data = {
-                ..._user,
-                blockedUsers: _user.blockedUsers && [..._user.blockedUsers, conversationId]
+    const getUser = async () => {
+        const _user: string | null = sessionStorage.getItem('user')
+
+        let currentUser: IUser = _user && JSON.parse(_user)
+
+        if (!_user) {
+            const id = crypto.randomUUID()
+
+            let body: IUser = {
+                id,
+                username: 'user_' + id.slice(0, 10),
+                bio: '',
+                profilePicture: '',
+                lastSeen: Date.now(),
+                createdAt: Date.now(),
+                updatedAt: Date.now()
             }
-            return data
-        })
+
+            currentUser = await fetch(
+                'http://localhost:4000/user',
+                {
+                    method: 'POST',
+                    body: JSON.stringify(body),
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                })
+                .then(res => res.json())
+
+            sessionStorage.setItem('user', JSON.stringify(currentUser))
+        }
+
+        return currentUser
     }
 
-    const removeUserFromBlockedList = (conversationId: string) => {
-        setUser(_user => {
-            if (!_user) return null
-            return { ..._user, blockedUsers: _user.blockedUsers?.filter((cId) => conversationId !== cId) }
-        })
+    const updateUser = (key: string, value: any) => {
+        const updatedUser = { ...userRef.current!, [key]: value }
+        setUser(updatedUser)
     }
 
-    const values = {
+    return {
         user,
-        addUserToBlockedList,
-        removeUserFromBlockedList
+        updateUser
     }
-
-    return (
-        <Context.Provider value={values}>
-            {children}
-        </Context.Provider>
-    )
 }
+
+export default function AuthContext({ children }: { children: React.ReactNode }) {
+    const value = useContextData()
+    return <Context.Provider value={value}>{children}</Context.Provider>
+}
+

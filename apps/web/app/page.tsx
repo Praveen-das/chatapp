@@ -1,15 +1,22 @@
-import React from 'react'
-import ConversationPanel from '../components/ConversationPanel/ConversationPanel'
-import Navbar from '../components/Navbar/Navbar'
-import Messenger from '../components/Messenger/Messenger'
+'use client'
+import { useEffect } from 'react'
+import App from '../components/App'
+import { useStore } from '../store/global'
+import getLocalStorage from '../lib/localStorage'
 
 export default function page() {
-  return (
-    <div className='flex w-full gap-4 p-4 h-screen bg-zinc-900'>
-      {/* <Navbar /> */}
-      <ConversationPanel />
-      <Messenger />
-    </div>
-  )
+  const setModal = useStore(s => s.setModal)
+
+  useEffect(() => {
+    const invitationId = getLocalStorage()?.getItem('invitationId')
+
+    if (invitationId) {
+      setModal({ activeModal: 'joinGroupModal', state: invitationId });
+      document.querySelector<HTMLDialogElement>('#action-modal')?.showModal()
+    }
+
+  }, [])
+
+  return <App />
 }
 

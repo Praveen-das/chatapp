@@ -18,6 +18,15 @@ export async function findUserConversations(userId: string): Promise<IConversati
         });
 }
 
+export async function getAllContacts(): Promise<IUser[]> {
+    return await axiosClient(`/user`)
+        .then(res => res.data)
+        .catch(err => {
+            console.log("getAllContacts----------------->", err.errors)
+            return []
+        });
+}
+
 export async function findUserMessages(userId: string): Promise<IArrayMap> {
     return await axiosClient(`/messages?userId=${userId}`)
         .then(res => res.data)

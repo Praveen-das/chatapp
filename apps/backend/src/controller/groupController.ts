@@ -1,5 +1,5 @@
 import { Request, Response } from 'express'
-import { addMemberToGroup, createGroup, deleteGroup, fetchGroups, fetchGroupsByUserId, removeMemberFromGroup, updateGroup, updateGroupMemberRole } from '../services/groupServices'
+import { addMemberToGroup, createGroup, deleteGroup, fetchGroupById, fetchGroups, fetchGroupsByUserId, generateGroupInvitationId, makeUserAdmin, removeMemberFromGroup, removeUserAdmin, updateGroup, updateGroupMemberRole } from '../services/groupServices'
 
 const _fetchGroups = async (req: Request, res: Response) => {
 
@@ -13,6 +13,15 @@ const _createGroup = async (req: Request, res: Response) => {
     const data = req.body
 
     const group = await createGroup(data)
+
+    res.json(group)
+}
+
+const _generateGroupInvitationId = async (req: Request, res: Response) => {
+
+    const { conversationId } = req.body
+
+    const group = await generateGroupInvitationId(conversationId)
 
     res.json(group)
 }
@@ -39,9 +48,9 @@ const _deleteGroup = async (req: Request, res: Response) => {
 
 const _addMemberToGroup = async (req: Request, res: Response) => {
 
-    const { groupId, user } = req.body
+    const { conversationId, users } = req.body
 
-    const group = await addMemberToGroup(groupId, user)
+    const group = await addMemberToGroup(conversationId, users)
 
     res.json(group)
 
@@ -49,9 +58,9 @@ const _addMemberToGroup = async (req: Request, res: Response) => {
 
 const _removeMemberFromGroup = async (req: Request, res: Response) => {
 
-    const { groupId, userId } = req.body
+    const { conversationId, userId } = req.body
 
-    const group = await removeMemberFromGroup(groupId, userId)
+    const group = await removeMemberFromGroup(conversationId, userId)
 
     res.json(group)
 
@@ -67,6 +76,15 @@ const _updateGroupMemberRole = async (req: Request, res: Response) => {
 
 }
 
+const _fetchGroupById = async (req: Request, res: Response) => {
+
+    const id = req.params.id
+
+    const groups = await fetchGroupById(id)
+
+    res.json(groups)
+}
+
 const _fetchGroupsByUserId = async (req: Request, res: Response) => {
 
     const userId = req.params.id
@@ -76,13 +94,35 @@ const _fetchGroupsByUserId = async (req: Request, res: Response) => {
     res.json(groups)
 }
 
+const _makeUserAdmin = async (req: Request, res: Response) => {
+
+    const { conversationId, userId } = req.body
+
+    const groups = await makeUserAdmin(conversationId, userId)
+
+    res.json(groups)
+}
+
+const _removeUserAdmin = async (req: Request, res: Response) => {
+
+    const { conversationId, userId } = req.body
+
+    const groups = await removeUserAdmin(conversationId, userId)
+
+    res.json(groups)
+}
+
 export default {
     _fetchGroups,
+    _generateGroupInvitationId,
     _createGroup,
     _updateGroup,
     _deleteGroup,
     _addMemberToGroup,
     _removeMemberFromGroup,
     _updateGroupMemberRole,
-    _fetchGroupsByUserId
+    _fetchGroupsByUserId,
+    _fetchGroupById,
+    _makeUserAdmin,
+    _removeUserAdmin,
 }

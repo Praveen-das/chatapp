@@ -1,9 +1,11 @@
 import "./styles.css";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import { SockerProvider } from "../context/SocketProvider";
 import AuthContext from "../context/AuthContext";
+import { SockerProvider } from "../context/SocketProvider";
+import { ThemeProvider } from "next-themes";
 import Modal from "../components/ui/Modal";
+import { ThemeManager } from "../components/ThemeManager";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,12 +20,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }): JSX.Element {
   return (
-    <html data-theme="darktheme" lang="en">
+    <html lang="en">
       <AuthContext>
         <SockerProvider>
           <body className={inter.className}>
-            <Modal />
-            {children}
+            <ThemeProvider enableSystem>
+              {/* <Modal /> */}
+              <ThemeManager />
+              {children}
+            </ThemeProvider>
           </body>
         </SockerProvider>
       </AuthContext>

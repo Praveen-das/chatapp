@@ -2,6 +2,7 @@ export enum IMessageReadReceipt {
     sent,
     received,
     seen,
+    unseen,
 }
 
 export enum IMessageStatus {

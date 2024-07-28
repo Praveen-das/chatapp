@@ -1,35 +1,52 @@
-import React, { useCallback } from 'react'
-import { useAuth } from '../context/AuthContext';
-import { useStore } from '../store/global';
-import { generateConversation } from '../helpers/helpers';
-import { useMessages } from '../store/messageStore';
+import { useCallback } from 'react'
+import useAuth from '../hooks/useAuth';
+import { useMessageStore } from '../store/messageStore';
 import { IMessageReadReceipt } from '../enums/enums';
 
 function useMessage() {
     const { user } = useAuth();
-    const selectedConversation = useStore(s => s.selectedConversation);
-    const selectedUser = useStore(s => s.selectedUser);
-    const replyRequest = useMessages(s => s.replyRequest);
+    const replyRequest = useMessageStore(s => s.replyRequest);
 
-
-    let conversation = selectedConversation || generateConversation(user?.id!, selectedUser?.userId!)
-
-
-    const generateMessageTemplate = useCallback((message: string, attachment?: IAttachment) => {
+    const generateMessageTemplate = useCallback((conversation: IConversation, message: string, attachment?: IAttachment) => {
         const conversationId = conversation?.id
-        let from = user?.id
-        let to = (conversation as IGroupConversation)?.channelId || conversation?.members.find(member => member !== user?.id)!
         const host = conversation?.host!
+        let from = user?.id
+        let to = host === 'group' ?
+            (conversation as IGroupConversation)?.channelId! :
+            conversation?.members.find(m => m.id !== user?.id)?.id!
 
         const readReceipt = conversation.members
-            .map(member =>
-                member !== user?.id &&
-                {
-                    userId: member,
-                    status: IMessageReadReceipt.sent
-                }
-            )
-            .filter(c => c !== false)
+            .filter(member => member.id !== user?.id)
+            .map(member => ({ userId: member.id, status: IMessageReadReceipt.sent }))
+
+        const payload: IMessage = {
+            id: crypto.randomUUID(),
+            conversationId,
+            message,
+            attachment,
+            reply: replyRequest!,
+            from,
+            to,
+            timestamp: Date.now(),
+            host,
+            readReceipt: readReceipt,
+        };
+
+        return payload
+    }, [replyRequest, user])
+
+    const regenerateMessageTemplate = useCallback((conversation: IConversation, { message, attachment }: IMessage) => {
+        const conversationId = conversation?.id
+        const host = conversation?.host!
+        
+        let from = user?.id
+        let to = host === 'group' ?
+            (conversation as IGroupConversation)?.channelId! :
+            conversation?.members.find(m => m.id !== user?.id)?.id!
+
+        const readReceipt = conversation.members
+            .filter(member => member.id !== user?.id)
+            .map(member => ({ userId: member.id, status: IMessageReadReceipt.sent }))
 
         const payload: IMessage = {
             from, to,
@@ -37,17 +54,17 @@ function useMessage() {
             conversationId,
             message,
             attachment,
-            reply: replyRequest!,
             timestamp: Date.now(),
             host,
-            readReceipt: readReceipt,
+            readReceipt,
         };
 
         return payload
-    }, [])
+    }, [user])
 
     return {
         generateMessageTemplate,
+        regenerateMessageTemplate
     }
 }
 

@@ -22,29 +22,34 @@ interface IDeleteRequest {
     messages: any[]
 }
 
+interface IRule {
+    isVisible: boolean
+}
+
+interface IUserRules {
+    profilePicture: IRule
+    bio: IRule
+    lastSeen: IRule
+    ReadReceipts: IRule
+}
+
 interface IUser {
-    userId: string
-    socketId: string
+    id: string
     username: string
-    connected: boolean
-    messages: IMessage[] | null
+    bio: string
+    profilePicture: string
+    rules?: IUserRules
+    createdAt: number
+    updatedAt: number
     self?: boolean
-    // groups: IMessage[]
-    // requests: IRequest[]
 }
 
 interface ISession {
-    id?: string
+    sessionId: string
     userId: string
-    socketId: string
-    username: string
-    connected: boolean
-    lastSeen?: number
-    self?: boolean
 }
 
 interface IMessage {
-    _id?: string
     id: string
     conversationId: string
     message: string
@@ -82,19 +87,27 @@ type IGroups = IGroup[]
 interface IConversation {
     id: string
     host?: 'user' | 'group'
-    members: string[]
+    members: IUser[]
     createdAt: number
     updatedAt: number
     messages?: IMessage[]
     recentMessage?: IMessage
 }
 
+interface IGroupCreationReq {
+    displayName: string
+    members: string[]
+}
+
 interface IGroupConversation {
     id: string
     channelId?: string
-    displayName?:string
+    invitationId?: string
+    displayName?: string
+    desc?: string
     host?: 'user' | 'group'
-    members: string[]
+    createdBy: string
+    members: IUser[] | string[]
     admins: string[]
     messages?: IMessage[]
     createdAt: number
@@ -109,4 +122,8 @@ interface IUBlockReq {
 }
 
 type IArrayMap = [string, IMessage[]]
+
+interface IUserRuleChangeRequest {
+    userId: string, rules: IUserRules
+}
 

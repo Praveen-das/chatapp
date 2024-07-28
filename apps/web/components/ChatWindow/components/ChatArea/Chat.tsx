@@ -1,0 +1,227 @@
+"use client";
+
+import React, { memo, useEffect, useMemo, useRef } from "react";
+import moment from 'moment';
+import { IMessageReadReceipt } from "../../../../enums/enums";
+import { Menu } from "@headlessui/react";
+import { flip, useFloating } from '@floating-ui/react';
+import { useMessageStore } from "../../../../store/messageStore";
+import { useStore } from "../../../../store/global";
+import { downloadFromUrl, isValidURL } from "../../../../helpers/helpers";
+import { useAttachments } from "../../../../store/attachments";
+import ImageAttachment from "./ImageAttachment";
+import { motion } from 'framer-motion'
+import useAuth from "../../../../hooks/useAuth";
+import { Avatar } from "../../../Dashboard/Components/Avatar";
+
+interface IChat {
+  index: number;
+  self: boolean;
+  chat: IMessage;
+  onReply: (message: IMessage, index: number) => void
+  onClickReply: (index: number) => void
+  style?: any
+}
+
+const getReadReceipt = (chat: IMessage) => {
+
+  let readReceipt = IMessageReadReceipt[0]
+  for (let _value in IMessageReadReceipt) {
+    let value = parseInt(_value)
+    let _break = false
+
+    if (!isNaN(value)) {
+      let valueExist = chat.readReceipt.some((s) => s.status === value);
+      if (valueExist) {
+        readReceipt = IMessageReadReceipt[value]
+        _break = true
+        break
+      }
+    }
+    if (_break) break
+  }
+
+  return readReceipt
+}
+
+const checkEmoji = (emoji: string) => {
+  const regex = /^[\p{Emoji}]$/u;
+  return regex.test(emoji)
+}
+
+function Chat(
+  {
+    index,
+    self,
+    chat,
+    onReply,
+    onClickReply,
+    style
+  }: IChat): JSX.Element {
+
+  const { user } = useAuth()
+  const selectedChats = useMessageStore(s => s.selectedChats)
+  const setSelectedChats = useMessageStore(s => s.setSelectedChats)
+  const setModal = useStore(s => s.setModal)
+  const users = useStore(s => chat.host === 'group' ? s.users : [])
+  const chatRef = useRef<HTMLDivElement>(null)
+
+  const readReceipt = chat.host === 'user' ? IMessageReadReceipt[chat.readReceipt[0]?.status || 0] : getReadReceipt(chat)
+  const isSelected = selectedChats.includes(chat)
+  const isEmoji = checkEmoji(chat.message)
+
+  const { refs, floatingStyles } = useFloating({
+    middleware: [flip()],
+    placement: 'bottom-start',
+  });
+
+  const options = useMemo(() => [
+    {
+      label: isSelected ? 'Clear Selection' : 'Select',
+      handler: () => setSelectedChats(chat)
+    },
+    chat.attachment && {
+      label: 'Download',
+      handler: () => {
+        if (!chat.attachment) return
+        downloadFromUrl(chat.attachment.data.url)
+      }
+    },
+    {
+      label: 'Reply',
+      handler: () => onReply(chat, index)
+    },
+    {
+      label: 'Delete',
+      handler: () => {
+        // setSelectedChats(chat)
+        setModal({ activeModal: 'deleteMessageModal', state: chat });
+        (document?.getElementById('action-modal') as HTMLDialogElement)?.showModal()
+      }
+    }
+  ], [chat, isSelected])
+
+  const handleReply = () => onClickReply(chat.reply?.offsetTop!)
+
+  const handleSelectedChats = () => {
+    selectedChats.length && setSelectedChats(chat)
+  }
+
+  const receiver = chat.host === 'group' ? users.find(u => u.id === chat.from) : null
+
+  const isUrl = isValidURL(chat.message)
+
+  return (
+    <div
+      style={{ ...style }}
+      onClick={handleSelectedChats}
+      ref={chatRef}
+      className={`${!!selectedChats.length && 'cursor-pointer'} ${self ? 'ml-auto flex-row-reverse' : 'mr-auto'} px-4 pt-2 pb-1 ${isSelected && 'bg-black bg-opacity-20'} flex gap-3 text-xs`}
+    >
+      {
+        !self && chat.host === 'group' &&
+        <div className="pt-1">
+          <Avatar profileHidden={Boolean(!receiver?.rules?.profilePicture.isVisible)} size="30px" onlineIndication={false} />
+        </div>
+      }
+      <div className={`group ${self ? 'ml-auto' : 'mr-auto'} relative flex flex-col w-max`}>
+        <div
+          className={`relative w-full h-full ${self ? "bg-primary text-white" : "bg-base-300 shadow-lg text-base-content"} rounded-2xl p-1 overflow-hidden`}
+        >
+          {
+            chat.reply &&
+            <div onClick={handleReply} className={`relative p-2 w-full flex gap-2 rounded-xl ${self ? 'bg-black/20' : 'bg-white/10'} mb-1 z-3 cursor-pointer`}>
+              {chat.reply.attachment &&
+                <img className="w-10 h-10 rounded-md" src={chat.reply.attachment.data.thumbnail} alt="" />
+              }
+              <div className="flex flex-col gap-[2px] px-1">
+                <label htmlFor="">{chat.reply.username === user?.username ? 'You' : chat.reply.username}</label>
+                <p className="text-sm break-all pointer-events-none">{chat.reply.message || 'Photo'}</p>
+              </div>
+            </div>
+          }
+          {
+            chat.attachment &&
+            <AttachmentBox attachment={chat.attachment} />
+          }
+          <p className={`relative ${isEmoji ? 'text-4xl' : 'text-base'} break-all z-3 mx-2 max-w-md py-1`}>{chat.message}</p>
+          {/* <span className={`absolute -top-1 -right-1 w-8 h-6 ${self ? "bg-primary" : "bg-base-100"} shadow-[0_0_30px_30px] ${self ? "shadow-primary" : "shadow-base-300"} rounded-full opacity-0 group-hover:opacity-100 duration-300`} /> */}
+        </div>
+        <div className={`flex items-center gap-2 mx-1 mt-1 text-xs ${self ? 'ml-auto' : 'mr-auto flex-row-reverse'}`}>
+          <label htmlFor="">{moment(new Date(chat.timestamp)).format('LT')}</label>
+          {self && <ReadReceiptIcons readReceipt={readReceipt} />}
+        </div>
+        <div className="absolute top-1 right-1 text-left">
+          <Menu as="div" className="relative inline-block text-left">
+            <Menu.Button ref={refs.setReference} className="group-hover:opacity-100 outline-none duration-300 text-white rounded-full opacity-0">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+              </svg>
+            </Menu.Button>
+            <Menu.Items
+              className="absolute right-0 w-28 origin-top-right divide-y divide-gray-100 rounded-md bg-base-100 shadow-lg ring-1 ring-black/5 focus:outline-none z-10"
+              ref={refs.setFloating}
+              style={floatingStyles}
+            >
+              <div className="p-0.5">
+                {
+                  options.map((option, i) => (
+                    option ? <Menu.Item key={i}>
+                      <div
+                        className={`group btn btn-md w-full h-10 min-h-10 btn-ghost justify-start`}
+                        onClick={option.handler}
+                      >
+                        {option.label}
+                      </div>
+                    </Menu.Item> : null
+                  ))
+                }
+              </div>
+            </Menu.Items>
+          </Menu>
+        </div>
+      </div>
+    </div >
+  );
+}
+
+const AttachmentBox = ({ attachment }: IAttachmentBox) => {
+
+  const renderAttachment = {
+    image: <ImageAttachment attachment={attachment} />
+  }
+
+  return (
+    <div>
+      {renderAttachment[attachment.type]}
+    </div>
+  )
+}
+
+const ReadReceiptIcons = ({ readReceipt }: { readReceipt?: string }) => {
+
+  if (readReceipt === 'seen')
+    return (
+      <div className={`flex`}>
+        <div className={`size-[6px] rounded-full bg-primary -translate-x-[2px]`} />
+        <div className={`size-[6px] rounded-full bg-primary`} />
+      </div>
+    )
+  if (readReceipt === 'received' || readReceipt === 'unseen')
+    return (
+      <div className={`flex`}>
+        <div className={`size-[6px] rounded-full bg-black/50 -translate-x-[2px]`} />
+        <div className={`size-[6px] rounded-full bg-black/50`} />
+      </div>
+    )
+  return <div className={`size-[6px] rounded-full bg-black/50`} />
+
+}
+
+export default memo(Chat)
+
+
+
+
+
+

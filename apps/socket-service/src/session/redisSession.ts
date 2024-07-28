@@ -22,7 +22,7 @@ class SessionService extends SessionStore {
 
         return this.redisClient
             .multi()
-            .hset(`session:${session.id}`, keyvals)
+            .hset(`session:${session.sessionId}`, keyvals)
             // .expire(`session:${session.id}`, SESSION_TTL)
             .exec();
     }
@@ -42,7 +42,7 @@ class SessionService extends SessionStore {
             .then((results) =>
                 results?.map(([err, session]: any) => {
                     if (err) throw err
-                    return parseObjValue(session) as ISession
+                    return parseObjValue(session) as ISession;
                 }).filter(v => v !== null)!
             )
     }
@@ -55,6 +55,7 @@ class SessionService extends SessionStore {
 
     async findSessionByUserId(id: string) {
         const sessions = await this.findAllSessions()
+
         return sessions?.find(session => {
             if (!session) return null
             return session.userId === id

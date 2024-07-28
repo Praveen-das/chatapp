@@ -1,17 +1,12 @@
 import { Schema, model, SchemaTypes } from "mongoose";
-// import { messageSchema } from "./MessageModel";
+import { userSchema } from "./UserModal";
 
 const schemaOptions = { toJSON: { virtuals: true } }
-
-// const messageSchema = new Schema({
-//     type: SchemaTypes.ObjectId,
-//     ref: 'messages'
-// })
 
 const conversationSchema = new Schema({
     id: String,
     host: String,
-    members: [String],
+    members: [userSchema],
     createdAt: Number,
     updatedAt: Number,
     // deletedFor: [String],

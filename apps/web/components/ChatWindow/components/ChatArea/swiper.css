@@ -1,0 +1,25 @@
+.swiper-pagination{
+  position: relative !important;
+  min-height:80px;
+}
+
+.swiper-pagination-bullet {
+  width: 80px !important;
+  height: 80px !important;
+  text-align: center;
+  line-height: 20px;
+  font-size: 12px;
+  color: #000;
+  opacity: 1 !important;
+  filter:grayscale(100%);
+  scale:0.8;
+  border-radius: 5px !important;
+  overflow:hidden;
+  background: transparent !important;
+}
+  
+.swiper-pagination-bullet-active {
+  filter:grayscale(0%);
+  opacity: 1 !important;
+  scale:1;
+}

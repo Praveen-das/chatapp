@@ -22,15 +22,11 @@ async function fetchAllConversations() {
 }
 
 async function getUserConversation(userId: string) {
-    // const res = await Conversation.find({
-    //     members: { $in: [userId] }
-    // });
-
     const res = await Conversation.aggregate([
         {
             $match: {
                 members: {
-                    $in: [userId]
+                    $elemMatch: { id: userId }
                 }
             }
         },

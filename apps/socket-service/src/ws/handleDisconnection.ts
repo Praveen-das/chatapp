@@ -1,25 +1,20 @@
 import { Server } from "socket.io";
-import sessionStore from "../session";
 import { ISocket } from "../interfaces/socketInterfaces";
+import produceMessage from "../kafka/kafka";
 
 export default function handleDisconnection(io: Server, socket: ISocket) {
-    socket.on('disconnect', async () => {
-        const matchingSockets = await io.in(socket.id).fetchSockets();
+    socket.on('disconnect', async (reason) => {
+        console.log('user disconnected----------> ' + reason);
+
+        const matchingSockets = await io.in(socket.userId!).fetchSockets();
         const isDisconnected = matchingSockets.length === 0;
 
         if (isDisconnected) {
-            const session = {
-                id: socket.sessionId,
-                userId: socket.userId!,
-                socketId: socket.id,
-                username: socket.username!,
-                connected: false,
-                lastSeen: Date.now()
-            };
+            socket.broadcast.emit("user disconnected", { userId: socket.userId });
 
-            socket.broadcast.emit("user disconnected", session);
-            sessionStore.saveSession(session);
+            const body = { id: socket.userId, updates: { status: 'offline', lastSeen: Date.now() } }
+            
+            produceMessage(body, 'UPDATE_USER')
         }
-
     });
 }

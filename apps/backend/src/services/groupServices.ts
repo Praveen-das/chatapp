@@ -21,7 +21,46 @@ async function createGroup(data: IGroup) {
     try {
         const group = new Group(data)
         await group.save()
-        return group
+        const populatedGroup = await Group.aggregate([
+            {
+                $match: { id: group.id }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'members',
+                    foreignField: 'id',
+                    as: 'members'
+                }
+            },
+        ])
+
+        return populatedGroup[0]
+
+    } catch (error) {
+        console.log('createGroup--->', error);
+        throw error
+    }
+}
+async function generateGroupInvitationId(id: string) {
+    try {
+        const invitationId = crypto.randomUUID()
+        await Group.findOneAndUpdate({ id }, { invitationId })
+        const populatedGroup = await Group.aggregate([
+            {
+                $match: { id }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'members',
+                    foreignField: 'id',
+                    as: 'members'
+                }
+            },
+        ])
+
+        return populatedGroup[0]
 
     } catch (error) {
         console.log('createGroup--->', error);
@@ -30,6 +69,44 @@ async function createGroup(data: IGroup) {
 }
 
 // fetchGroupsForUser
+async function fetchGroupById(id: string) {
+    try {
+        const groups = await Group
+            .aggregate([
+                {
+                    $match: { invitationId: id }
+                },
+                {
+                    $lookup: {
+                        from: "messages",
+                        let: { id: "$id" },
+                        pipeline: [
+                            {
+                                $match: {
+                                    $expr: { $eq: ["$conversationId", "$$id"] }
+                                },
+                            },
+                        ],
+                        as: "messages"
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: 'members',
+                        foreignField: 'id',
+                        as: 'members'
+                    }
+                },
+            ])
+
+        return groups
+
+    } catch (error) {
+        console.log('fetchGroupsByUserId--->', error);
+    }
+}
+
 async function fetchGroupsByUserId(userId: string) {
     try {
         const groups = await Group
@@ -48,10 +125,8 @@ async function fetchGroupsByUserId(userId: string) {
                         pipeline: [
                             {
                                 $match: {
-                                    $expr: {
-                                        $eq: ["$conversationId", "$$id"]
-                                    }
-                                }
+                                    $expr: { $eq: ["$conversationId", "$$id"] }
+                                },
                             },
                             {
                                 $match: {
@@ -69,33 +144,15 @@ async function fetchGroupsByUserId(userId: string) {
                         as: "messages"
                     }
                 },
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: 'members',
+                        foreignField: 'id',
+                        as: 'members'
+                    }
+                },
             ])
-        // .find({
-        //     members: {
-        //         $in: [userId]
-        //     }
-        // })
-        // .aggregate([
-        //     {
-        //         $match: { 'members.userId': userId }
-        //     },
-        //     // {
-        //     //     $addFields: {
-        //     //         id: { $toString: '$_id' }
-        //     //     }
-        //     // },
-        //     // {
-        //     //     $lookup: {
-        //     //         from: 'messages',
-        //     //         localField: 'id',
-        //     //         foreignField: 'to',
-        //     //         as: 'messages'
-        //     //     }
-        //     // }
-        // ])
-        // .where('members.userId')
-        // .equals(userId)
-        // .loo
 
 
         return groups
@@ -123,7 +180,15 @@ async function fetchGroups() {
                         foreignField: 'to',
                         as: 'messages'
                     }
-                }
+                },
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: 'members',
+                        foreignField: 'id',
+                        as: 'members'
+                    }
+                },
             ])
 
         return groups
@@ -140,7 +205,7 @@ async function updateGroupMemberRole(groupId: string, userId: string, isAdmin: b
 
         const updatedGroup = await Group
             .findOneAndUpdate(
-                { _id: groupId, 'members.userId': userId },
+                { id: groupId, 'members.userId': userId },
                 { $set: { 'members.$.isAdmin': isAdmin } },
                 { new: true });
 
@@ -151,15 +216,28 @@ async function updateGroupMemberRole(groupId: string, userId: string, isAdmin: b
         throw error;
     }
 }
-async function addMemberToGroup(groupId: string, user: IGroupMember) {
+
+async function addMemberToGroup(conversationId: string, users: string[]) {
     try {
 
         const updatedGroup = await Group
-            .findByIdAndUpdate(groupId, {
-                $push: { members: user }
+            .findOneAndUpdate({ id: conversationId }, {
+                $push: { members: users }
             }, { new: true });
 
-        return updatedGroup;
+        return await Group.aggregate([
+            {
+                $match: { id: conversationId }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'members',
+                    foreignField: 'id',
+                    as: 'members'
+                }
+            },
+        ]);
 
     } catch (error) {
         console.error('Error adding user to group:', error);
@@ -168,15 +246,26 @@ async function addMemberToGroup(groupId: string, user: IGroupMember) {
 }
 
 // removeMemberFromGroup
-async function removeMemberFromGroup(groupId: string, userId: string) {
+async function removeMemberFromGroup(conversationId: string, userId: string) {
     try {
-
         const updatedGroup = await Group
-            .findByIdAndUpdate(groupId, {
-                $pull: { members: { _id: userId } }
+            .findOneAndUpdate({ id: conversationId }, {
+                $pull: { members: userId }
             }, { new: true });
 
-        return updatedGroup;
+        return await Group.aggregate([
+            {
+                $match: { id: conversationId }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'members',
+                    foreignField: 'id',
+                    as: 'members'
+                }
+            },
+        ]);
 
     } catch (error) {
         console.error('Error adding user to group:', error);
@@ -185,13 +274,26 @@ async function removeMemberFromGroup(groupId: string, userId: string) {
 }
 
 // updateGroup
-async function updateGroup(groupId: string, updates: Partial<IGroup>) {
+async function updateGroup(conversationId: string, updates: Partial<IGroup>) {
+
     try {
 
         const updatedGroup = await Group
-            .findByIdAndUpdate(groupId, updates, { new: true });
+            .findOneAndUpdate({ id: conversationId }, updates, { new: true });
 
-        return updatedGroup;
+        return await Group.aggregate([
+            {
+                $match: { id: conversationId }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'members',
+                    foreignField: 'id',
+                    as: 'members'
+                }
+            },
+        ]);
 
     } catch (error) {
         console.error('Error adding user to group:', error);
@@ -213,13 +315,74 @@ async function deleteGroup(groupId: string) {
     }
 }
 
+// make user as admin
+async function makeUserAdmin(conversationId: string, userId: string) {
+    try {
+
+        const updatedGroup = await Group
+            .findOneAndUpdate({ id: conversationId }, {
+                $push: { admins: userId }
+            }, { new: true });
+
+        return await Group.aggregate([
+            {
+                $match: { id: conversationId }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'members',
+                    foreignField: 'id',
+                    as: 'members'
+                }
+            },
+        ]);
+
+    } catch (error) {
+        console.error('Error adding user to group:', error);
+        throw error;
+    }
+}
+
+// remove user from admin
+async function removeUserAdmin(conversationId: string, userId: string) {
+    try {
+        const updatedGroup = await Group
+            .findOneAndUpdate({ id: conversationId }, {
+                $pull: { admins: userId }
+            }, { new: true });
+
+        return await Group.aggregate([
+            {
+                $match: { id: conversationId }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'members',
+                    foreignField: 'id',
+                    as: 'members'
+                }
+            },
+        ]);
+
+    } catch (error) {
+        console.error('Error adding user to group:', error);
+        throw error;
+    }
+}
+
 export {
     createGroup,
+    generateGroupInvitationId,
     fetchGroups,
     fetchGroupsByUserId,
     addMemberToGroup,
     removeMemberFromGroup,
     updateGroupMemberRole,
     updateGroup,
-    deleteGroup
+    deleteGroup,
+    fetchGroupById,
+    makeUserAdmin,
+    removeUserAdmin,
 }

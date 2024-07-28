@@ -31,7 +31,16 @@ interface BulkOperation {
 interface IConversation {
     id: string,
     host?: 'user' | 'group'
-    members: string[],
+    members: IUser[],
     createdAt: number,
     updatedAt: number,
+}
+
+interface IUser {
+    id: string
+    username: string
+    bio: string
+    profilePicture: string
+    createdAt: number
+    updatedAt: number
 }

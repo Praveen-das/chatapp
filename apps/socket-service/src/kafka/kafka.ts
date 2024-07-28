@@ -16,12 +16,12 @@ export async function createProducer() {
     return producer;
 }
 
-async function produceMessage(messages: { messages: IUpdatesCollection[], conversation?: IConversation | null }, topic = "MESSAGES") {
+async function produceMessage(body: any, topic = "MESSAGES") {
     const producer = await createProducer();
 
     try {
         await producer.send({
-            messages: [{ key: `message-${Date.now()}`, value: JSON.stringify(messages) }],
+            messages: [{ key: `message-${Date.now()}`, value: JSON.stringify(body) }],
             topic,
         });
     } catch (err) {

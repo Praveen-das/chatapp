@@ -1,15 +1,14 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react"
-import { useAuth } from "./AuthContext";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
+import useAuth from '../hooks/useAuth';
 import socket from "../lib/ws";
-import { useMessages } from "../store/messageStore";
+import { useMessageStore } from "../store/messageStore";
 import { IMessageReadReceipt } from "../enums/enums";
 import { useStore } from "../store/global";
 import _ from 'lodash'
-import { upsert } from "../helpers/helpers";
-
-const SocketContext = createContext<ISocketContext | null>(null)
+import { useAttachments } from "../store/attachments";
+import { useConversationStore } from "../store/conversationStore";
 
 declare global {
     interface Map<K, V> {
@@ -25,27 +24,27 @@ Map.prototype.upsert = function (key, value) {
     return this
 }
 
-export const useSocket = () => {
-    const state = useContext(SocketContext)
-    if (!state) throw new Error(`Context not found`)
-    return state
-}
-
-export const SockerProvider: React.FC<SocketProviderProps> = ({ children }) => {
-    const [users, setUsers] = useState<IUser[]>([])
+const useContextData = () => {
+    const { user, updateUser } = useAuth()
+    const userRef = useRef<IUser | null>(null)
+    const setUsers = useStore(s => s.setUsers)
+    const addNewUser = useStore(s => s.addNewUser)
+    const updateUserRule = useStore(s => s.updateUserRule)
 
     const [blockedUsers, setBlockedUsers] = useState<IUBlockReq[]>([])
     const [blockedByUsers, setBlockedByUsers] = useState<IUBlockReq[]>([])
 
-    const { user } = useAuth()
-
-    const setConversation = useMessages(s => s.setConversation)
-    const setMessageStore = useMessages(s => s.setMessageStore)
-    const setUnreadMessages = useMessages(s => s.setUnreadMessages)
-    const updateUserMessages = useMessages(s => s.updateUserMessages)
-    const deleteUserMessages = useMessages(s => s.deleteUserMessages)
-    const updateReadReceipt = useMessages(s => s.updateReadReceipt)
-    const setMessages = useMessages(s => s.setMessages)
+    const setConversation = useConversationStore(s => s.setConversation)
+    const setMessageStore = useMessageStore(s => s.setMessageStore)
+    const setUnreadMessages = useMessageStore(s => s.setUnreadMessages)
+    const updateUserMessages = useMessageStore(s => s.updateUserMessages)
+    const deleteUserMessages = useMessageStore(s => s.deleteUserMessages)
+    const updateReadReceipt = useMessageStore(s => s.updateReadReceipt)
+    const setMessageHistory = useMessageStore(s => s.setMessageHistory)
+    const updateConversation = useConversationStore(s => s.updateConversation)
+    const setMediaStore = useAttachments(s => s.setMediaStore)
+    const addToMediaStore = useAttachments(s => s.addToMediaStore)
+    const updateUserStatus = useStore(s => s.updateUserStatus)
 
     useEffect(() => {
         const sessionId = sessionStorage.getItem("sessionId")
@@ -58,6 +57,12 @@ export const SockerProvider: React.FC<SocketProviderProps> = ({ children }) => {
             socket.auth = { user }
         }
 
+        userRef.current = user
+
+        if (Notification.permission !== 'granted') {
+            Notification.requestPermission();
+        }
+
         socket.connect()
 
         return () => {
@@ -67,140 +72,120 @@ export const SockerProvider: React.FC<SocketProviderProps> = ({ children }) => {
     }, [user])
 
     useEffect(() => {
-        socket.on('session', onSessionReceived)
+        socket.on('sessionId', onSessionReceived)
         socket.on("conversations", onReceiveConnectedUsers);
         socket.on("user connected", onUserConnected);
+        socket.on("new user created", onNewUserCreated);
         socket.on("user disconnected", onUserDisconnected);
         socket.on('message receive', onMessageReceive)
-        socket.on('forwarded message', onForwardMessageReceive)
         socket.on('change readReceipt', onReadReceiptChangeRequest)
         socket.on('request:delete_message', res => handleMessageDelete(res, true))
         socket.on('request:delete_message_for_user', handleMessageDelete)
         socket.on('RESPONSE:BLOCK_USER', handleBlockingUser)
         socket.on('RESPONSE:UNBLOCK_USER', handleUnBlockingUser)
-        socket.on('group created', (group: IGroupConversation) => {
-            registerConversation(group)
-        })
+        socket.on('updateUserRule', handleUpdatingUserRule)
+        socket.on('group created', handleCreatingGroup)
+        socket.on('UPDATE_GROUP', handleUpdatingGroup)
+        socket.on('GROUP_ADD_MEMBERS', handleJoiningGroup)
 
         return () => {
             socket.off('session', onSessionReceived)
             socket.off('conversations', onReceiveConnectedUsers)
             socket.off('user connected', onUserConnected)
+            socket.off("new user created", onNewUserCreated);
             socket.off('user disconnected', onUserDisconnected)
             socket.off('message receive', onMessageReceive)
-            socket.off('forwarded message', onForwardMessageReceive)
             socket.off('change readReceipt', onReadReceiptChangeRequest)
             socket.off('request:delete_message')
             socket.off('request:delete_message_for_user', handleMessageDelete)
             socket.off('RESPONSE:BLOCK_USER', handleBlockingUser)
             socket.off('RESPONSE:UNBLOCK_USER', handleUnBlockingUser)
-            socket.off('group created')
+            socket.off('updateUserRule', handleUpdatingUserRule)
+            socket.off('group created', handleCreatingGroup)
+            socket.off('UPDATE_GROUP', handleUpdatingGroup)
+            socket.off('GROUP_ADD_MEMBERS', handleJoiningGroup)
         }
-    }, [user, blockedUsers, blockedByUsers])
+    }, [])
 
     // receivers///////////////////////////
 
-    const onReceiveConnectedUsers = useCallback((
+    const onReceiveConnectedUsers = (
         {
-            connectedUsers,
+            contacts,
+            conversations,
             blockedUsers,
             blockedByUsers,
-            conversations,
         }: {
-            connectedUsers: IUser[],
+            contacts: IUser[],
             blockedUsers: IUBlockReq[],
             blockedByUsers: IUBlockReq[],
-            conversations: IIConversation[],
+            conversations: IConversation[],
         }) => {
+
         registerConversations(conversations)
-        setUsers(connectedUsers)
+
+        setUsers(contacts)
+
         setBlockedUsers(blockedUsers)
+
         setBlockedByUsers(blockedByUsers)
-    }, [user])
+    }
 
-    const onUserConnected = useCallback((connectedUser: IUser) => {
-        setUsers(_u => {
-            const _user = _u.filter(u => u.userId !== connectedUser.userId)
-            return [..._user, connectedUser]
-        })
-    }, [])
+    const onUserConnected = ({ userId }: { userId: string }) => {
+        updateUserStatus(userId, 'online')
+    }
 
-    const onUserDisconnected = useCallback((user: IUser) => {
-        setUsers((s: any) => s.map((u: IUser) => {
-            if (u.userId === user.userId) return user
-            return u
-        }))
-    }, [])
+    const onUserDisconnected = ({ userId }: { userId: string }) => {
+        updateUserStatus(userId, 'offline')
+    }
 
-    function onMessageReceive({ message, conversation }: { message: IMessage, conversation: IIConversation }) {
+    const onNewUserCreated = (user: IUser) => {
+        addNewUser(user)
+    }
+
+    function onMessageReceive({ messages, conversation }: { messages: IMessage[], conversation: IConversation }) {
         const conversationId = conversation.id!
 
         const updates: IUpdates = new Map()
 
         const currentUser = conversationId === socket.selectedConversation?.id
 
-        const isReceiver = message.from !== user?.id
-
-        if (!isReceiver) return
-
-        const update = {
-            id: message.id,
-            readReceipt: [{
-                userId: user?.id!,
-                status: currentUser ? IMessageReadReceipt.seen : IMessageReadReceipt.received
-            }]
-        }
-
-        let key = { conversationId, to: message.from! }
-
-        updates.upsert(key, update);
-
-        sendReadReceiptChangeRequest(updates)
-        
-        setUnreadMessages(conversationId, [{ id: message.id, from: message.from! }])
-
-        registerConversation(conversation, message)
-        
-        setMessageStore(conversationId, [message])
-    }
-
-    const onForwardMessageReceive = useCallback(({ conversation, messages }: { conversation: IIConversation, messages: IMessage[] }) => {
-        const receiver = conversation?.members.find(m => m !== user?.id)!
-        const isBlocked = blockedUsers.some(u => u.blockedId === receiver)
-
-        if (isBlocked) return
-
-        const conversationId = conversation.id
-
-        const isBlockedUser = user?.blockedUsers.includes(conversationId)
-
-        const currentUser = conversationId === socket.selectedConversation?.id
-
-        const updates: IUpdates = new Map()
+        const status = currentUser ?
+            userRef.current?.rules?.readReceipts.isVisible ?
+                IMessageReadReceipt.seen :
+                IMessageReadReceipt.unseen :
+            IMessageReadReceipt.received
 
         messages.forEach(message => {
-            const isReceiver = message.from !== user?.id
+            const isReceiver = message.from !== userRef.current?.id
 
-            if (isReceiver) {
-                const update = {
-                    id: message.id,
-                    readReceipt: [{
-                        userId: user?.id!,
-                        status: currentUser ? IMessageReadReceipt.seen : IMessageReadReceipt.received
-                    }]
-                }
-
-                let key = { conversationId, to: message.from! }
-
-                updates.upsert(key, update);
-                setUnreadMessages(conversationId, [{ id: message.id, from: message.from! }])
+            if (message.attachment) {
+                let attachment = message.attachment
+                addToMediaStore(conversationId, attachment.type, [attachment.data])
             }
-        })
+
+            if (!isReceiver) return
+
+            const update = {
+                id: message.id,
+                readReceipt: [{ userId: userRef.current?.id!, status }]
+            }
+
+            let key = { conversationId, to: message.from! }
+
+            updates.upsert(key, update);
+
+            setUnreadMessages(conversationId, [{ id: message.id, from: message.from! }])
+
+            setMessageStore(conversationId, [message])
+        });
+
+        !currentUser && sendBrowserNotification(messages.at(-1)!)
 
         sendReadReceiptChangeRequest(updates)
-        registerConversation(conversation, messages.at(-1)!)
-        setMessageStore(conversationId, messages)
-    }, [user, blockedUsers])
+
+        registerConversation(conversation, messages.at(-1)) // Assuming you want to register with the first message
+    }
 
     const handleBlockingUser = (res: IUBlockReq) => {
         addOrRemoveBlockedUser(res)
@@ -216,19 +201,19 @@ export const SockerProvider: React.FC<SocketProviderProps> = ({ children }) => {
             deleteUserMessages(conversationId, messages)
     }
 
-    const onReadReceiptChangeRequest = useCallback(({ conversationId, updates }: { conversationId: string, updates: IUpdatesCollection[] }) => {
-        updateReadReceipt(conversationId, updates)
-    }, [user])
+    const handleCreatingGroup = (group: IConversation) => {
+        registerConversation(group)
+    }
 
-    const onSessionReceived = useCallback((session: { sessionId: string }) => {
-        sessionStorage.setItem('sessionId', session.sessionId)
-    }, [])
+    const onSessionReceived = (sessionId: string) => {
+        sessionStorage.setItem('sessionId', sessionId)
+    }
 
-    const disconectSocket = useCallback(() => {
+    const disconectSocket = () => {
         socket?.disconnect()
-    }, [])
+    }
 
-    const connectSocket = useCallback(() => {
+    const connectSocket = () => {
         const sessionId = sessionStorage.getItem("sessionId")
 
         if (sessionId) {
@@ -237,33 +222,74 @@ export const SockerProvider: React.FC<SocketProviderProps> = ({ children }) => {
             socket.auth = { user }
         }
         socket?.connect()
-    }, [])
+    }
+
+    const handleUpdatingUserRule = ({ userId, rules }: { userId: string, rules: IUserRules }) => {
+        if (userId === userRef.current?.id) {
+            let updates = { ...userRef.current?.rules, ...rules }
+            updateUser('rules', updates)
+
+            const newUsers = { ...userRef.current, ['rules']: updates }
+
+            sessionStorage.setItem('user', JSON.stringify(newUsers))
+            return
+        }
+
+        updateUserRule(userId, rules)
+    }
+
+    const handleUpdatingGroup = (conversation: IConversation) => {
+        updateConversation(conversation.id, conversation as IGroupConversation)
+    }
+
+    const handleJoiningGroup = (conversation: IConversation) => {
+        setConversation(conversation)
+    }
 
     //senders///////////////////////////
 
-    const sendMessage = useCallback((message: IMessage, conversation: IIConversation) => {
-        const blockedByUser = blockedByUsers.some(({ userId }) => userId === message.to)
-        if (blockedByUser) Object.assign(message, { deletedFor: [message.to], to: '' })
-        socket?.emit("message", { message, conversation })
-    }, [user, blockedByUsers])
+    const makeAdmin = (conversationId: string, userId: string) => {
+        socket.emit('USER_MAKE_ADMIN', { conversationId, userId })
+    }
 
-    const onMessageForward = useCallback<ISocketContext['onMessageForward']>((conversation, messages) => {
-        socket.emit('forward message', { conversation, messages })
-    }, [blockedByUsers])
+    const removeFromAdmin = (conversationId: string, userId: string) => {
+        socket.emit('USER_REMOVE_FROM_ADMIN', { conversationId, userId })
+    }
 
-    const sendReadReceiptChangeRequest = useCallback<ISocketContext['sendReadReceiptChangeRequest']>((updates) => {
-        socket.emit('change readReceipt', Array.from(updates))
-    }, [user])
+    const removeMemberFromGroup = (conversationId: string, userId: string) => {
+        socket.emit('GROUP_REMOVE_MEMBER', { conversationId, userId })
+    }
 
-    const sendMessageDeleteRequest = useCallback<ISocketContext['sendMessageDeleteRequest']>((updates, all = false) => {
+    const addMembersToGroup = (conversationId: string, users: string[]) => {
+        socket.emit('GROUP_ADD_MEMBERS', { conversationId, users })
+    }
+
+    const findGroupById = (conversationId: string) => {
+        socket.emit('GROUP_FIND_BY_ID', conversationId)
+    }
+
+    const sendMessage = (messages: IMessage[], _conversation: IConversation) => {
+        let conversation = { ..._conversation }
+        const receiver = conversation.members.find(m => m.id !== userRef.current?.id)
+        const blockedByUser = blockedByUsers.some(({ userId }) => userId === receiver?.id)
+
+        if (blockedByUser) {
+            messages.forEach(message => Object.assign(message, { deletedFor: [message.to], to: '' }))
+            Object.assign(conversation, { members: conversation.members.filter(m => m.id === userRef.current?.id) })
+        }
+
+        socket?.emit("message", { messages, conversation })
+    }
+
+    const sendMessageDeleteRequest = (updates: IDeleteRequest, all = false) => {
         all ?
             socket.emit('request:delete_message', updates) :
             socket.emit('request:delete_message_for_user', updates)
-    }, [user])
+    }
 
-    const sendGroupCreationRequest = useCallback((displayName: string, members: string[]) => {
+    const sendGroupCreationRequest = (displayName: string, members: string[]) => {
         socket.emit('create group', { displayName, members })
-    }, [user])
+    }
 
     const sendUserBlockRequest = (req: IUBlockReq) => {
         socket.emit('REQUEST:BLOCK_USER', req)
@@ -273,6 +299,14 @@ export const SockerProvider: React.FC<SocketProviderProps> = ({ children }) => {
         socket.emit('REQUEST:UNBLOCK_USER', req)
     }
 
+    const sendUserRuleChangeRequest = (req: { userId: string, rules: Partial<IUserRules> }) => {
+        socket.emit('updateUserRule', req)
+    }
+
+    const sendGroupInfoUpdateRequest = (conversationId: string, updates: Partial<IGroupConversation>) => {
+        socket.emit('updateGroupInfo', { conversationId, updates })
+    }
+
     //HELPERS///////////////////////////
 
     function addOrRemoveBlockedUser(req: IUBlockReq) {
@@ -280,11 +314,11 @@ export const SockerProvider: React.FC<SocketProviderProps> = ({ children }) => {
         setBlockedByUsers(s => s.some(r => r.blockedId === req.blockedId) ? s.filter(m => m.blockedId !== req.blockedId) : [req, ...s])
     }
 
-    function registerConversation(conversation: IIConversation | IGroupConversation, message?: IMessage) {
+    function registerConversation(conversation: IConversation, message?: IMessage) {
         setConversation({ ...conversation, recentMessage: message })
     }
 
-    function registerConversations(conversations: IIConversation[]) {
+    function registerConversations(conversations: IConversation[]) {
         let updates: IUpdates = new Map()
         let messageStore: Map<string, IMessage[]> = new Map()
 
@@ -295,18 +329,22 @@ export const SockerProvider: React.FC<SocketProviderProps> = ({ children }) => {
 
             if (!!messages.length) {
                 let unreadMessages: IUnreadMessageMeta[] = [];
+                let userMedia: IUserMedia = {};
 
                 for (let message of messages) {
-
-                    const isReceiver = message.from !== user?.id
+                    const isReceiver = message.from !== userRef.current?.id
+                    if (message.attachment)
+                        if (userMedia[message.attachment.type])
+                            userMedia[message.attachment.type]?.push(message.attachment.data)
+                        else userMedia[message.attachment.type] = [message.attachment?.data!]
 
                     if (isReceiver) {
                         message.readReceipt.forEach(readReceipt => {
-                            if (readReceipt?.status === IMessageReadReceipt.sent && readReceipt.userId === user?.id) {
+                            if (readReceipt?.status === IMessageReadReceipt.sent && readReceipt.userId === userRef.current?.id) {
                                 const update: IUpdatesCollection = {
                                     id: message.id,
                                     readReceipt: [{
-                                        userId: user?.id!,
+                                        userId: userRef.current?.id!,
                                         status: IMessageReadReceipt.received
                                     }]
                                 };
@@ -315,13 +353,13 @@ export const SockerProvider: React.FC<SocketProviderProps> = ({ children }) => {
                                 updates.upsert(key, update);
                             }
 
-                            if (readReceipt?.status < IMessageReadReceipt.seen && readReceipt?.userId === user?.id)
+                            if (readReceipt?.status < IMessageReadReceipt.seen && readReceipt?.userId === userRef.current?.id)
                                 unreadMessages.push({ id: message.id, from: message.from! });
                         })
-
                     }
                 }
 
+                if (!!Object.keys(userMedia).length) setMediaStore(id, userMedia)
                 setUnreadMessages(id, unreadMessages);
             }
 
@@ -329,15 +367,32 @@ export const SockerProvider: React.FC<SocketProviderProps> = ({ children }) => {
             delete conversation.messages
 
             messageStore.set(id, messages)
+
             registerConversation(conversation, recentMessage)
         })
 
-        setMessages(messageStore)
+        setMessageHistory(messageStore)
         !!updates.size && sendReadReceiptChangeRequest(updates)
     }
 
-    const values = {
-        users,
+    function sendBrowserNotification(message: IMessage) {
+        if (Notification.permission === 'granted') {
+            new Notification('New message', {
+                body: 'This is the body of the notification.',
+                icon: 'path/to/icon.png',
+            });
+        }
+    }
+
+    const sendReadReceiptChangeRequest = (updates: IUpdates) => {
+        socket.emit('change readReceipt', Array.from(updates))
+    }
+
+    const onReadReceiptChangeRequest = ({ conversationId, updates }: { conversationId: string, updates: IUpdatesCollection[] }) => {
+        updateReadReceipt(conversationId, updates)
+    }
+
+    return {
         registerConversation,
         sendMessage,
         connectSocket,
@@ -345,19 +400,45 @@ export const SockerProvider: React.FC<SocketProviderProps> = ({ children }) => {
         sendReadReceiptChangeRequest,
         sendMessageDeleteRequest,
         handleMessageDelete,
-        onMessageForward,
         sendGroupCreationRequest,
         addOrRemoveBlockedUser,
         blockedUsers,
         blockedByUsers,
         sendUserBlockRequest,
-        sendUserUnBlockRequest
+        sendUserUnBlockRequest,
+        sendUserRuleChangeRequest,
+        sendGroupInfoUpdateRequest,
+        addMembersToGroup,
+        findGroupById,
+        removeMemberFromGroup,
+        makeAdmin,
+        removeFromAdmin
     }
-
-    return (
-        <SocketContext.Provider value={values}>
-            {children}
-        </SocketContext.Provider>
-    )
 }
 
+type ISocketContext = ReturnType<typeof useContextData>
+
+const SocketContext = createContext<ISocketContext | null>(null)
+
+export const SockerProvider: React.FC<SocketProviderProps> = ({ children }) => {
+    const value = useContextData()
+    return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>
+}
+
+interface IUserSocket {
+    (): ISocketContext
+    getState: () => ISocketContext
+}
+
+let state: ISocketContext
+
+const useSocket: IUserSocket = (): ISocketContext => {
+    const context = useContext(SocketContext)!
+    if (!context) throw new Error(`Context not found`)
+    state = context
+    return context
+}
+
+useSocket.getState = () => state
+
+export default useSocket

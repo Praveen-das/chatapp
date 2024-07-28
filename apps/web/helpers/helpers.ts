@@ -12,7 +12,7 @@ export function upsert(array1: any[], item: any, key: string) {
     return [item, ...array1]
 }
 
-export function generateConversation(id1: string, id2: string): IIConversation {
+export function generateConversation(id1: IUser, id2: IUser): IConversation {
     return {
         id: crypto.randomUUID(),
         host: 'user',
@@ -57,3 +57,28 @@ export const compressImage = async (dataUrl: string): Promise<string> => {
     })
 
 };
+
+export function downloadFromUrl(url: string) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'fileName'); // Only works for same-origin URLs
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+}
+
+export function getSystemTheme() {
+    return getComputedStyle(document.documentElement).getPropertyValue('--theme');
+}
+
+export function isValidURL(string: string) {
+    try {
+        new URL(string);
+        return true;
+    } catch (err) {
+        return false;
+    }
+}
+
+
+
