@@ -3,7 +3,7 @@ import React, { ChangeEvent, useEffect, useRef, useState } from "react";
 import { useStore } from "../../../store/global";
 import useAuth from "../../../hooks/useAuth";
 import { useTheme } from "next-themes";
-import EmojiPicker from '../../ChatWindow/components/ChatInput/Picker';
+import EmojiPicker from '../../ChatWindow/components/ChatInput/EmojiPicker';
 import { flip, shift, useFloating } from "@floating-ui/react";
 import GeneralSettings from "./GeneralSettings";
 import { createPortal } from "react-dom";

@@ -235,6 +235,34 @@ async function addMemberToGroup(conversationId: string, users: string[]) {
                     localField: 'members',
                     foreignField: 'id',
                     as: 'members'
+                },
+            },
+            {
+                $lookup: {
+                    from: "messages",
+                    let: { id: "$id" },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $eq: ["$conversationId", "$$id"]
+                                }
+                            }
+                        },
+                        {
+                            $match: {
+                                deletedFor: {
+                                    $nin: users
+                                }
+                            }
+                        },
+                        {
+                            $project: {
+                                deletedFor: 0
+                            }
+                        }
+                    ],
+                    as: "messages"
                 }
             },
         ]);
@@ -250,7 +278,7 @@ async function removeMemberFromGroup(conversationId: string, userId: string) {
     try {
         const updatedGroup = await Group
             .findOneAndUpdate({ id: conversationId }, {
-                $pull: { members: userId }
+                $pull: { members: userId, admins: userId }
             }, { new: true });
 
         return await Group.aggregate([

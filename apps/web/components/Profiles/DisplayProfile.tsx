@@ -1,12 +1,11 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import React from 'react'
 import { useStore } from '../../store/global'
 import { AnimatePresence, motion } from 'framer-motion'
 import GroupProfile from './GroupProfile'
 import UserProfile from './UserProfile'
 import motionconfig from '../../config/config'
-import { useConversationStore } from '../../store/conversationStore'
 import Tabs from '../Dashboard/Tabs/Tabs'
 import Tab from '../Dashboard/Components/Tab'
 import LinkManagement from './LinkManagement'
@@ -15,55 +14,57 @@ import useSelectedConversation from '../../hooks/useSelectedConversation'
 
 function DisplayProfile() {
   const profile = useStore(s => s.profile)
-  const profileTab = useStore(s => s.profileTab)
-
-  const users = useStore(s => s.users)
+  const conversation = useSelectedConversation()
+  const setProfileTab = useStore(s => s.setProfileTab)
   const selectedUser = useStore(s => s.selectedUser)
-  const selectedConversation = useSelectedConversation()
+  const selectedGroup = useStore(s => s.selectedGroup)
+  const users = useStore(s => s.users)
 
-  const user = selectedUser || users.find(s => !s.self && selectedConversation?.members.find(m => m.id === s.id))!
+  const user = selectedUser || users.find(s => !s.self && conversation?.members.find(m => m.id === s.id))!
+
+  const onExitComplete = () => {
+    setProfileTab('')
+  }
 
   return (
-    <AnimatePresence>
-      {profile &&
-        <motion.div
-          initial='hidden'
-          animate='visible'
-          exit='hidden'
-          variants={motionconfig.profilDetails}
-          className='relative'
-        >
-          {selectedConversation?.host === 'group' ?
-            <Tabs activeTab={profileTab} initialTab='group' direction='rtl'>
-              <Tab component='group'>
-                <GroupProfile conversation={selectedConversation as IGroupConversation} />
-              </Tab>
-              <Tab component='user'>
-                <UserProfile user={user} asd />
-              </Tab>
-              <Tab component='inviteLink'>
-                <LinkManagement />
-              </Tab>
-              <Tab component='media'>
-                <UserMedia />
-              </Tab>
-            </Tabs>
-            :
-            <Tabs activeTab={profileTab} initialTab='user' direction='rtl'>
-              <Tab component='user'>
-                <UserProfile user={user} />
-              </Tab>
-              <Tab component='group'>
-                <GroupProfile conversation={selectedConversation as IGroupConversation} />
-              </Tab>
-              <Tab component='media'>
-                <UserMedia />
-              </Tab>
-            </Tabs>
-          }
-        </motion.div>
-      }
+    <AnimatePresence onExitComplete={onExitComplete}>
+      {profile && <Component user={user} group={selectedGroup!} conversation={conversation!} />}
     </AnimatePresence>
+  )
+}
+
+function Component({ user,group, conversation }: { user: IUser, group: IGroupConversation, conversation: IConversation }) {
+  const profileTab = useStore(s => s.profileTab)
+  
+  return (
+    <motion.div
+      initial='hidden'
+      animate='visible'
+      exit='hidden'
+      variants={motionconfig.profilDetails}
+      className='relative'
+    >
+      <Tabs activeTab={profileTab} initialTab='conversation' direction='rtl'>
+        <Tab component='conversation'>
+          {conversation?.host === 'group' ?
+            <GroupProfile conversation={conversation as IGroupConversation} /> :
+            <UserProfile user={user!} />
+          }
+        </Tab>
+        <Tab component='user'>
+          <UserProfile user={user!} showChatOption />
+        </Tab>
+        <Tab component='group'>
+          <GroupProfile conversation={group} /> :
+        </Tab>
+        <Tab component='inviteLink' >
+          <LinkManagement selectedConversation={conversation as IGroupConversation} />
+        </Tab>
+        <Tab component='media'>
+          <UserMedia conversation={conversation} />
+        </Tab>
+      </Tabs>
+    </motion.div>
   )
 }
 

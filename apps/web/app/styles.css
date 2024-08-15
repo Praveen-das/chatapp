@@ -4,23 +4,29 @@
 
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar {
-      display: none;
+    display: none;
   }
+
   .no-scrollbar {
-      -ms-overflow-style: none;  /* IE and Edge */
-      scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
   }
+
   .scrollbargutter-stable {
-    scrollbar-gutter:stable;
+    scrollbar-gutter: stable;
   }
+
   .shaded_bg {
-      background:linear-gradient(#262630 5%,#ffffff21 40%);
+    background: linear-gradient(#262630 5%, #ffffff21 40%);
   }
-  .anchor-none{
+
+  .anchor-none {
     overflow-anchor: none;
   }
 
-  .anchor-auto{
+  .anchor-auto {
     overflow-anchor: auto;
   }
 }
@@ -46,4 +52,3 @@ a {
   color: inherit;
   text-decoration: none;
 }
-

@@ -1,11 +1,11 @@
-import EmojiPicker from '@emoji-mart/react'
+import _EmojiPicker from '@emoji-mart/react'
 import './picker.css'
 import { getEmojies } from './getEmojies'
 
-export default function Picker({ open, onEmojiSelect }: { open: boolean, onEmojiSelect: (emoji: any) => void }) {
+export default function EmojiPicker({ open, onEmojiSelect }: { open: boolean, onEmojiSelect: (emoji: any) => void }) {
     return (
         <div className={`${!open ? "hidden" : 'mb-1'}`}>
-            <EmojiPicker
+            <_EmojiPicker
                 searchPosition='none'
                 previewPosition='none'
                 dynamicWidth

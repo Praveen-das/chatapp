@@ -3,7 +3,16 @@ import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTabs } from "../Tabs/Tabs";
 
-const Tab = ({ children, component }: { children: React.ReactNode; component: string; }) => {
+const Tab = (
+  {
+    children,
+    component,
+    onExitComplete
+  }: {
+    children: React.ReactNode;
+    component: string;
+    onExitComplete?: () => void
+  }) => {
   const { direction, activeTab } = useTabs()
   const open = Boolean(activeTab === component)
   const _direction = direction === 'ltr' ? 'left' : 'right'
@@ -24,7 +33,7 @@ const Tab = ({ children, component }: { children: React.ReactNode; component: st
   }
 
   return (
-    <AnimatePresence initial={false} >
+    <AnimatePresence onExitComplete={onExitComplete} initial={false} >
       {open &&
         <motion.div
           variants={container}

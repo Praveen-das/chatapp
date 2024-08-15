@@ -1,20 +1,20 @@
 import { useAttachments } from "../../../../store/attachments";
 
-const ImageAttachment = ({ attachment }: IAttachmentBox) => {
+const ImageAttachment = ({ attachment }: { attachment: IImageAttachment }) => {
     const setSelectedAttachment = useAttachments(s => s.setSelectedAttachment)
 
     const handleClick = () => {
-        (document?.getElementById('my_modal_2') as HTMLDialogElement)?.showModal()
-        setSelectedAttachment(attachment.data);
+        document?.querySelector<HTMLDialogElement>('#my_modal_2')?.showModal()
+        setSelectedAttachment(attachment);
     }
 
     return (
         <>
             <div
                 onClick={handleClick}
-                className="max-h-[300px] max-w-[300px] overflow-hidden rounded-xl"
+                className="max-h-[300px] w-full max-w-xs overflow-hidden rounded-xl"
             >
-                <img src={attachment.data.thumbnail} className={`${attachment.status === 'loaded' ? 'blur' : 'blur-none'} duration-200 h-full`} alt="" />
+                <img src={attachment.thumbnail} className={`${attachment.status === 'loaded' ? 'blur' : 'blur-none'} min-w-[300px] duration-200 h-full`} alt="" />
             </div>
         </>
     )

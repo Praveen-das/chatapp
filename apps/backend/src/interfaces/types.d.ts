@@ -3,15 +3,57 @@ interface IReadReceipt {
     status: number
 }
 
+interface IUrlMetadata {
+    title: string
+    url: string
+    host: string
+    description: string
+    image: string
+    error?: number
+}
+
+type IAttachmentStatus = 'loaded' | 'uploaded' | 'error'
+
+interface IImageAttachment {
+    id: string
+    type: 'images'
+    
+    status?: IAttachmentStatus
+    url: string
+    thumbnail: string
+}
+
+interface IUrlAttachment extends IUrlMetadata {
+    id: string
+    type: 'link'
+}
+
+type IAttachment = IImageAttachment | IUrlAttachment
+
 interface IMessage {
     id: string
-    conversationId: string
+    conversationId?: string,
     message: string
-    from: string
+    from?: string
     to: string
+    attachment: IAttachment | null
     timestamp: number
     readReceipt: IReadReceipt[]
-    deletedFor: String[]
+    deletedFor?: string[]
+    status?: IChatDeleteOptions
+    reply?: IMessageReply
+    host: 'user' | 'group'
+}
+
+interface IChatDeleteOptions {
+    deletedFor: 'all' | string
+}
+
+interface IMessageReply {
+    username: string
+    message: string
+    offsetTop: number
+    attachment?: IAttachment
 }
 
 type IKeyVal = string | number | IStatus

@@ -14,6 +14,7 @@ import 'swiper/css';
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
 import { useConversationStore } from "../../../../store/conversationStore";
+import { downloadFromUrl } from "../../../../helpers/helpers";
 
 
 function ImageViewer() {
@@ -26,7 +27,8 @@ function ImageViewer() {
     const [activeIndex, setActiveIndex] = useState(0)
     const paginationRef = useRef<HTMLDivElement>(null)
 
-    const initialSlide = userMedia.image?.indexOf(selectedAttachment!) || 0
+    const userImages = userMedia['images'] as IImageAttachment[] || []
+    const initialSlide = userImages.indexOf(selectedAttachment!) || 0
 
     useEffect(() => {
         const _userMedia = mediaStore.get(selectedConversation?.id!) || {}
@@ -43,7 +45,7 @@ function ImageViewer() {
         renderBullet: function (index: number, className: string) {
             return renderToString(
                 <div className={`${className} btn btn-square btn-ghost`}>
-                    <img className="w-full h-full object-cover" src={userMedia.image?.[index]?.thumbnail!} alt="" />
+                    <img className="w-full h-full object-cover" src={userImages[index]?.thumbnail!} alt="" />
                 </div>
             )
         },
@@ -51,6 +53,11 @@ function ImageViewer() {
 
     const handleClose = () => {
         setSelectedAttachment(null)
+    }
+    
+    const handleDownload = () => {
+        const url = userMedia.images?.[activeIndex]?.url
+        url && downloadFromUrl(url)
     }
 
     const container = {
@@ -70,7 +77,7 @@ function ImageViewer() {
         hidden: { opacity: 0, translateY: '-5px' },
         visible: { opacity: 1, translateY: '0px', },
     }
-    
+
     return (
         <AnimatePresence>
             {
@@ -86,19 +93,11 @@ function ImageViewer() {
                         <div className="flex items-center gap-4  px-4">
                             <div className='size-12 bg-gray-700 rounded-full'></div>
                             <div className="grid gap-1">
-                                <label className="text-sm" htmlFor="username">{userMedia.image?.[activeIndex]?.userId}</label>
-                                {/* {
-                                receiver && !isBlockedByUser && !isBlockedUser &&
-                                <label className="text-xs" htmlFor="lastseen">
-                                    {receiver?.connected ?
-                                        'online' :
-                                        moment(new Date((receiver?.lastSeen)!)).format('LT')}
-                                </label>
-                            } */}
+                                <label className="text-sm" htmlFor="username">{userImages[activeIndex]?.sender}</label>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            <div className='btn btn-circle btn-ghost ml-auto'>
+                            <div onClick={handleDownload} className='btn btn-circle btn-ghost ml-auto'>
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
                                 </svg>
@@ -121,7 +120,7 @@ function ImageViewer() {
                         dir="rtl"
                     >
                         {
-                            userMedia.image?.map(({ thumbnail }, i) => (
+                            userImages.map(({ thumbnail }, i) => (
                                 <SwiperSlide key={i}>
                                     <img className="block w-full h-full object-contain" src={thumbnail} alt="" />
                                 </SwiperSlide>

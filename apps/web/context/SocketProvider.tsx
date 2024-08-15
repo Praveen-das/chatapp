@@ -42,7 +42,8 @@ const useContextData = () => {
     const updateReadReceipt = useMessageStore(s => s.updateReadReceipt)
     const setMessageHistory = useMessageStore(s => s.setMessageHistory)
     const updateConversation = useConversationStore(s => s.updateConversation)
-    const setMediaStore = useAttachments(s => s.setMediaStore)
+    const addMembers = useConversationStore(s => s.addMembers)
+    const removeMember = useConversationStore(s => s.removeMember)
     const addToMediaStore = useAttachments(s => s.addToMediaStore)
     const updateUserStatus = useStore(s => s.updateUserStatus)
 
@@ -84,9 +85,11 @@ const useContextData = () => {
         socket.on('RESPONSE:BLOCK_USER', handleBlockingUser)
         socket.on('RESPONSE:UNBLOCK_USER', handleUnBlockingUser)
         socket.on('updateUserRule', handleUpdatingUserRule)
+
         socket.on('group created', handleCreatingGroup)
+        socket.on('GROUP_ADD_MEMBERS', handleAddingMembersToGroup)
+        socket.on('GROUP_REMOVE_MEMBER', handleRemovingMemberFromGroup)
         socket.on('UPDATE_GROUP', handleUpdatingGroup)
-        socket.on('GROUP_ADD_MEMBERS', handleJoiningGroup)
 
         return () => {
             socket.off('session', onSessionReceived)
@@ -101,9 +104,11 @@ const useContextData = () => {
             socket.off('RESPONSE:BLOCK_USER', handleBlockingUser)
             socket.off('RESPONSE:UNBLOCK_USER', handleUnBlockingUser)
             socket.off('updateUserRule', handleUpdatingUserRule)
+
             socket.off('group created', handleCreatingGroup)
+            socket.off('GROUP_ADD_MEMBERS', handleAddingMembersToGroup)
+            socket.off('GROUP_REMOVE_MEMBER', handleRemovingMemberFromGroup)
             socket.off('UPDATE_GROUP', handleUpdatingGroup)
-            socket.off('GROUP_ADD_MEMBERS', handleJoiningGroup)
         }
     }, [])
 
@@ -145,26 +150,25 @@ const useContextData = () => {
 
     function onMessageReceive({ messages, conversation }: { messages: IMessage[], conversation: IConversation }) {
         const conversationId = conversation.id!
-
         const updates: IUpdates = new Map()
-
         const currentUser = conversationId === socket.selectedConversation?.id
-
-        const status = currentUser ?
-            userRef.current?.rules?.readReceipts.isVisible ?
-                IMessageReadReceipt.seen :
-                IMessageReadReceipt.unseen :
-            IMessageReadReceipt.received
+        const status = currentUser ? userRef.current?.rules?.readReceipts.isVisible ?
+            IMessageReadReceipt.seen : IMessageReadReceipt.unseen : IMessageReadReceipt.received
 
         messages.forEach(message => {
             const isReceiver = message.from !== userRef.current?.id
 
+            if (!isReceiver) return
+
             if (message.attachment) {
                 let attachment = message.attachment
-                addToMediaStore(conversationId, attachment.type, [attachment.data])
+                let type = attachment.type
+
+                if (attachment.type === 'images') attachment.sender = message.from
+
+                addToMediaStore(conversationId, type, [attachment])
             }
 
-            if (!isReceiver) return
 
             const update = {
                 id: message.id,
@@ -184,7 +188,7 @@ const useContextData = () => {
 
         sendReadReceiptChangeRequest(updates)
 
-        registerConversation(conversation, messages.at(-1)) // Assuming you want to register with the first message
+        registerConversation(conversation, messages.at(-1))
     }
 
     const handleBlockingUser = (res: IUBlockReq) => {
@@ -238,12 +242,24 @@ const useContextData = () => {
         updateUserRule(userId, rules)
     }
 
-    const handleUpdatingGroup = (conversation: IConversation) => {
+    const handleUpdatingGroup = (conversation: IConversation, systemMessage: IMessage) => {
+        if (systemMessage) setMessageStore(conversation.id, [systemMessage])
         updateConversation(conversation.id, conversation as IGroupConversation)
     }
 
-    const handleJoiningGroup = (conversation: IConversation) => {
-        setConversation(conversation)
+    const handleAddingMembersToGroup = ({ conversation, members }: { conversation: IGroupConversation, members: IUser[] }, systemMessage: IMessage) => {
+        if (systemMessage) setMessageStore(conversation.id, [systemMessage])
+        const conversations = useConversationStore.getState().conversations
+        if (conversations.find(c => c.id === conversation.id))
+            addMembers(conversation.id, members)
+        else {
+            registerConversations([conversation as IConversation])
+        }
+    }
+
+    const handleRemovingMemberFromGroup = ({ id, userId }: { id: string, userId: string }, systemMessage: IMessage) => {
+        if (systemMessage) setMessageStore(id, [systemMessage])
+        removeMember(id, userId, userId === userRef.current?.id)
     }
 
     //senders///////////////////////////
@@ -260,8 +276,16 @@ const useContextData = () => {
         socket.emit('GROUP_REMOVE_MEMBER', { conversationId, userId })
     }
 
-    const addMembersToGroup = (conversationId: string, users: string[]) => {
-        socket.emit('GROUP_ADD_MEMBERS', { conversationId, users })
+    const addMembersToGroup = (conversation: IGroupConversation, users: string[]) => {
+        socket.emit('GROUP_ADD_MEMBERS', { conversation, users })
+    }
+
+    const sendGroupjoinRequest = (conversation: IGroupConversation, user: IUser) => {
+        socket.emit('GROUP_JOIN', { conversation, user })
+    }
+
+    const leaveGroup = (conversation: IGroupConversation, user: IUser) => {
+        socket.emit('GROUP_LEAVE', { conversation, user })
     }
 
     const findGroupById = (conversationId: string) => {
@@ -303,8 +327,8 @@ const useContextData = () => {
         socket.emit('updateUserRule', req)
     }
 
-    const sendGroupInfoUpdateRequest = (conversationId: string, updates: Partial<IGroupConversation>) => {
-        socket.emit('updateGroupInfo', { conversationId, updates })
+    const sendGroupInfoUpdateRequest = (conversation: IGroupConversation, updates: Partial<IGroupConversation>) => {
+        socket.emit('updateGroupInfo', { conversation, updates })
     }
 
     //HELPERS///////////////////////////
@@ -325,18 +349,24 @@ const useContextData = () => {
         conversations.forEach((conversation) => {
             const { messages, id } = conversation
 
+            if (conversation.host === 'user')
+                conversation.displayName = conversation.members.find(m => m.id !== userRef.current?.id)?.username
+
             if (!messages) return
 
             if (!!messages.length) {
                 let unreadMessages: IUnreadMessageMeta[] = [];
-                let userMedia: IUserMedia = {};
 
                 for (let message of messages) {
                     const isReceiver = message.from !== userRef.current?.id
-                    if (message.attachment)
-                        if (userMedia[message.attachment.type])
-                            userMedia[message.attachment.type]?.push(message.attachment.data)
-                        else userMedia[message.attachment.type] = [message.attachment?.data!]
+                    if (message.attachment) {
+                        let attachment = message.attachment
+                        let type = attachment.type
+
+                        if (attachment.type === 'images') attachment.sender = message.from
+
+                        addToMediaStore(conversation.id, type, [attachment])
+                    }
 
                     if (isReceiver) {
                         message.readReceipt.forEach(readReceipt => {
@@ -359,11 +389,11 @@ const useContextData = () => {
                     }
                 }
 
-                if (!!Object.keys(userMedia).length) setMediaStore(id, userMedia)
                 setUnreadMessages(id, unreadMessages);
             }
 
             const recentMessage = messages.at(-1)
+
             delete conversation.messages
 
             messageStore.set(id, messages)
@@ -412,7 +442,9 @@ const useContextData = () => {
         findGroupById,
         removeMemberFromGroup,
         makeAdmin,
-        removeFromAdmin
+        removeFromAdmin,
+        sendGroupjoinRequest,
+        leaveGroup
     }
 }
 

@@ -1,40 +1,54 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useStore } from '../../store/global'
 import { Avatar } from '../Dashboard/Components/Avatar'
 import TextArea from '../ui/TextArea'
 import useSocket from '../../context/SocketProvider'
 import useSelectedConversation from '../../hooks/useSelectedConversation'
-import { flip, useFloating } from '@floating-ui/react'
+import { flip, shift, useFloating } from '@floating-ui/react'
 import { Menu } from '@headlessui/react'
 import useAuth from '../../hooks/useAuth'
-import { useTabs } from '../Dashboard/Tabs/Tabs'
-import { useConversationStore } from '../../store/conversationStore'
 import AdminTag from '../ui/AdminTag'
-import Modal from '../ui/Modal'
-
-const DESC = `asdasd
-asdasd
-asdasd`
+import { useConversationStore } from '../../store/conversationStore'
+import MediaSelection from './MediaSelection'
+import EmojiPicker from '../ChatWindow/components/ChatInput/EmojiPicker'
+import { AnimatePresence, motion } from 'framer-motion'
+import motionconfig from '../../config/config'
 
 function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
   const { user } = useAuth()
 
-  const { sendGroupInfoUpdateRequest, removeMemberFromGroup } = useSocket()
+  const { sendGroupInfoUpdateRequest, leaveGroup } = useSocket()
   const toggleProfile = useStore(s => s.toggleProfile)
+  const setSelectedConversation = useConversationStore(s => s.setSelectedConversation)
   const setModal = useStore(s => s.setModal)
   const setProfileTab = useStore(s => s.setProfileTab)
+  const setSelectedGroup = useStore(s => s.setSelectedGroup)
 
   const [open, setOpen] = useState('');
   const [editGroupName, toggleEditUsername] = useState(false);
   const [editDescription, toggleEditDescription] = useState(false);
 
-  const [displayName, setDisplayName] = useState('')
-  const [description, setDescription] = useState(DESC)
+  const [displayName, setDisplayName] = useState(conversation.displayName)
+  const [description, setDescription] = useState(conversation.desc)
+
+  const { refs, floatingStyles } = useFloating({
+    middleware: [
+      flip(),
+      shift()
+    ],
+    placement: 'top-end',
+    strategy: 'absolute',
+    transform: false
+  });
 
   function closeProfile() {
-    toggleProfile(false)
+    const selectedConversation = useConversationStore.getState().selectedConversation
+    if (selectedConversation?.host === 'user')
+      setProfileTab('conversation')
+    else toggleProfile(false)
+    setSelectedGroup(null)
   }
 
   const members = useMemo(() => (sortGroupMembers([...conversation.members])), [conversation])
@@ -50,18 +64,21 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
 
   function handleEditGroupName() {
     if (displayName && displayName !== conversation?.displayName)
-      sendGroupInfoUpdateRequest(conversation.id!, { displayName: displayName })
+      sendGroupInfoUpdateRequest(conversation, { displayName: displayName })
     toggleEditUsername(s => !s);
+    setDisplayName('')
     setOpen('');
   }
 
   function handleEditGroupDescription() {
     if (description && description !== conversation?.desc)
-      sendGroupInfoUpdateRequest(conversation.id!, { desc: description })
-
+      sendGroupInfoUpdateRequest(conversation, { desc: description })
     toggleEditDescription(s => !s);
+    setDescription('')
     setOpen('');
   }
+
+  function toggleEmojiPicker(value: string) { setOpen(s => s !== value ? value : ''); }
 
   function toggleModal(activeModal: string) {
     setModal({ activeModal });
@@ -69,14 +86,34 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
   }
 
   function handleExitingGroup() {
-    removeMemberFromGroup(conversation.id, user?.id!)
+    leaveGroup(conversation, user!)
+    toggleProfile(false)
+    setSelectedConversation(null)
   }
-
 
   return (
     <>
-      <Modal />
       <div className={`flex-1 w-[calc((100vw-(1rem*2))/3)] h-full flex flex-col bg-gradient-to-t from-base-100 rounded-2xl overflow-hidden`}>
+        <AnimatePresence>
+          {
+            open &&
+            <div className="relative z-50">
+              <motion.div
+                variants={motionconfig.settings}
+                initial='hidden'
+                exit='hidden'
+                animate='visible'
+                className="w-5/6 h-56 bg-base-100 rounded-xl z-50 ml-5 mt-2"
+                ref={refs.setFloating}
+                style={{ ...floatingStyles }}
+              >
+                <EmojiPicker open={!!open} onEmojiSelect={console.log} />
+              </motion.div>
+              <div onClick={() => setOpen('')} className="fixed inset-0 z-20 "></div>
+            </div>
+          }
+        </AnimatePresence>
+
         {/* Header */}
         <div className='min-h-16 w-full flex items-center gap-4 px-4'>
           <button onClick={closeProfile} className={`btn btn-sm btn-ghost btn-circle`} >
@@ -99,8 +136,8 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
                     <TextArea className='text-nowrap' onChange={(e) => setDisplayName(e.target.value)} value={displayName} />
                     <div className="flex gap-1 items-center absolute right-0">
                       <div
-                        // onClick={() => toggleEmojiPicker('username')}
-                        // ref={open === 'username' ? refs.setReference : undefined}
+                        onClick={() => toggleEmojiPicker('displayName')}
+                        ref={open === 'displayName' ? refs.setReference : undefined}
                         tabIndex={0}
                         className="flex btn btn-circle btn-ghost btn-xs "
                       >
@@ -131,15 +168,18 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
           <div className="w-full min-h-[2px] bg-black/20" />
 
           <div className="grid relative px-8">
-            <label className="text-sm text-primary" htmlFor="About">Description</label>
+            {
+              conversation.desc &&
+              <label className="text-sm text-primary" htmlFor="About">Description</label>
+            }
             <label className={`${editDescription ? "border-b-primary" : 'border-b-transparent'} pl-0 bg-transparent border-b-2 rounded-none textarea relative flex justify-between w-full pr-12`}>
               {editDescription ?
                 <>
                   <TextArea onChange={e => setDescription(e.target.value)} value={description} />
                   <div className="flex gap-1 items-center absolute right-0">
                     <div
-                      // onClick={() => toggleEmojiPicker('bio')}
-                      // ref={open === 'bio' ? refs.setReference : undefined}
+                      onClick={() => toggleEmojiPicker('desc')}
+                      ref={open === 'desc' ? refs.setReference : undefined}
                       tabIndex={0}
                       className="btn btn-circle btn-ghost btn-xs "
                     >
@@ -156,7 +196,10 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
                 </>
                 :
                 <>
-                  <p className='leading-7 whitespace-pre-wrap' >{conversation.desc || DESC}</p>
+                  {conversation.desc ?
+                    <p className='leading-7 whitespace-pre-wrap' >{conversation.desc}</p> :
+                    <p className='leading-7 whitespace-pre-wrap text-primary' >Add group description</p>
+                  }
                   <div onClick={handleEditGroupDescription} tabIndex={0} className="absolute right-0 btn btn-circle btn-ghost btn-xs">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-4">
                       <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
@@ -167,13 +210,7 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
           </div>
 
           {/* Media */}
-          <div onClick={() => setProfileTab('media')} className='bg-base-100 w-full flex items-center justify-between gap-4 px-8 py-6 cursor-pointer'>
-            Media
-            <label className='ml-auto text-base-content' htmlFor="label">15</label>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-            </svg>
-          </div>
+          <MediaSelection conversationId={conversation.id} />
 
           {/* conversation members */}
           <div className='w-full flex flex-col'>
@@ -221,7 +258,7 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
 }
 
 function Member({ member }: { member: IGroupMember }) {
-  const { removeMemberFromGroup, makeAdmin, removeFromAdmin } = useSocket()
+  const { removeMemberFromGroup, makeAdmin, removeFromAdmin,leaveGroup } = useSocket()
   const setSelectedUser = useStore(s => s.setSelectedUser)
   const selectedConversation = useSelectedConversation() as IGroupConversation
   const setProfileTab = useStore(s => s.setProfileTab)
@@ -254,13 +291,13 @@ function Member({ member }: { member: IGroupMember }) {
       <Avatar profileHidden={!member.rules?.profilePicture.isVisible} size='40px' onlineIndication={false} />
       <div className='w-full flex flex-col justify-center'>
         <div className='flex justify-between items-center w-full'>
-          <label htmlFor="member name">{member.username}</label>
+          <label className='py-1' htmlFor="member name">{member.username}</label>
           <AdminTag isAdmin={member.isAdmin} />
         </div>
         <div className='flex justify-between items-center'>
           <label className='text-sm' htmlFor="">zxczx, zxczxczxc, zxczxc</label>
           <Menu as="div" className="relative inline-block text-left">
-            <Menu.Button ref={refs.setReference} className="group-hover:opacity-100 btn btn-circle btn-xs btn-ghost outline-none duration-300 text-white rounded-full opacity-0">
+            <Menu.Button onClick={e => e.stopPropagation()} ref={refs.setReference} className="group-hover:opacity-100 btn btn-circle btn-xs btn-ghost outline-none duration-300 text-white rounded-full opacity-0">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
                 <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
               </svg>
@@ -269,9 +306,10 @@ function Member({ member }: { member: IGroupMember }) {
               className="absolute origin-top-right divide-y divide-gray-100 rounded-md bg-base-100 shadow-lg ring-1 ring-black/5 focus:outline-none z-10"
               ref={refs.setFloating}
               style={floatingStyles}
+              onClick={e => e.stopPropagation()}
             >
               <div className="p-0.5">
-                <Menu.Item >
+                <Menu.Item>
                   <div
                     className={`group btn btn-md w-full h-10 min-h-10 btn-ghost justify-start whitespace-nowrap`}
                     onClick={() => handleAdmin(member.id!, member.isAdmin ? 'remove' : 'add')}

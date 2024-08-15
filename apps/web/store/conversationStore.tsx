@@ -10,8 +10,8 @@ interface IMessageStore {
     setConversation: (conversations: IConversation) => void
     setConversations: (conversations: IConversation[]) => void
     updateConversation: (conversationId: string, updates: Partial<IGroupConversation>) => void
-    addMembers: (conversation: IGroupConversation, users: IUser[]) => void
-    // removeMember: (conversationId: string, updates: Partial<IGroupConversation>) => void
+    addMembers: (conversationId: string, users: IUser[]) => void
+    removeMember: (conversationId: string, userId: string, self?: boolean) => void
 
     selectedConversation: IConversation | IGroupConversation | null
     setSelectedConversation: (conversationId: string | null) => void
@@ -35,27 +35,45 @@ const store = create(subscribeWithSelector<IMessageStore>((set, get) => {
         },
         setConversations: (conversations) => set({ conversations }),
         updateConversation: (conversationId, updates) => {
+            const conversations = get().conversations
+                .map(c => {
+                    if (c.id === conversationId) {
+                        if ('admins' in updates) {
+                            let members = c.members.map((member: any) => {
+                                return { ...member, isAdmin: updates.admins?.includes(member.id!) }
+                            })
+
+                            return { ...c, members }
+                        }
+
+                        return { ...c, ...updates }
+                    }
+                    return c
+                })
+
+            set({ conversations: conversations as IConversation[] })
+        },
+        addMembers: (conversationId, members) => {
             const conversations = get().conversations.map(c => {
-                if (c.id === conversationId)
-                    return { ...c, ...updates }
+                if (c.id === conversationId) c.members.push(...members)
                 return c
             })
-
             set({ conversations })
         },
-        addMembers: (conversation, users: IUser[]) => {
-            const conversations = get().conversations
+        removeMember: (conversationId, userId, self = false) => {
+            const conversations = (get().conversations as IGroupConversation[])
+                .map(c => {
+                    if (c.id === conversationId) {
+                        let members = c.members.filter(m => m.id !== userId)
+                        let admins = c.admins.filter(id => id !== userId)
+                        if (self) return false
+                        return { ...c, members, admins }
+                    }
+                    return c
+                })
+                .filter(c => c !== false)
 
-            const conversationExist = conversations.find(c => c.id === conversation.id)
-
-            if (!conversationExist) conversations.push(conversation)
-
-            const newConversation = conversations.map(c => {
-                if (c.id === conversation.id) c.members.push(...users)
-                return c
-            })
-
-            set({ conversations: newConversation })
+            set({ conversations: conversations as IConversation[] })
         },
 
         selectedConversation: null,

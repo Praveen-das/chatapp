@@ -6,6 +6,7 @@ import { SockerProvider } from "../context/SocketProvider";
 import { ThemeProvider } from "next-themes";
 import Modal from "../components/ui/Modal";
 import { ThemeManager } from "../components/ThemeManager";
+import App from "../components/App";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -27,6 +28,7 @@ export default function RootLayout({
             <ThemeProvider enableSystem>
               {/* <Modal /> */}
               <ThemeManager />
+              <App />
               {children}
             </ThemeProvider>
           </body>

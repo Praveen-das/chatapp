@@ -1,24 +1,34 @@
-import { Schema, model } from "mongoose";
+import mongoose, { Schema, model } from "mongoose";
 
 const readReceiptSchema = new Schema({
     userId: String,
     status: Number
 })
 
-const imageAttachmentSchema = new Schema({
+// const attachmentSchema = new Schema({ type: { type: String, required: true, enum: ['image', 'url'] } })
+
+const imageAttachmentSchema = new mongoose.Schema<IImageAttachment>({
     id: String,
-    userId: String,
+    type: String,
     url: String,
     thumbnail: String,
 })
 
-const attachmentSchema = new Schema({
+const urlAttachmentSchema = new Schema<IUrlAttachment>({
+    id: String,
     type: String,
-    data: imageAttachmentSchema
+    title: String,
+    url: String,
+    host: String,
+    description: String,
+    image: String,
 })
 
+const urlAttachmentModal = model('urlAttachmentModal', urlAttachmentSchema)
 
-export const messageSchema = new Schema({
+const imageAttachmentModal = model('imageAttachmentModal', imageAttachmentSchema)
+
+export const messageSchema = new Schema<IMessage>({
     id: String,
     conversationId: String,
     message: String,
@@ -26,7 +36,17 @@ export const messageSchema = new Schema({
     to: String,
     host: String,
     timestamp: Number,
-    attachment: attachmentSchema,
+    attachment: {
+        type: Schema.Types.Mixed as unknown as IAttachment,
+        validate: {
+            validator: function (this, v: any) {
+                if(!v) return true
+                if (v.type === 'images') return urlAttachmentModal.validate(v);
+                if (v.type === 'link') return imageAttachmentModal.validate(v);
+                return false;
+            },
+        },
+    },
     readReceipt: [readReceiptSchema],
     deletedFor: [String],
     reply: {

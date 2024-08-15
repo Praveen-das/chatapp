@@ -3,14 +3,13 @@ import { ISocket } from "../interfaces/socketInterfaces";
 import produceMessage from "../kafka/kafka";
 
 export default function registerMessageHandlers(io: Server, socket: ISocket) {
-
     socket.on('message', async ({ messages, conversation }: { messages: IMessage[], conversation: IConversation }) => {
         const receiver = conversation.host === 'group' ?
             (conversation as IGroupConversation).channelId :
             conversation.members?.find(m => m.id !== socket.userId)?.id
-            
-        io.to(receiver!).emit('message receive', { messages, conversation });
 
+        io.to(receiver!).emit('message receive', { messages, conversation });
+        
         if (conversation.host === 'user')
             produceMessage({ messages, conversation });
         else
@@ -41,3 +40,4 @@ export default function registerMessageHandlers(io: Server, socket: ISocket) {
         produceMessage({ messages }, 'DELETE_MESSAGE_FOR_USER');
     });
 }
+ 

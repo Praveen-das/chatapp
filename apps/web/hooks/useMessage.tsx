@@ -7,7 +7,7 @@ function useMessage() {
     const { user } = useAuth();
     const replyRequest = useMessageStore(s => s.replyRequest);
 
-    const generateMessageTemplate = useCallback((conversation: IConversation, message: string, attachment?: IAttachment) => {
+    const generateMessageTemplate = useCallback((conversation: IConversation, message: string, attachment: IAttachment | null) => {
         const conversationId = conversation?.id
         const host = conversation?.host!
         let from = user?.id
@@ -38,7 +38,7 @@ function useMessage() {
     const regenerateMessageTemplate = useCallback((conversation: IConversation, { message, attachment }: IMessage) => {
         const conversationId = conversation?.id
         const host = conversation?.host!
-        
+
         let from = user?.id
         let to = host === 'group' ?
             (conversation as IGroupConversation)?.channelId! :

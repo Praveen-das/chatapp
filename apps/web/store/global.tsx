@@ -9,6 +9,9 @@ interface IGlobalStore {
 
     selectedUser: IUser | null
     setSelectedUser: (user: IUser | null) => void
+    
+    selectedGroup: IGroupConversation | null
+    setSelectedGroup: (group: IGroupConversation | null) => void
 
     selectedGroupMembers: string[]
     setSelectedGroupMembers: (id: string | null) => void
@@ -52,6 +55,9 @@ export const useStore = create<IGlobalStore>((set, get) => {
 
         selectedUser: null,
         setSelectedUser: (user) => set({ selectedUser: user }),
+        
+        selectedGroup: null,
+        setSelectedGroup: (group) => set({ selectedGroup: group }),
 
         selectedGroupMembers: [],
         setSelectedGroupMembers: (id: string | null) => {

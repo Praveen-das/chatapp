@@ -1,15 +1,22 @@
 "use client";
-import React, { Fragment } from "react";
+import React, { Fragment, useMemo, useState } from "react";
 import { useStore } from "../../../store/global";
 import Person from "../Components/Person";
 import { useTabs } from "./Tabs";
+import SearchUser from "../Components/SearchUser";
 
 const GroupMembersSelectionTab = () => {
   const setDashboardTab = useStore(s => s.setDashboardTab)
-
   const setSelectedGroupMembers = useStore(s => s.setSelectedGroupMembers);
   const selectedGroupMembers = useStore(s => s.selectedGroupMembers);
   const users = useStore(s => s.users)
+
+  const [query, setQuery] = useState('')
+
+  const queryResult = useMemo(() => {
+    if (!query) return []
+    return users.filter(user => user.username.includes(query))
+  }, [query, users])
 
   const removeUser = (id: string) => {
     setSelectedGroupMembers(id);
@@ -21,6 +28,7 @@ const GroupMembersSelectionTab = () => {
 
   return (
     <>
+      <SearchUser onChange={setQuery} />
       <div className="flex gap-2 justify-between items-center">
         <div className="flex gap-1 items-center text-xs w-full whitespace-nowrap overflow-scroll no-scrollbar">
           {selectedGroupMembers.map((id, idx) => (
@@ -29,7 +37,7 @@ const GroupMembersSelectionTab = () => {
         </div>
       </div>
       <div className='flex h-full w-full flex-col mt-4 gap-2 overflow-y-scroll no-scrollbar'>
-        {users.map((person) => <Fragment key={person?.id}>
+        {(query ? queryResult : users).map((person) => <Fragment key={person?.id}>
           <Person
             onClick={() => handleSelectedUser(person.id)}
             person={person}

@@ -70,11 +70,11 @@ export const useMessageStore = create(subscribeWithSelector<IMessageStore>((set,
             set({ messageStore: new Map(messageStore) })
         },
         clearUserMessageHistory: (conversationId) => {
-            const messageStore = get().messageStore
+            const messageHistory = get().messageHistory
 
-            messageStore.set(conversationId, [])
+            messageHistory.set(conversationId, [])
 
-            set({ messageStore: new Map(messageStore) })
+            set({ messageHistory: new Map(messageHistory) })
         },
 
         unreadMessages: new Map(),
@@ -126,10 +126,10 @@ export const useMessageStore = create(subscribeWithSelector<IMessageStore>((set,
             set({ messageStore })
         },
 
-        clearChat: (userId) => {
+        clearChat: (conversationId) => {
             const messageStore = get().messageStore
 
-            messageStore.set(userId, [])
+            messageStore.set(conversationId, [])
 
             set({ messageStore: new Map(messageStore) })
         },

@@ -1,4 +1,4 @@
-import { isEqual } from 'lodash'
+import axios from "axios";
 
 export function upsertUpdates(updates: IUpdates, update: IUpdatesCollection, key: string) {
     updates.has(key) ?
@@ -12,11 +12,12 @@ export function upsert(array1: any[], item: any, key: string) {
     return [item, ...array1]
 }
 
-export function generateConversation(id1: IUser, id2: IUser): IConversation {
+export function generateConversation(sender: IUser, receiver: IUser): IConversation {
     return {
         id: crypto.randomUUID(),
+        displayName: receiver.username,
         host: 'user',
-        members: [id1, id2],
+        members: [sender, receiver],
         createdAt: Date.now(),
         updatedAt: Date.now(),
     }
@@ -79,6 +80,21 @@ export function isValidURL(string: string) {
         return false;
     }
 }
+
+export async function getUrlMetadata(url: string) {
+    return await axios.post<IUrlMetadata>(
+        'https://api.linkpreview.net', {
+        q: url,
+        key: '8f338d5964a4b9bfb931991a9211bb18'
+      })
+        .then(res => res.data)
+        .catch(res => {
+          console.log(res)
+          throw res
+        })
+}
+
+
 
 
 

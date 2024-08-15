@@ -12,7 +12,7 @@ interface IAttachmentsContext {
 
     mediaStore: IMediaStore
     setMediaStore: (conversationId: string, userMedia: IUserMedia) => void
-    addToMediaStore: (conversationId: string, type: string, attachment: IImageAttachment[]) => void
+    addToMediaStore: (conversationId: string, type: keyof IUserMedia, attachment: IAttachment[]) => void
 
     selectedAttachment: IImageAttachment | null
     setSelectedAttachment: (attachment: IImageAttachment | null) => void
@@ -41,13 +41,15 @@ export const useAttachments = create<IAttachmentsContext>((set, get) => {
 
         mediaStore: new Map(),
         setMediaStore: (conversationId, userMedia) => set({ mediaStore: new Map().set(conversationId, userMedia) }),
-        addToMediaStore: (conversationId, type, attachment) => set(p => {
-            const mediaStore = p.mediaStore
-            mediaStore.get(conversationId)?.[type]?.push(...attachment) ||
-                mediaStore.set(conversationId, { [type]: [...attachment] })
+        addToMediaStore: (conversationId, type, attachment) => {
 
-            return { mediaStore: new Map(mediaStore) }
-        }),
+            const mediaStore = get().mediaStore
+            let userMedia = mediaStore.get(conversationId)
+
+            mediaStore.set(conversationId, { ...userMedia, [type]: [...attachment, ...userMedia?.[type] || []] })
+
+            set({ mediaStore: new Map(mediaStore) })
+        },
 
         selectedAttachment: null,
         setSelectedAttachment: (attachment) => set({ selectedAttachment: attachment })

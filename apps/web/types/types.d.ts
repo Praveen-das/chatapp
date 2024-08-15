@@ -8,7 +8,7 @@ interface IMessageReply {
     username: string
     message: string
     offsetTop: number
-    attachment?: IAttachment
+    attachment: IAttachment | null
 }
 
 interface IReadReceipt {
@@ -16,29 +16,40 @@ interface IReadReceipt {
     status: number
 }
 
-interface IImageAttachment {
-    id: string
-    userId: string
+interface IUrlMetadata {
+    title: string
     url: string
-    thumbnail: string
+    description: string
+    image: string
+    host: string
+    error?: number
 }
-
-type IImageType = 'image'
 
 type IAttachmentStatus = 'loaded' | 'uploaded' | 'error'
 
-interface IAttachment {
-    type: IImageType
-    status: IAttachmentStatus
-    data: IImageAttachment
+interface IImageAttachment {
+    id: string
+    type: 'images'
+
+    status?: IAttachmentStatus
+    url: string
+    thumbnail: string
+    sender?: string
 }
+
+interface IUrlAttachment extends IUrlMetadata {
+    id: string
+    type: 'link'
+}
+
+type IAttachment = IImageAttachment | IUrlAttachment
 
 type IMediaStore = Map<string, IUserMedia>
 
 interface IUserMedia {
-    [key: string]: IImageAttachment[]
+    images?: IImageAttachment[]
+    link?: IUrlAttachment[]
 }
-
 
 interface IMessage {
     id: string
@@ -46,7 +57,7 @@ interface IMessage {
     message: string
     from?: string
     to: string
-    attachment?: IAttachment
+    attachment: IAttachment | null
     timestamp: number
     readReceipt: IReadReceipt[]
     deletedFor?: string[]
@@ -135,6 +146,7 @@ interface IGroup {
 
 interface IConversation {
     id: string
+    displayName?: string
     host?: 'user' | 'group'
     members: IUser[]
     createdAt: number
@@ -150,8 +162,8 @@ interface IGroupCreationReq {
     }
 }
 
-interface IGroupMember extends IUser{
-    isAdmin:boolean
+interface IGroupMember extends IUser {
+    isAdmin: boolean
 }
 
 interface IGroupConversation {

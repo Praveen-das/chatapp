@@ -13,6 +13,6 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts"
-, "app/page.tsx", "components/ChatWindow/components/ChatInput/Picker.tsx", "app/[invitationId]/route.js"  ],
+, "app/page.tsx", "components/ChatWindow/components/ChatInput/EmojiPicker.tsx", "app/[invitationId]/route.js"  ],
   "exclude": ["node_modules"]
 }

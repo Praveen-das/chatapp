@@ -12,19 +12,15 @@ import { useMessageStore } from '../../store/messageStore'
 import Modal from '../ui/Modal'
 
 
-function LinkManagement() {
-  const selectedConversation = useSelectedConversation() as IGroupConversation
+function LinkManagement({selectedConversation}:{selectedConversation:IGroupConversation}) {
   const setConversation = useConversationStore(s => s.setConversation)
-  const toggleProfile = useStore(s => s.toggleProfile)
   const setModal = useStore(s => s.setModal)
-  const setSelectedChats = useMessageStore(s => s.setSelectedChats)
 
   const setProfileTab = useStore(s => s.setProfileTab)
   const { initialTab } = useTabs()
 
   function handleSendingInvitationLink() {
-    setSelectedChats({ id: '', message: `http://localhost:3000/${selectedConversation.invitationId}` } as IMessage)
-    setModal({ activeModal: 'sendLinkModal', state: `http://localhost:3000/${selectedConversation.invitationId}` });
+    setModal({ activeModal: 'sendLinkModal', state: [{ id: '', message: `http://localhost:3000/${selectedConversation.invitationId}` }] });
     (document?.getElementById('action-modal') as HTMLDialogElement)?.showModal()
   }
 
@@ -59,7 +55,7 @@ function LinkManagement() {
                   <Avatar size='50px' onlineIndication={false} />
                   <div className='grid w-full'>
                     {selectedConversation.displayName}
-                    <Link className='text-xs btn-link text-left' href={`http://localhost:3000/${selectedConversation.invitationId}`}>http://localhost:3000/{selectedConversation.invitationId}</Link>
+                    <p className='text-xs btn-link text-left'>http://localhost:3000/{selectedConversation.invitationId}</p>
                   </div>
                 </div>
                 <div className='flex gap-1 flex-col w-full '>

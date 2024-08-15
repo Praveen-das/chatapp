@@ -1,17 +1,17 @@
 'use client'
 
-import React from 'react'
 import { useStore } from '../../store/global'
 import moment from 'moment'
 import { Avatar } from '../Dashboard/Components/Avatar'
 import { useConversationStore } from '../../store/conversationStore'
-import { useTabs } from '../Dashboard/Tabs/Tabs'
 import useAuth from '../../hooks/useAuth'
+import MediaSelection from './MediaSelection'
 
-function UserProfile({ user, asd = false }: { user: IUser, asd?: boolean }) {
+function UserProfile({ user, showChatOption = false }: { user: IUser, showChatOption?: boolean }) {
   const { user: currentUser } = useAuth()
   const setSelectedUser = useStore(s => s.setSelectedUser)
   const conversations = useConversationStore(s => s.conversations)
+  const conversation = conversations.find(c => c.host === 'user' && c.members.find(m => m.id === user.id))
   const setSelectedConversation = useConversationStore(s => s.setSelectedConversation)
   const toggleProfile = useStore(s => s.toggleProfile)
   const setProfileTab = useStore(s => s.setProfileTab)
@@ -20,9 +20,9 @@ function UserProfile({ user, asd = false }: { user: IUser, asd?: boolean }) {
 
   function closeProfile() {
     const selectedConversation = useConversationStore.getState().selectedConversation
-    if (selectedConversation?.host === 'group') setProfileTab('group')
+    if (selectedConversation?.host === 'group')
+      setProfileTab('conversation')
     else toggleProfile(false)
-
     setSelectedUser(null)
   }
 
@@ -68,7 +68,7 @@ function UserProfile({ user, asd = false }: { user: IUser, asd?: boolean }) {
             </label>
           }
           {
-            asd &&
+            showChatOption &&
             < div className='flex flex-col items-center gap-2 text-xs'>
               <div onClick={toggleChat} tabIndex={0} className='btn btn-circle btn-primary text-white mt-4'>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
@@ -91,13 +91,7 @@ function UserProfile({ user, asd = false }: { user: IUser, asd?: boolean }) {
         }
 
         {/* Media */}
-        <div className='hover:bg-base-100 bg-base-200 w-full flex items-center justify-between gap-4 px-8 py-6 cursor-pointer'>
-          Media
-          <label className='ml-auto text-base-content' htmlFor="label">15</label>
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-          </svg>
-        </div>
+        <MediaSelection conversationId={conversation?.id!} />
         {/* <div className="w-full min-h-[2px] bg-black/20 -mt-6" /> */}
 
         {/* Common groups */}
@@ -129,14 +123,12 @@ function UserProfile({ user, asd = false }: { user: IUser, asd?: boolean }) {
 }
 
 function Group({ group }: { group: IGroupConversation }) {
-  const setSelectedConversation = useConversationStore(s => s.setSelectedConversation)
   const setProfileTab = useStore(s => s.setProfileTab)
-  const toggleProfile = useStore(s=>s.toggleProfile)
+  const setSelectedGroup = useStore(s => s.setSelectedGroup)
 
   function handleSelectedGroup() {
-    setSelectedConversation(group.id)
-    toggleProfile(false)
-    // setProfileTab('group')
+    setSelectedGroup(group)
+    setProfileTab('group')
   }
 
   return (

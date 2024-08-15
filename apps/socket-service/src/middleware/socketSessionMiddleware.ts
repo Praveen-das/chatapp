@@ -24,6 +24,7 @@ export default async function socketSessionMiddleware(socket: ISocket, next: any
         try {
             socket.sessionId = session.sessionId;
             socket.userId = session.userId;
+            socket.username = session.username;
         } catch (error) {
             console.log('error------------->', error);
         }
@@ -34,11 +35,16 @@ export default async function socketSessionMiddleware(socket: ISocket, next: any
 
         socket.sessionId = sessionId
         socket.userId = user.id
+        socket.username = user.username
 
-        sessionStore.saveSession({ sessionId, userId: socket.userId })
+        sessionStore.saveSession({
+            sessionId, 
+            userId: socket.userId,
+            username:socket.username
+        })
 
         socket.broadcast.emit("new user created", user);
-        
+
         socket.emit("sessionId", socket.sessionId);
     }
 

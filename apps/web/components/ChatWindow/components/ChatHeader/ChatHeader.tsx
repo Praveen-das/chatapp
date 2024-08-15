@@ -1,14 +1,14 @@
 "use client";
-import useSocket from "../../../../context/SocketProvider";
-import React, { MouseEvent, useEffect } from "react";
-import moment from "moment";
 import { Popover } from "@headlessui/react";
-import { useMessagesByConversation, useMessageStore } from "../../../../store/messageStore";
-import { useStore } from "../../../../store/global";
+import moment from "moment";
+import { MouseEvent } from "react";
+import useSocket from "../../../../context/SocketProvider";
 import useAuth from "../../../../hooks/useAuth";
-import { Avatar } from "../../../Dashboard/Components/Avatar";
-import { useConversationStore } from "../../../../store/conversationStore";
 import useSelectedConversation from "../../../../hooks/useSelectedConversation";
+import { useConversationStore } from "../../../../store/conversationStore";
+import { useStore } from "../../../../store/global";
+import { useMessageStore } from "../../../../store/messageStore";
+import { Avatar } from "../../../Dashboard/Components/Avatar";
 
 export default function ChatHeader({ showMenu = true }) {
   const { user: _user } = useAuth()
@@ -18,14 +18,13 @@ export default function ChatHeader({ showMenu = true }) {
   const selectedChats = useMessageStore(s => s.selectedChats)
   const setSelectedChats = useMessageStore(s => s.setSelectedChats)
   const clearChat = useMessageStore(s => s.clearChat)
-  const deleteChat = useMessageStore(s => s.deleteChat)
+  const clearUserMessageHistory = useMessageStore(s => s.clearUserMessageHistory)
 
   const setSelectedConversation = useConversationStore(s => s.setSelectedConversation);
   const selectedConversation = useSelectedConversation();
   const selectedUser = useStore(s => s.selectedUser);
   const setSelectedUser = useStore(s => s.setSelectedUser);
   const toggleProfile = useStore(s => s.toggleProfile)
-  const { messages } = useMessagesByConversation();
 
   const conversationId = selectedConversation?.id!
   const receiver = users.find(s => !s.self && selectedConversation?.members.find(m => m.id === s.id)) || selectedUser
@@ -45,11 +44,15 @@ export default function ChatHeader({ showMenu = true }) {
     else sendUserBlockRequest(req)
   }
 
-  const handleClearChat = () => {
-    const _messages = messages.map(({ id }) => ({ id, deletedFor: _user?.id! }))
+  const handleClearChat = (e: MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation()
+    const history = useMessageStore.getState().messageHistory.get(conversationId) || []
+    const _messages = useMessageStore.getState().messageStore.get(conversationId) || []
+    const messages = [...history, ..._messages].map(({ id }) => ({ id, deletedFor: _user?.id! }))
 
-    sendMessageDeleteRequest({ conversationId, messages: _messages })
+    sendMessageDeleteRequest({ conversationId, messages })
     clearChat(conversationId)
+    clearUserMessageHistory(conversationId)
   }
 
   const options = [
@@ -59,8 +62,8 @@ export default function ChatHeader({ showMenu = true }) {
       label: 'Close chat', handler: (e: MouseEvent<HTMLButtonElement>) => {
         e.stopPropagation()
         toggleProfile(false)
-        setSelectedUser(null)
         setSelectedConversation(null)
+        setSelectedUser(null)
       }
     },
     { label: 'Clear chat', handler: handleClearChat },

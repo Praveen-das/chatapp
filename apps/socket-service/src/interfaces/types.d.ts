@@ -47,6 +47,7 @@ interface IUser {
 interface ISession {
     sessionId: string
     userId: string
+    username: string
 }
 
 interface IMessage {

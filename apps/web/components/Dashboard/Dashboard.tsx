@@ -1,6 +1,5 @@
 'use client'
 
-import SearchUser from "./Components/SearchUser";
 import Header from "./Components/Header";
 import Conversations from "./Tabs/Conversations";
 import ContactsList from "./Tabs/ContactsList";
@@ -23,19 +22,16 @@ export default function Dashboard(): JSX.Element {
       <Tabs activeTab={dashboardTab} initialTab="dashboard">
         <Tab component="dashboard">
           <Header />
-          <SearchUser />
           <Conversations />
         </Tab>
         <Tab component='contacts'>
           <SecondaryHeader title='New Chat' mainTab="dashboard" />
-          <SearchUser />
           <ContactsList />
         </Tab>
 
         {/* group creation */}
         <Tab component='addMembersToGroup'>
           <SecondaryHeader title='Add group members' mainTab="dashboard" />
-          <SearchUser />
           <GroupMembersSelectionTab />
         </Tab>
         <Tab component='createGroup'>

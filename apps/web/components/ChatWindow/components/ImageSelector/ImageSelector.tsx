@@ -1,5 +1,5 @@
 import React, { ChangeEvent, DOMAttributes, MouseEvent, MouseEventHandler, useEffect, useState } from 'react'
-import Picker from '../ChatInput/Picker'
+import Picker from '../ChatInput/EmojiPicker'
 import { useAttachments } from '../../../../store/attachments';
 import InputButton from '../../../ui/InputButton';
 import _Image from 'next/image';
@@ -8,7 +8,7 @@ import { useStore } from '../../../../store/global';
 import { compressImage } from '../../../../helpers/helpers';
 import useMessage from '../../../../hooks/useMessage';
 import useAuth from '../../../../hooks/useAuth';
-import useSocket  from '../../../../context/SocketProvider';
+import useSocket from '../../../../context/SocketProvider';
 import { useConversationStore } from '../../../../store/conversationStore';
 
 function ImageSelector() {
@@ -60,18 +60,15 @@ function ImageSelector() {
 
         const payload = images.map(({ file, thumbnail }, i) => {
             let caption = captions[i]
-            let attachment: IAttachment = {
-                type: 'image',
+            let attachment: IImageAttachment = {
+                type: 'images',
                 status: 'loaded',
-                data: {
-                    id: crypto.randomUUID(),
-                    userId: user?.id!,
-                    url: URL.createObjectURL(file),
-                    thumbnail,
-                }
+                id: crypto.randomUUID(),
+                url: URL.createObjectURL(file),
+                thumbnail,
             }
 
-            const message = generateMessageTemplate(selectedConversation!, caption, attachment)
+            const message = generateMessageTemplate(selectedConversation as IConversation, caption, attachment)
 
             return message
         })
@@ -85,18 +82,19 @@ function ImageSelector() {
             payload.map((message, i) => {
                 return new Promise(res => {
                     setTimeout(async () => {
+                        const attachment = message.attachment as IImageAttachment
                         // if (captions[i]) return res(false)
-                        if (message.attachment) message.attachment.status = 'uploaded'
+                        if (attachment) attachment.status = 'uploaded'
                         updateMessages(conversationId, [message])
-                        userMedia.push(message.attachment?.data!)
+                        userMedia.push(attachment)
                         res(true)
                     }, i * 0)
                 })
             }))
 
-        addToMediaStore(conversationId, 'image', userMedia)
+        addToMediaStore(conversationId, 'images', userMedia)
 
-        sendMessage(payload, selectedConversation!);
+        sendMessage(payload, selectedConversation as IConversation);
         // registerConversation(conversation, payload)
     }
 

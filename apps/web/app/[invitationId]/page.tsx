@@ -2,6 +2,7 @@
 import { useEffect } from 'react'
 import { redirect } from 'next/navigation';
 import getLocalStorage from '../../lib/localStorage';
+import App from '../../components/App';
 
 function page({ params: { invitationId } }: { params: { invitationId: string } }) {
 
