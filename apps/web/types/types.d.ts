@@ -18,10 +18,8 @@ interface IReadReceipt {
 
 interface IUrlMetadata {
     title: string
-    url: string
     description: string
     image: string
-    host: string
     error?: number
 }
 
@@ -37,9 +35,12 @@ interface IImageAttachment {
     sender?: string
 }
 
-interface IUrlAttachment extends IUrlMetadata {
+interface IUrlAttachment {
     id: string
     type: 'link'
+    host: string
+    url: string
+    metadata: IUrlMetadata | null
 }
 
 type IAttachment = IImageAttachment | IUrlAttachment

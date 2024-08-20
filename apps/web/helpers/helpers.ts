@@ -1,4 +1,5 @@
 import axios from "axios";
+import moment from "moment";
 
 export function upsertUpdates(updates: IUpdates, update: IUpdatesCollection, key: string) {
     updates.has(key) ?
@@ -81,20 +82,57 @@ export function isValidURL(string: string) {
     }
 }
 
+export function parseUrl(url: string) {
+    try {
+        const parsedUrl = new URL(url);
+        return parsedUrl
+    } catch (err) {
+        return undefined
+    }
+}
+
+export function isSameHost(host: string) {
+    try {
+        const currentHost = window.location.host
+        if (!host) return false
+        return host === currentHost;
+    } catch (err) {
+        return false;
+    }
+}
+
 export async function getUrlMetadata(url: string) {
     return await axios.post<IUrlMetadata>(
         'https://api.linkpreview.net', {
         q: url,
         key: '8f338d5964a4b9bfb931991a9211bb18'
-      })
+    })
         .then(res => res.data)
         .catch(res => {
-          console.log(res)
-          throw res
+            console.log(res)
+            throw res
         })
 }
 
 
+export function checkObjectSize(object: any) {
+    const jsonString = JSON.stringify(object);
+    const byteSize = new Blob([jsonString]).size;
 
+    console.log((byteSize / 1024).toFixed(2));
+}
+
+export function getRelativeTime(timeInMs: number) {
+    const date = new Date(timeInMs)
+
+    const currentTime = Date.now();
+    const twentyFourHoursFromNow = currentTime - 24 * 60 * 60 * 1000;
+
+    if (timeInMs > twentyFourHoursFromNow) {
+        return 'Active ' + moment(date).startOf('minute').fromNow();
+    } else {
+        return 'Lastseen on ' + moment(date).format('lll');
+    }
+}
 
 

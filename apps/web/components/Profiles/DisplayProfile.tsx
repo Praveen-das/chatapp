@@ -55,7 +55,7 @@ function Component({ user,group, conversation }: { user: IUser, group: IGroupCon
           <UserProfile user={user!} showChatOption />
         </Tab>
         <Tab component='group'>
-          <GroupProfile conversation={group} /> :
+          <GroupProfile conversation={group} /> 
         </Tab>
         <Tab component='inviteLink' >
           <LinkManagement selectedConversation={conversation as IGroupConversation} />

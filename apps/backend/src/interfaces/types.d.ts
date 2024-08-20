@@ -23,9 +23,12 @@ interface IImageAttachment {
     thumbnail: string
 }
 
-interface IUrlAttachment extends IUrlMetadata {
+interface IUrlAttachment {
     id: string
     type: 'link'
+    host: string
+    url: string
+    metadata?: IUrlMetadata
 }
 
 type IAttachment = IImageAttachment | IUrlAttachment

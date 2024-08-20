@@ -1,7 +1,6 @@
 "use client";
 import { Popover } from "@headlessui/react";
 import moment from "moment";
-import { MouseEvent } from "react";
 import useSocket from "../../../../context/SocketProvider";
 import useAuth from "../../../../hooks/useAuth";
 import useSelectedConversation from "../../../../hooks/useSelectedConversation";
@@ -9,10 +8,12 @@ import { useConversationStore } from "../../../../store/conversationStore";
 import { useStore } from "../../../../store/global";
 import { useMessageStore } from "../../../../store/messageStore";
 import { Avatar } from "../../../Dashboard/Components/Avatar";
+import { getRelativeTime } from "../../../../helpers/helpers";
 
 export default function ChatHeader({ showMenu = true }) {
   const { user: _user } = useAuth()
   const users = useStore(s => s.users)
+  const setModal = useStore(s => s.setModal)
   const { sendMessageDeleteRequest, blockedUsers, blockedByUsers, sendUserBlockRequest, sendUserUnBlockRequest } = useSocket();
 
   const selectedChats = useMessageStore(s => s.selectedChats)
@@ -32,7 +33,6 @@ export default function ChatHeader({ showMenu = true }) {
   const isBlockedByUser = blockedByUsers.some(u => u?.userId === receiver?.id!)
 
   const handleBlockingUser = () => {
-
     const req = {
       userId: _user?.id!,
       blockedId: receiver?.id!,
@@ -44,8 +44,12 @@ export default function ChatHeader({ showMenu = true }) {
     else sendUserBlockRequest(req)
   }
 
-  const handleClearChat = (e: MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation()
+  const handleExitingGroup = () => {
+    setModal({ activeModal: 'groupExitModal' });
+    (document?.getElementById('action-modal') as HTMLDialogElement)?.showModal()
+  }
+
+  const handleClearChat = () => {
     const history = useMessageStore.getState().messageHistory.get(conversationId) || []
     const _messages = useMessageStore.getState().messageStore.get(conversationId) || []
     const messages = [...history, ..._messages].map(({ id }) => ({ id, deletedFor: _user?.id! }))
@@ -59,16 +63,15 @@ export default function ChatHeader({ showMenu = true }) {
     !!selectedChats.length &&
     { label: 'Clear Selection', handler: () => setSelectedChats(null) },
     {
-      label: 'Close chat', handler: (e: MouseEvent<HTMLButtonElement>) => {
-        e.stopPropagation()
+      label: 'Close chat', handler: () => {
         toggleProfile(false)
         setSelectedConversation(null)
         setSelectedUser(null)
       }
     },
     { label: 'Clear chat', handler: handleClearChat },
-    receiver && { label: isBlockedUser ? 'Unblock' : 'Block', handler: handleBlockingUser },
-    !receiver && { label: 'Exit group', handler: handleBlockingUser },
+    selectedConversation?.host === 'group' ? { label: 'Exit group', handler: handleExitingGroup } :
+      receiver && { label: isBlockedUser ? 'Unblock' : 'Block', handler: handleBlockingUser },
   ]
 
   function openProfile() {
@@ -95,7 +98,7 @@ export default function ChatHeader({ showMenu = true }) {
                 !isBlockedByUser &&
                 !isBlockedUser &&
                 <label className="text-xs" htmlFor="lastseen">
-                  {isOnline ? 'online' : moment(new Date((receiver.lastSeen)!)).format('LT')}
+                  {isOnline ? 'online' : getRelativeTime(receiver.lastSeen!)}
                 </label> :
                 <label className="text-xs pointer-events-none whitespace-nowrap truncate" htmlFor="members">
                   {selectedConversation.members.map((m, i, a) => i !== a.length - 1 ? m.username + ', ' : m.username)}
@@ -117,7 +120,10 @@ export default function ChatHeader({ showMenu = true }) {
                   option &&
                   <Popover.Button
                     key={i}
-                    onClick={option.handler}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      option.handler()
+                    }}
                     className='btn btn-md h-10 min-h-10 btn-ghost justify-start'
                   >
                     {option.label}

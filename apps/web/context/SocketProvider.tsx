@@ -247,9 +247,11 @@ const useContextData = () => {
         updateConversation(conversation.id, conversation as IGroupConversation)
     }
 
-    const handleAddingMembersToGroup = ({ conversation, members }: { conversation: IGroupConversation, members: IUser[] }, systemMessage: IMessage) => {
-        if (systemMessage) setMessageStore(conversation.id, [systemMessage])
+    const handleAddingMembersToGroup = ({ conversation, members }: { conversation: IGroupConversation, members: IUser[] }, systemMessages: IMessage[]) => {
+        if (systemMessages) setMessageStore(conversation.id, systemMessages)
+
         const conversations = useConversationStore.getState().conversations
+        
         if (conversations.find(c => c.id === conversation.id))
             addMembers(conversation.id, members)
         else {
@@ -257,8 +259,8 @@ const useContextData = () => {
         }
     }
 
-    const handleRemovingMemberFromGroup = ({ id, userId }: { id: string, userId: string }, systemMessage: IMessage) => {
-        if (systemMessage) setMessageStore(id, [systemMessage])
+    const handleRemovingMemberFromGroup = ({ id, userId }: { id: string, userId: string }, systemMessages: IMessage[]) => {
+        if (systemMessages) setMessageStore(id, systemMessages)
         removeMember(id, userId, userId === userRef.current?.id)
     }
 
@@ -272,8 +274,8 @@ const useContextData = () => {
         socket.emit('USER_REMOVE_FROM_ADMIN', { conversationId, userId })
     }
 
-    const removeMemberFromGroup = (conversationId: string, userId: string) => {
-        socket.emit('GROUP_REMOVE_MEMBER', { conversationId, userId })
+    const removeMemberFromGroup = (conversation: IGroupConversation, user: IGroupMember) => {
+        socket.emit('GROUP_REMOVE_MEMBER', { conversation, user })
     }
 
     const addMembersToGroup = (conversation: IGroupConversation, users: string[]) => {
@@ -281,6 +283,8 @@ const useContextData = () => {
     }
 
     const sendGroupjoinRequest = (conversation: IGroupConversation, user: IUser) => {
+        conversation.messages = []
+
         socket.emit('GROUP_JOIN', { conversation, user })
     }
 
@@ -328,6 +332,8 @@ const useContextData = () => {
     }
 
     const sendGroupInfoUpdateRequest = (conversation: IGroupConversation, updates: Partial<IGroupConversation>) => {
+        console.log(conversation);
+        
         socket.emit('updateGroupInfo', { conversation, updates })
     }
 
@@ -358,7 +364,8 @@ const useContextData = () => {
                 let unreadMessages: IUnreadMessageMeta[] = [];
 
                 for (let message of messages) {
-                    const isReceiver = message.from !== userRef.current?.id
+                    let isReceiver = message.from !== userRef.current?.id
+
                     if (message.attachment) {
                         let attachment = message.attachment
                         let type = attachment.type
@@ -394,10 +401,10 @@ const useContextData = () => {
 
             const recentMessage = messages.at(-1)
 
-            delete conversation.messages
-
             messageStore.set(id, messages)
-
+            
+            delete conversation.messages
+            
             registerConversation(conversation, recentMessage)
         })
 

@@ -7,7 +7,7 @@ import { Menu } from "@headlessui/react";
 import { flip, useFloating } from '@floating-ui/react';
 import { useMessageStore } from "../../../../store/messageStore";
 import { useStore } from "../../../../store/global";
-import { downloadFromUrl, isValidURL } from "../../../../helpers/helpers";
+import { downloadFromUrl, isSameHost, isValidURL, parseUrl } from "../../../../helpers/helpers";
 import { useAttachments } from "../../../../store/attachments";
 import ImageAttachment from "./ImageAttachment";
 import { motion } from 'framer-motion'
@@ -15,6 +15,7 @@ import useAuth from "../../../../hooks/useAuth";
 import { Avatar } from "../../../Dashboard/Components/Avatar";
 import Link from "next/link";
 import UrlAttachment from "./UrlAttachment";
+import LinkPreview from "../../../ui/LinkPreview";
 
 interface IChat {
   index: number;
@@ -111,6 +112,9 @@ function Chat(
   }
 
   const receiver = chat.host === 'group' ? users.find(u => u.id === chat.from) : null
+  const haveAttachment = (chat.attachment?.type === 'link' && chat.attachment.metadata) || chat.attachment?.type === 'images'
+  const parsedUrl = parseUrl(chat.message)
+  const urlHost = parsedUrl?.host
 
   return (
     <div
@@ -130,15 +134,16 @@ function Chat(
       <div className={`group ${self ? 'ml-auto' : chat.from === 'system' ? 'mx-auto' : 'mr-auto'} relative flex flex-col w-max`}>
 
         {/* chat */}
-        <div className={`relative h-full ${chat.attachment ? 'w-min' : ''} ${self ? "bg-primary text-white" : "bg-base-300 shadow-lg text-base-content"} rounded-2xl p-1 overflow-hidden`}>
+        <div className={`relative h-full max-w-xl ${haveAttachment ? 'w-min' : ''}  ${self ? "bg-primary text-white" : "bg-base-300 shadow-lg text-base-content"} rounded-2xl p-1 overflow-hidden`}>
 
           {/* reply */}
-          {chat.reply && <div onClick={handleReply} className={`relative p-2 w-full flex gap-2 rounded-xl ${self ? 'bg-black/20' : 'bg-white/10'} mb-1 z-3 cursor-pointer`}>
+          {chat.reply && <div onClick={handleReply} className={`relative flex gap-2 rounded-xl ${self ? 'bg-black/20' : 'bg-white/10'} mb-1 z-3 overflow-hidden cursor-pointer`}>
             {replyAttachment?.type === 'images' && <img className="w-10 h-10 rounded-md" src={replyAttachment.thumbnail} alt="" />}
-            <div className="flex flex-col gap-[2px] px-1">
+            <div className="flex flex-col gap-[2px] p-2">
               <label htmlFor="">{chat.reply.username === user?.username ? 'You' : chat.reply.username}</label>
-              <p className="text-sm break-all pointer-events-none">{chat.reply.message || 'Photo'}</p>
+              <p className="text-sm break-all line-clamp-2 pointer-events-none">{chat.reply.message || 'Photo'}</p>
             </div>
+            {(replyAttachment?.type === 'link' && replyAttachment.metadata) && <img className="w-32" src={replyAttachment.metadata.image} alt="" />}
           </div>}
 
           {/* Attachment viewer */}
@@ -146,9 +151,9 @@ function Chat(
 
           {/* message */}
           {
-            chat.attachment?.type === 'link' ?
-              <Link href={chat.attachment.url} target="_blank" className={`relative link-hover ${isEmoji ? 'text-4xl' : 'text-base'} break-all z-3 mx-2 max-w-md py-1`}>{chat.message}</Link> :
-              <p className={`relative ${isEmoji ? 'text-4xl' : 'text-base'} break-all z-3 mx-2 max-w-md py-1`}>{chat.message}</p>
+            parsedUrl ?
+              <Link href={chat.message} target={urlHost !== window.location.host ? '_blank' : ''} className={`relative link-hover ${isEmoji ? 'text-4xl' : 'text-base'} break-all z-3 mx-2 py-1`}>{chat.message}</Link> :
+              <p className={`relative ${isEmoji ? 'text-4xl' : 'text-base'} break-all z-3 mx-2 py-1`}>{chat.message}</p>
           }
         </div>
 

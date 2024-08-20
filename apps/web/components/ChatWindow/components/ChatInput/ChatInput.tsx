@@ -1,21 +1,19 @@
 "use client";
-import React, { ChangeEvent, HTMLAttributes, ReactNode, useEffect, useRef, useState } from "react";
+import React, { ChangeEvent, useEffect, useRef, useState } from "react";
 import { Popover } from "@headlessui/react";
 
 import useSocket from "../../../../context/SocketProvider";
 import { useMessageStore } from "../../../../store/messageStore";
 import useAuth from "../../../../hooks/useAuth";
-import { IMessageReadReceipt } from "../../../../enums/enums";
 import { useStore } from "../../../../store/global";
 import ForwardIcon from "../../../../public/forward.svg";
 import EmojiPicker from "./EmojiPicker";
-import { compressImage, generateConversation, getUrlMetadata, isValidURL } from "../../../../helpers/helpers";
+import { compressImage, generateConversation, getUrlMetadata, isValidURL, parseUrl } from "../../../../helpers/helpers";
 import { useAttachments } from "../../../../store/attachments";
 import InputButton from "../../../ui/InputButton";
 import useMessage from "../../../../hooks/useMessage";
 import { useConversationStore } from "../../../../store/conversationStore";
 import useSelectedConversation from "../../../../hooks/useSelectedConversation";
-import axios from "axios";
 import LinkPreview from "../../../ui/LinkPreview";
 
 export function ChatInput() {
@@ -110,14 +108,18 @@ function Input(): React.ReactNode {
     delete conversation.recentMessage
 
     const conversationId = conversation?.id
+    const url = parseUrl(message);
 
-    const urlAttachment = metadata && {
-      ...metadata,
-      type: 'link' as IUrlAttachment['type'],
-      id: crypto.randomUUID()
-    }
+    const urlAttachment: IUrlAttachment | null = url ? {
+      metadata,
+      type: 'link',
+      id: crypto.randomUUID(),
+      url: message,
+      host: url.host
+    } : null
 
-    const payload = generateMessageTemplate(conversation, message, urlAttachment!);
+    const payload = generateMessageTemplate(conversation, message, urlAttachment);
+
     const attachment = payload.attachment
 
     sendMessage([payload], conversation);
@@ -143,17 +145,11 @@ function Input(): React.ReactNode {
 
     (async () => {
       if (isUrl) {
-        setMetadata({ description: '', image: '', title: '', url: '', host: '' })
-
         try {
           const response = await getUrlMetadata(message)
-
-          const host = new URL(response.url).host
-
-          setMetadata({ ...response, host });
-
-        } catch (error) {
-          console.error('Error fetching URL metadata:', error);
+          setMetadata({ ...response });
+        } catch (error: any) {
+          setMetadata(null);
         }
       }
     })()
@@ -164,7 +160,7 @@ function Input(): React.ReactNode {
       {
         metadata &&
         <div className='flex items-center p-2'>
-          <LinkPreview metadata={metadata} />
+          <LinkPreview metadata={metadata} link={message} />
           <div onClick={() => setMetadata(null)} tabIndex={0} className="btn btn-circle btn-sm btn-ghost ml-4 mr-2">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
               <path strokeLinecap="round" strokeLinejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />

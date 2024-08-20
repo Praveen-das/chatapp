@@ -119,7 +119,7 @@ function ChatArea() {
 
     if (!haveNewMessages.current) lastReadMsgIndex.current = messages.length - 1
 
-    if (isScrolledToBottom.current || self || recentMessage?.from === 'system') listRef.current?.scrollToIndex(index, { align: 'end' });
+    if (isScrolledToBottom.current || (self && recentMessage?.from !== 'system')) listRef.current?.scrollToIndex(index, { align: 'end' });
 
     lastMessageReference.current = recentMessage
     return () => {
@@ -217,8 +217,8 @@ function ChatArea() {
                     }
                     {
                       chat.from === 'system' ?
-                        <div className="mx-auto mt-2 mb-4 px-4 py-1 text-sm bg-base-300 w-max rounded-2xl pointer-events-none">
-                          {chat.message}
+                        <div className="flex justify-center px-4 my-2 pointer-events-none">
+                          <label className="py-1 px-2 w-max text-xs bg-base-300 rounded-2xl  text-center" htmlFor="">{chat.message}</label>
                         </div>
                         :
                         < Chat

@@ -4,6 +4,7 @@ import useAuth from "../../../hooks/useAuth";
 import { useConversationStore } from "../../../store/conversationStore";
 import { useMessageStore } from "../../../store/messageStore";
 import { useStore } from "../../../store/global";
+import useSelectedConversation from "../../../hooks/useSelectedConversation";
 
 const closeModal = () => {
     (document?.getElementById('action-modal') as HTMLDialogElement)?.close()
@@ -13,14 +14,24 @@ export const DeleteMessageModal = () => {
     const setSelectedChats = useMessageStore(s => s.setSelectedChats)
     const setModal = useStore(s => s.setModal)
     const { sendMessageDeleteRequest } = useSocket()
-    
-    const { user } = useAuth()
-    const selectedConversation = useConversationStore(s => s.selectedConversation)
-    const modal = useStore<IModal<IMessage[]> | null>(s => s.modal)    
-    const selectedChats = modal?.state || []
-    
 
-    const haveDeletedMsg = useMemo(() => selectedChats.some(msg => msg.message === "message deleted" || msg.from !== user?.id), [selectedChats, user])
+    const { user } = useAuth()
+    const selectedConversation = useSelectedConversation() 
+    const modal = useStore<IModal<IMessage[]> | null>(s => s.modal)
+    const selectedChats = modal?.state || []
+    let authorizedUser = (selectedConversation as IGroupConversation)?.members.find(m => m.id === user?.id)?.isAdmin
+
+    const allowedDeleteForAll = useMemo(() =>
+        selectedChats.some(msg => {
+            let deletedMessage = msg.message === "message deleted"
+            let isReceiver = msg.from !== user?.id
+
+            if (deletedMessage) return false
+            if (isReceiver && !authorizedUser) return false
+
+            return true
+        })
+        , [selectedChats, user])
 
     const handleMessageDelete = (deleteFor: { all?: true, userId?: string }) => {
         const conversationId = selectedConversation?.id!
@@ -55,10 +66,10 @@ export const DeleteMessageModal = () => {
             </div>
             <div className="flex w-full justify-stretch gap-4 mx-auto">
                 <div className="w-full">
-                    <button onClick={() => handleMessageDelete({ userId: user?.id })} className={`btn ${haveDeletedMsg && 'btn-outline btn-ghost btn-secondary'} btn-sm w-full`}>Delete for me</button>
+                    <button onClick={() => handleMessageDelete({ userId: user?.id })} className={`btn ${allowedDeleteForAll && 'btn-outline btn-ghost btn-secondary'} btn-sm w-full`}>Delete for me</button>
                 </div>
                 {
-                    !haveDeletedMsg &&
+                    allowedDeleteForAll &&
                     < div className="w-full">
                         <button onClick={() => handleMessageDelete({ all: true })} className="btn btn-sm btn-secondary w-full">Delete for all</button>
                     </div>

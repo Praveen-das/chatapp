@@ -1,14 +1,17 @@
-import { useEffect } from "react";
+import {  parseUrl } from "../../helpers/helpers";
 
-export default function LinkPreview({ metadata }: { metadata: IUrlMetadata }) {
-    
+export default function LinkPreview({ metadata, link }: { metadata: IUrlMetadata, link?: string }) {
+    if (!link) return 'no link'
+    let parsedUrl = parseUrl(link)
 
-    return <div className="flex bg-black/20 rounded-2xl">
-        {metadata.image && <img className="rounded-xl w-[200px]" src={metadata.image} alt="" />}
-        <div className="min-w-0 w-full max-h-sm flex-0 flex flex-col gap-1 justify-between rounded-xl p-2 pointer-events-none">
-            <label className="text-base px-2 line-clamp-2" htmlFor="title">{metadata.title}</label>
-            <p className="mb-auto text-sm px-2 line-clamp-2">{metadata.description}</p>
-            <p className="mb-auto text-sm text-white/30 truncate px-2 pb-2">{metadata.host}</p>
+    return (
+        <div className="flex bg-black/20 h-max rounded-2xl overflow-hidden">
+            {metadata.image && <img className="w-[150px]" src={metadata.image} alt="" />}
+            <div className="grid gap-1 min-w-0 w-full rounded-xl p-2 pointer-events-none">
+                <label className="text-base px-2 line-clamp-2" htmlFor="title">{metadata.title}</label>
+                <p className="mb-auto text-sm px-2 line-clamp-2">{metadata.description}</p>
+                <p className="mb-auto text-sm text-white/30 truncate px-2 pb-2">{parsedUrl?.host}</p>
+            </div>
         </div>
-    </div>;
+    )
 }

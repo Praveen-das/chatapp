@@ -47,9 +47,9 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
             .catch(res => res)
 
         const updatedProperty = Object.keys(updates)[0]
-
+        
         const messageString =
-            updatedProperty === 'display' ?
+            updatedProperty === 'displayName' ?
                 `${socket.username} changed group name to "${updates.displayName}"` :
                 `${socket.username} modified the group description`
 
@@ -67,19 +67,26 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
     socket.on('GROUP_JOIN', async ({ conversation, user }: { conversation: IGroupConversation, user: IUser }) => {
         const body = { conversationId: conversation.id, users: [user.id] }
 
-        await axiosClient.post(`/group/add`, body)
+        const _conversation = await axiosClient.post(`/group/add`, body)
             .then(res => res.data[0])
             .catch(res => res)
 
         socket.join(conversation.channelId!)
 
-        const message: Partial<IMessage> = {
+        const broadcastMessage: Partial<IMessage>[] = [{
             conversationId: conversation.id,
             from: 'system',
             message: `${user.username} joined the group`
-        }
+        }]
 
-        io.to(conversation.channelId!).emit('GROUP_ADD_MEMBERS', { conversation, members: [user] }, message)
+        const userMessage: Partial<IMessage>[] = [{
+            conversationId: conversation.id,
+            from: 'system',
+            message: `You joined the group`
+        }]
+
+        socket.emit('GROUP_ADD_MEMBERS', { conversation:_conversation, members: [user] }, userMessage)
+        io.to(conversation.channelId!).except(user.id).emit('GROUP_ADD_MEMBERS', { conversation:_conversation, members: [user] }, broadcastMessage)
     })
 
     socket.on('GROUP_LEAVE', async ({ conversation, user }: { conversation: IGroupConversation, user: IUser }) => {
@@ -89,11 +96,11 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
             .then(res => res.data[0])
             .catch(res => res)
 
-        const message: Partial<IMessage> = {
+        const message: Partial<IMessage>[] = [{
             conversationId: conversation.id,
             from: 'system',
             message: `${user.username} left the group`
-        }
+        }]
 
         io.to(conversation.channelId!).emit('GROUP_REMOVE_MEMBER', { id: conversation.id, userId: user.id }, message)
 
@@ -111,45 +118,51 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
 
         users.forEach(id => {
             sockets.forEach((_socket: ISocket) => {
-                if (_socket.userId === id)
-                    _socket.join(conversation.channelId!);
+                if (_socket.userId === id) _socket.join(conversation.channelId!);
             });
         })
-
-        const message: Partial<IMessage> = {
-            conversationId: conversation.id,
-            from: 'system',
-            message: `${socket.username} added `
-        }
 
         const members = newConversation.members as IUser[]
 
         const newMembers = members.filter(m => users.includes(m.id))
 
-        io.to(conversation.channelId!).emit('GROUP_ADD_MEMBERS', { conversation, members: newMembers })
+        const messages = newMembers.map(m => ({
+            conversationId: conversation.id,
+            from: 'system',
+            message: `${socket.username} added ${m.username}`
+        }))
+
+        const userMessages = newMembers.map(m => ({
+            conversationId: conversation.id,
+            from: 'system',
+            message: `${socket.username} added you to the group`
+        }))
+
+        io.to(users).emit('GROUP_ADD_MEMBERS', { conversation, members: newMembers }, userMessages)
+        io.to(conversation.channelId!).except(users).emit('GROUP_ADD_MEMBERS', { conversation, members: newMembers }, messages)
     })
 
-    socket.on('GROUP_REMOVE_MEMBER', async ({ conversationId, userId }: { conversationId: string, userId: string }) => {
-        const body = { conversationId, userId }
+    socket.on('GROUP_REMOVE_MEMBER', async ({ conversation, user }: { conversation: IGroupConversation, user: IUser }) => {
+        const body = { conversationId: conversation.id, userId: user.id }
 
-        const conversation: IGroupConversation = await axiosClient.patch(`/group/remove`, body)
+        await axiosClient.patch(`/group/remove`, body)
             .then(res => res.data[0])
             .catch(res => res)
-
-        const members = conversation.members as IUser[]
-
-        const membersIds = members.map(m => m.id)
-
-        membersIds.push(userId)
 
         const sockets = io.sockets.sockets;
 
         sockets.forEach((_socket: ISocket) => {
-            if (_socket.userId === userId)
+            if (_socket.userId === user.id)
                 _socket.leave(conversation.channelId!);
         });
 
-        io.to(membersIds).emit('GROUP_REMOVE_MEMBER', { id: conversationId, userId })
+        const message: Partial<IMessage>[] = [{
+            conversationId: conversation.id,
+            from: 'system',
+            message: `${socket.username} removed ${user.username} from the group`
+        }]
+
+        io.to(conversation.channelId!).emit('GROUP_REMOVE_MEMBER', { id: conversation.id, userId: user.id }, message)
     })
 
     socket.on('USER_MAKE_ADMIN', async ({ conversationId, userId }: { conversationId: string, userId: string }) => {
@@ -159,11 +172,9 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
             .then(res => res.data[0])
             .catch(res => res)
 
-        const members = (conversation.members as IUser[]).map(m => m.id)
-
         const updatedConversation = getUpdatedValues(conversation, 'admins')
 
-        io.to(members).emit('UPDATE_GROUP', updatedConversation)
+        io.to(conversation.channelId!).emit('UPDATE_GROUP', updatedConversation)
     })
 
     socket.on('USER_REMOVE_FROM_ADMIN', async ({ conversationId, userId }: { conversationId: string, userId: string }) => {

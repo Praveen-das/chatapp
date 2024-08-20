@@ -5,8 +5,6 @@ const readReceiptSchema = new Schema({
     status: Number
 })
 
-// const attachmentSchema = new Schema({ type: { type: String, required: true, enum: ['image', 'url'] } })
-
 const imageAttachmentSchema = new mongoose.Schema<IImageAttachment>({
     id: String,
     type: String,
@@ -17,16 +15,39 @@ const imageAttachmentSchema = new mongoose.Schema<IImageAttachment>({
 const urlAttachmentSchema = new Schema<IUrlAttachment>({
     id: String,
     type: String,
-    title: String,
-    url: String,
     host: String,
-    description: String,
-    image: String,
+    url: String,
+    metadata: {
+        title: String,
+        description: String,
+        image: String,
+        error: Number,
+    }
 })
 
 const urlAttachmentModal = model('urlAttachmentModal', urlAttachmentSchema)
 
 const imageAttachmentModal = model('imageAttachmentModal', imageAttachmentSchema)
+
+// const attachmentSchema = new Schema({
+//     type: Schema.Types.Mixed as unknown as IAttachment,
+//     validate: {
+//         validator: function (this, v: any) {
+//             if (!v) return true
+//             if (v.type === 'images') return urlAttachmentModal.validate(v);
+//             if (v.type === 'link') return imageAttachmentModal.validate(v);
+//             return false;
+//         },
+//     },
+// })
+
+
+function validator(_: any, v: any) {
+    if (!v) return true
+    if (v.type === 'images') return urlAttachmentModal.validate(v);
+    if (v.type === 'link') return imageAttachmentModal.validate(v);
+    return false;
+}
 
 export const messageSchema = new Schema<IMessage>({
     id: String,
@@ -38,19 +59,17 @@ export const messageSchema = new Schema<IMessage>({
     timestamp: Number,
     attachment: {
         type: Schema.Types.Mixed as unknown as IAttachment,
-        validate: {
-            validator: function (this, v: any) {
-                if(!v) return true
-                if (v.type === 'images') return urlAttachmentModal.validate(v);
-                if (v.type === 'link') return imageAttachmentModal.validate(v);
-                return false;
-            },
-        },
+        validate: { validator },
     },
     readReceipt: [readReceiptSchema],
     deletedFor: [String],
     reply: {
         message: String,
+        username: String,
+        attachment: {
+            type: Schema.Types.Mixed as unknown as IAttachment,
+            validate: { validator },
+        },
         offsetTop: Number
     },
 })

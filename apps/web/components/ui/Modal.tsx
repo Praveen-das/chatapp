@@ -8,6 +8,7 @@ import { AddGroupMembersModal } from "./Modals/AddGroupMembersModal";
 import { JoinGroupModal } from "./Modals/JoinGroupModal";
 import { NotificationBlockedAlert } from "./Modals/NotificationBlockedAlert";
 import { AllMembers } from "./Modals/AllMembers";
+import GroupExitModal from "./Modals/GroupExitModal";
 
 const Modal = () => {
     const modal = useStore(s => s.modal)
@@ -19,6 +20,7 @@ const Modal = () => {
         sendLinkModal: <ForwardMessageModal title="Send link to" />,
 
         deleteMessageModal: <DeleteMessageModal />,
+        groupExitModal: <GroupExitModal />,
         addBlockedContactModal: <AddBlockedContactModal />,
         addGroupMembersModal: <AddGroupMembersModal />,
         joinGroupModal: <JoinGroupModal />,

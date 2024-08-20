@@ -27,6 +27,8 @@ const store = create(subscribeWithSelector<IMessageStore>((set, get) => {
                 group.members.forEach((member) => {
                     member.isAdmin = group.admins.includes(member.id!)
                 })
+
+                group.admins = []
             }
 
             let conversations = get().conversations
@@ -65,9 +67,9 @@ const store = create(subscribeWithSelector<IMessageStore>((set, get) => {
                 .map(c => {
                     if (c.id === conversationId) {
                         let members = c.members.filter(m => m.id !== userId)
-                        let admins = c.admins.filter(id => id !== userId)
+                        // let admins = c.admins.filter(id => id !== userId)
                         if (self) return false
-                        return { ...c, members, admins }
+                        return { ...c, members }
                     }
                     return c
                 })

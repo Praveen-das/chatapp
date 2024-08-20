@@ -10,7 +10,10 @@ import { onConnection } from "./registerConnectionHandler"
 class SocketService implements ISocketService {
     #_io
     #server
-    #opts = { cors: config.cors }
+    #opts = {
+        cors: config.cors,
+        // maxHttpBufferSize: 1e8
+    }
 
     constructor(server: IHttpServer) {
         console.log('Socket Service runnning...')

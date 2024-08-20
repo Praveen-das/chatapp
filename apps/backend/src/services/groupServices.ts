@@ -76,20 +76,20 @@ async function fetchGroupById(id: string) {
                 {
                     $match: { invitationId: id }
                 },
-                {
-                    $lookup: {
-                        from: "messages",
-                        let: { id: "$id" },
-                        pipeline: [
-                            {
-                                $match: {
-                                    $expr: { $eq: ["$conversationId", "$$id"] }
-                                },
-                            },
-                        ],
-                        as: "messages"
-                    }
-                },
+                // {
+                //     $lookup: {
+                //         from: "messages",
+                //         let: { id: "$id" },
+                //         pipeline: [
+                //             {
+                //                 $match: {
+                //                     $expr: { $eq: ["$conversationId", "$$id"] }
+                //                 },
+                //             },
+                //         ],
+                //         as: "messages"
+                //     }
+                // },
                 {
                     $lookup: {
                         from: 'users',

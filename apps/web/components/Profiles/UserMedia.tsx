@@ -6,6 +6,7 @@ import { useStore } from '../../store/global'
 import { useTabs } from '../Dashboard/Tabs/Tabs'
 import Link from 'next/link'
 import LinkPreview from '../ui/LinkPreview'
+import { parseUrl } from '../../helpers/helpers'
 
 
 function UserMedia({ conversation }: { conversation: IConversation }) {
@@ -40,9 +41,24 @@ function UserMedia({ conversation }: { conversation: IConversation }) {
 
 function Links({ links }: { links: IUrlAttachment[] }) {
     return <div className='grid gap-2 w-full overflow-y-scroll no-scrollbar p-2'>
-        {links.map((metadata) => <Link className='link-hover text-sm break-all rounded-md' href={metadata.url}>
-            <LinkPreview metadata={metadata} />
-        </Link>)}
+        {links.map((link) => {
+            let parsedUrl = parseUrl(link.url)
+            let sameHost = parsedUrl?.host === window.location.host
+
+            return (
+                <>
+                    {/* <Link target={!sameHost ? '_blank' : ''} className='link-hover text-sm' href={link.url}>
+                </Link> */}
+                    {
+                        link.metadata ?
+                            <LinkPreview metadata={link.metadata} link={link.url} />
+                            :
+                            link.url && <div className='bg-base-300 rounded-2xl p-2'>{link.url}</div>
+                    }
+                </>
+            )
+        }
+        )}
     </div>
 }
 

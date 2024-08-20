@@ -30,8 +30,8 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
   const [editGroupName, toggleEditUsername] = useState(false);
   const [editDescription, toggleEditDescription] = useState(false);
 
-  const [displayName, setDisplayName] = useState(conversation.displayName)
-  const [description, setDescription] = useState(conversation.desc)
+  const [displayName, setDisplayName] = useState(conversation.displayName || '')
+  const [description, setDescription] = useState(conversation.desc || '')
 
   const { refs, floatingStyles } = useFloating({
     middleware: [
@@ -86,9 +86,14 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
   }
 
   function handleExitingGroup() {
-    leaveGroup(conversation, user!)
-    toggleProfile(false)
-    setSelectedConversation(null)
+    setModal({ activeModal: 'groupExitModal' });
+    (document?.getElementById('action-modal') as HTMLDialogElement)?.showModal()
+  }
+
+  const handleEmoji = (emoji: any) => {
+    open === 'displayName' ?
+      setDisplayName(s => s.concat(emoji.native)) :
+      setDescription(s => s.concat(emoji.native))
   }
 
   return (
@@ -107,7 +112,7 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
                 ref={refs.setFloating}
                 style={{ ...floatingStyles }}
               >
-                <EmojiPicker open={!!open} onEmojiSelect={console.log} />
+                <EmojiPicker open={!!open} onEmojiSelect={handleEmoji} />
               </motion.div>
               <div onClick={() => setOpen('')} className="fixed inset-0 z-20 "></div>
             </div>
@@ -258,7 +263,7 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
 }
 
 function Member({ member }: { member: IGroupMember }) {
-  const { removeMemberFromGroup, makeAdmin, removeFromAdmin,leaveGroup } = useSocket()
+  const { removeMemberFromGroup, makeAdmin, removeFromAdmin, leaveGroup } = useSocket()
   const setSelectedUser = useStore(s => s.setSelectedUser)
   const selectedConversation = useSelectedConversation() as IGroupConversation
   const setProfileTab = useStore(s => s.setProfileTab)
@@ -268,8 +273,8 @@ function Member({ member }: { member: IGroupMember }) {
     placement: 'bottom-start',
   })
 
-  function handleRemovingMember(userId: string) {
-    removeMemberFromGroup(selectedConversation.id, userId)
+  function handleRemovingMember(user: IGroupMember) {
+    removeMemberFromGroup(selectedConversation, user)
   }
 
   function handleAdmin(userId: string, action: string) {
@@ -320,7 +325,7 @@ function Member({ member }: { member: IGroupMember }) {
                 <Menu.Item >
                   <div
                     className={`group btn btn-md w-full h-10 min-h-10 btn-ghost justify-start`}
-                    onClick={() => handleRemovingMember(member.id!)}
+                    onClick={() => handleRemovingMember(member)}
                   >
                     Remove
                   </div>
