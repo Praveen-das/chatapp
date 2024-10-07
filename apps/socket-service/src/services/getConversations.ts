@@ -1,31 +1,36 @@
 import sessionStore from "../session";
 import { ISocket } from "../interfaces/socketInterfaces";
-import { findUserMessages, findUserGroups, findUserConversations, getAllContacts } from "./userServices";
+import {
+  findUserMessages,
+  findUserGroups,
+  findUserConversations,
+  getAllContacts,
+  getBlockedList,
+} from "./userServices";
 
 export const getConversations = async (socket: ISocket) => {
-    if (!socket.userId) return;
+  if (!socket.userId) return;
 
-    const [
-        contacts,
-        conversations,
-        groups,
-    ] = await Promise.all([
-        getAllContacts(),
-        findUserConversations(socket.userId),
-        findUserGroups(socket.userId),
-    ]);
+  const [contacts, conversations, groups, blockedUsers] = await Promise.all([
+    getAllContacts(),
+    findUserConversations(socket.userId),
+    findUserGroups(socket.userId),
+    getBlockedList(socket.userId),
+  ]);
 
-    contacts.forEach((_user) => {
-        _user.self = _user.id === socket.userId;
-    })
+  contacts.forEach((_user) => {
+    _user.self = _user.id === socket.userId;
+  });
 
-    contacts.sort((a: any, b: any) => b.self - a.self)
+  contacts.sort((a: any, b: any) => b.self - a.self);
 
-    groups.forEach((group) => {
-        socket.join(group.channelId!);
-    });
+  groups.forEach((group) => {
+    socket.join(group.channelId!);
+  });
 
-    conversations.push(...groups as any)
+  conversations.push(...(groups as any));
 
-    return { contacts, conversations };
+  return { contacts, conversations, blockedUsers };
 };
+
+

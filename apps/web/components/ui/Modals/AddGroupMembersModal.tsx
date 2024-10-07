@@ -7,6 +7,7 @@ import SearchUser from "../../Dashboard/Components/SearchUser";
 import { useStore } from "../../../store/global";
 import { User } from "./components/User";
 import useSelectedConversation from "../../../hooks/useSelectedConversation";
+import { IGroupConversation } from "../../../interfaces/conversationInterface";
 
 const closeModal = () => {
     (document?.getElementById('action-modal') as HTMLDialogElement)?.close()
@@ -59,7 +60,7 @@ export const AddGroupMembersModal = () => {
     }
 
     return (
-        <div className="modal-box h-full px-0 pb-0 relative flex flex-col max-w-[450px] bg-base-100 ">
+        <div className="modal-box h-full px-0 pb-0 relative flex flex-col max-w-[450px] bg-[--modal]">
             <div className="flex px-6 justify-between items-center w-full ">
                 <h3 className="font-medium text-lg">Select Contact</h3>
                 <form method="dialog">

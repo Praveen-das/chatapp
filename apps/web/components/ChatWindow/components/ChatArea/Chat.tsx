@@ -1,246 +1,311 @@
 "use client";
 
-import React, { memo, useEffect, useMemo, useRef, useState } from "react";
-import moment from 'moment';
+import React, { memo, useMemo, useRef } from "react";
+import moment from "moment";
 import { IMessageReadReceipt } from "../../../../enums/enums";
-import { Menu } from "@headlessui/react";
-import { flip, useFloating } from '@floating-ui/react';
 import { useMessageStore } from "../../../../store/messageStore";
 import { useStore } from "../../../../store/global";
-import { downloadFromUrl, isSameHost, isValidURL, parseUrl } from "../../../../helpers/helpers";
-import { useAttachments } from "../../../../store/attachments";
-import ImageAttachment from "./ImageAttachment";
-import { motion } from 'framer-motion'
-import useAuth from "../../../../hooks/useAuth";
-import { Avatar } from "../../../Dashboard/Components/Avatar";
+import { parseUrl } from "@lib/utils";
+import { downloadFromUrl } from "@lib/utils";
+import useAuth from "@hooks/useAuth";
+import { Avatar } from "@components/Dashboard/Components/Avatar";
 import Link from "next/link";
+import { useConversationStore } from "../../../../store/conversationStore";
+import {
+  IImageAttachment,
+  IMessage,
+  IUrlAttachment,
+} from "@interfaces/messageInterface";
+import ReadReceiptIcons from "./ReadReceiptIcons";
+import ImageAttachment from "./ImageAttachment";
 import UrlAttachment from "./UrlAttachment";
-import LinkPreview from "../../../ui/LinkPreview";
+import Menu from "@components/ui/Menu";
+import { EllipsisVerticalIcon,ArrowUturnRightIcon } from "@heroicons/react/24/solid";
 
 interface IChat {
   index: number;
   self: boolean;
   chat: IMessage;
-  onReply: (message: IMessage, index: number) => void
-  onClickReply: (index: number) => void
-  style?: any
+  onReply: (message: IMessage, index: number) => void;
+  onClickReply: (index: number) => void;
+  style?: any;
+  nextMsgIsFromDifferentUser?: boolean;
 }
 
-const getReadReceipt = (chat: IMessage) => {
-  let readReceipt = IMessageReadReceipt[0]
+function checkEmoji(emoji: string) {
+  const regex = /^\p{Emoji_Presentation}$/u;
+  return regex.test(emoji);
+}
+
+function getReadReceipt(chat: IMessage) {
+  let readReceipt = IMessageReadReceipt[0];
   for (let _value in IMessageReadReceipt) {
-    let value = parseInt(_value)
-    let _break = false
+    let value = parseInt(_value);
+    let _break = false;
 
     if (!isNaN(value)) {
       let valueExist = chat.readReceipt.some((s) => s.status === value);
       if (valueExist) {
-        readReceipt = IMessageReadReceipt[value]
-        _break = true
-        break
+        readReceipt = IMessageReadReceipt[value];
+        _break = true;
+        break;
       }
     }
-    if (_break) break
+    if (_break) break;
   }
 
-  return readReceipt
+  return readReceipt;
 }
 
-const checkEmoji = (emoji: string) => {
-  const regex = /^[\p{Emoji}]$/u;
-  return regex.test(emoji)
-}
+function Chat({
+  index,
+  self,
+  chat,
+  onReply,
+  onClickReply,
+  style,
+  nextMsgIsFromDifferentUser,
+}: IChat): JSX.Element {
+  const { user } = useAuth();
+  const selectedChats = useMessageStore((s) => s.selectedChats);
+  const setSelectedChats = useMessageStore((s) => s.setSelectedChats);
+  const setModal = useStore((s) => s.setModal);
+  const selectedConversation = useConversationStore(
+    (s) => s.selectedConversation
+  );
 
-function Chat(
-  {
-    index,
-    self,
-    chat,
-    onReply,
-    onClickReply,
-    style
-  }: IChat): JSX.Element {
+  const isSelected = selectedChats.includes(chat);
+  const isEmoji = checkEmoji(chat.message);
+  const attachment = chat.attachment!;
+  const isGroupConversation = selectedConversation?.host === "group";
+  const replyAttachment = chat.reply?.attachment!;
+  const replyUser =
+    chat.reply?.username === user?.username ? "You" : chat.reply?.username;
+  const shouldRenderTimestamp = chat.from !== "system";
 
-  const { user } = useAuth()
-  const selectedChats = useMessageStore(s => s.selectedChats)
-  const setSelectedChats = useMessageStore(s => s.setSelectedChats)
-  const setModal = useStore(s => s.setModal)
-  const users = useStore(s => chat.host === 'group' ? s.users : [])
-  const chatRef = useRef<HTMLDivElement>(null)
+  const readReceipt = useMemo(
+    () =>
+      selectedConversation?.host === "user"
+        ? IMessageReadReceipt[chat.readReceipt[0]?.status || 0]
+        : getReadReceipt(chat),
+    [chat, selectedConversation]
+  );
 
-  const readReceipt = chat.host === 'user' ? IMessageReadReceipt[chat.readReceipt[0]?.status || 0] : getReadReceipt(chat)
-  const isSelected = selectedChats.includes(chat)
-  const isEmoji = checkEmoji(chat.message)
+  const options = useMemo(() => {
+    const canDownload = attachment?.type === "images";
+    return [
+      {
+        label: isSelected ? "Clear Selection" : "Select",
+        handler: () => setSelectedChats(chat),
+      },
+      canDownload && {
+        label: "Download",
+        handler: () => {
+          if (!attachment) return;
+          downloadFromUrl(attachment.url);
+        },
+      },
+      {
+        label: "Reply",
+        handler: () => onReply(chat, index),
+      },
+      {
+        label: "Delete",
+        handler: () => {
+          setModal({ activeModal: "deleteMessageModal", state: [chat] });
+          document
+            ?.querySelector<HTMLDialogElement>("#action-modal")
+            ?.showModal();
+        },
+      },
+    ];
+  }, [chat, isSelected, attachment]);
 
-  const attachment = chat.attachment!
-  const replyAttachment = chat.reply?.attachment!
+  const handleForwadingChat = () => {
+    setModal({ activeModal: "forwardMessageModal", state: [chat] });
+    document?.querySelector<HTMLDialogElement>("#action-modal")?.showModal();
+  };
 
-  const { refs, floatingStyles } = useFloating({
-    middleware: [flip()],
-    placement: 'bottom-start',
-  });
+  const handleReply = () => onClickReply(chat.reply?.offsetTop!);
 
-  const options = useMemo(() => [
-    {
-      label: isSelected ? 'Clear Selection' : 'Select',
-      handler: () => setSelectedChats(chat)
-    },
-    attachment?.type === 'images' && {
-      label: 'Download',
-      handler: () => {
-        if (!attachment) return
-        downloadFromUrl(attachment.url)
-      }
-    },
-    {
-      label: 'Reply',
-      handler: () => onReply(chat, index)
-    },
-    {
-      label: 'Delete',
-      handler: () => {
-        setModal({ activeModal: 'deleteMessageModal', state: [chat] });
-        (document?.getElementById('action-modal') as HTMLDialogElement)?.showModal()
-      }
-    }
-  ], [chat, isSelected])
+  const handleSelectedChats = () =>
+    selectedChats.length && setSelectedChats(chat);
 
-  const handleReply = () => onClickReply(chat.reply?.offsetTop!)
+  const receiver = isGroupConversation
+    ? selectedConversation?.members.find((u) => u.id === chat.from)
+    : null;
 
-  const handleSelectedChats = () => {
-    selectedChats.length && setSelectedChats(chat)
-  }
-
-  const receiver = chat.host === 'group' ? users.find(u => u.id === chat.from) : null
-  const haveAttachment = (chat.attachment?.type === 'link' && chat.attachment.metadata) || chat.attachment?.type === 'images'
-  const parsedUrl = parseUrl(chat.message)
-  const urlHost = parsedUrl?.host
+  const haveAttachment =
+    (chat.attachment?.type === "link" && chat.attachment.metadata) ||
+    chat.attachment?.type === "images";
+  const parsedUrl = parseUrl(chat.message);
+  const urlHost = parsedUrl?.host;
 
   return (
     <div
-      style={{ ...style }}
+      style={style}
       onClick={handleSelectedChats}
-      ref={chatRef}
-      className={`${!!selectedChats.length ? 'cursor-pointer' : ''} ${self ? 'ml-auto flex-row-reverse' : 'mr-auto'} ${isSelected && 'bg-black bg-opacity-20'} flex gap-3 text-xs px-4 pt-2 pb-1`}
+      className={`group ${!!selectedChats.length ? "cursor-pointer" : ""} ${self ? "ml-auto flex-row-reverse" : "mr-auto"} ${isSelected && "bg-black bg-opacity-20"} flex gap-3 text-xs px-1 pt-2 pb-2`}
     >
-      {
-        !self && chat.host === 'group' &&
-        <div className="pt-1">
-          <Avatar profileHidden={Boolean(!receiver?.rules?.profilePicture.isVisible)} size="30px" onlineIndication={false} />
-        </div>
-      }
-
       {/* chat component */}
-      <div className={`group ${self ? 'ml-auto' : chat.from === 'system' ? 'mx-auto' : 'mr-auto'} relative flex flex-col w-max`}>
+      <div
+        className={`${self ? "ml-auto" : chat.from === "system" ? "mx-auto" : "mr-auto"} relative flex flex-col max-w-[calc(100%-(1rem+30px))]`}
+      >
+        <div
+          className="grid gap-x-2"
+          style={{
+            gridTemplateColumns: `${!self && isGroupConversation ? "30px" : "auto"} 1fr`,
+          }}
+        >
+          {/* Avatar */}
+          {!self &&
+            isGroupConversation &&
+            (nextMsgIsFromDifferentUser ? (
+              <div className="pt-1 mt-auto">
+                <Avatar
+                  url={receiver?.profilePicture}
+                  profileHidden={Boolean(
+                    !receiver?.rules?.profilePicture.isVisible
+                  )}
+                  size="30px"
+                  onlineIndication={false}
+                />
+              </div>
+            ) : (
+              <span />
+            ))}
 
-        {/* chat */}
-        <div className={`relative h-full max-w-xl ${haveAttachment ? 'w-min' : ''}  ${self ? "bg-primary text-white" : "bg-base-300 shadow-lg text-base-content"} rounded-2xl p-1 overflow-hidden`}>
-
-          {/* reply */}
-          {chat.reply && <div onClick={handleReply} className={`relative flex gap-2 rounded-xl ${self ? 'bg-black/20' : 'bg-white/10'} mb-1 z-3 overflow-hidden cursor-pointer`}>
-            {replyAttachment?.type === 'images' && <img className="w-10 h-10 rounded-md" src={replyAttachment.thumbnail} alt="" />}
-            <div className="flex flex-col gap-[2px] p-2">
-              <label htmlFor="">{chat.reply.username === user?.username ? 'You' : chat.reply.username}</label>
-              <p className="text-sm break-all line-clamp-2 pointer-events-none">{chat.reply.message || 'Photo'}</p>
+          <div
+            className={`relative flex flex-col gap-1 ${self ? "ml-auto" : "mr-auto"} ${attachment ? "w-min" : ""}`}
+          >
+            {/* chat */}
+            <div
+              className={`relative p-1 text-sm h-full max-w-xl ${haveAttachment ? "" : ""}  ${self ? "bg-primary text-white" : "bg-base-300 shadow-lg text-base-content"} text-base rounded-xl overflow-hidden`}
+            >
+              {chat.deleted ? (
+                <label className="flex px-1 py-1" htmlFor="deleted message">
+                  Message deleted
+                </label>
+              ) : (
+                <>
+                  {/* reply */}
+                  {chat.reply && (
+                    <div
+                      onClick={handleReply}
+                      className={`relative flex gap-2 rounded-xl ${self ? "bg-black/20" : "bg-white/10"} mb-1 z-3 overflow-hidden cursor-pointer`}
+                    >
+                      {replyAttachment?.type === "images" && (
+                        <img
+                          className="w-10 h-10 rounded-md"
+                          src={replyAttachment.thumbnail}
+                          alt=""
+                        />
+                      )}
+                      <div className="flex flex-col gap-[2px] p-2">
+                        <label htmlFor="">{replyUser}</label>
+                        <p className="text-sm break-all line-clamp-2 pointer-events-none">
+                          {chat.reply.message || "Photo"}
+                        </p>
+                      </div>
+                      {replyAttachment?.type === "link" &&
+                        replyAttachment.metadata && (
+                          <img
+                            className="w-32"
+                            src={replyAttachment.metadata.image}
+                            alt=""
+                          />
+                        )}
+                    </div>
+                  )}
+                  {/* URL Viewer */}
+                  {attachment?.type === "link" && (
+                    <div>
+                      <UrlAttachment
+                        attachment={attachment as IUrlAttachment}
+                      />
+                    </div>
+                  )}
+                  {/* ImageAttachment */}
+                  {attachment?.type === "images" && (
+                    <ImageAttachment
+                      attachment={attachment as IImageAttachment}
+                    />
+                  )}
+                  <div
+                    className={`px-2 ${chat.message ? (haveAttachment ? "py-2" : "py-1") : ""}`}
+                  >
+                    {isGroupConversation && !self && (
+                      <label className="flex text-[11px] text-primary">
+                        {receiver?.username}
+                      </label>
+                    )}
+                    {/* message */}
+                    {parsedUrl ? (
+                      <Link
+                        href={chat.message}
+                        target={
+                          urlHost !== window.location.host ? "_blank" : ""
+                        }
+                        className={`flex break-all relative link-hover z-3`}
+                      >
+                        {chat.message}
+                      </Link>
+                    ) : (
+                      chat.message && (
+                        <p
+                          className={`relative ${isEmoji && !haveAttachment ? "text-4xl" : ""} break-all z-3`}
+                        >
+                          {chat.message}
+                        </p>
+                      )
+                    )}
+                  </div>
+                </>
+              )}
             </div>
-            {(replyAttachment?.type === 'link' && replyAttachment.metadata) && <img className="w-32" src={replyAttachment.metadata.image} alt="" />}
-          </div>}
 
-          {/* Attachment viewer */}
-          {chat.attachment && <AttachmentBox attachment={chat.attachment} />}
+            {/* action buttons */}
+            <div
+              className={`flex items-center absolute top-0 bottom-0 ${self ? "-left-[52px] " : "-right-[52px] flex-row-reverse"}`}
+            >
+              <div
+                tabIndex={0}
+                onClick={handleForwadingChat}
+                className="group-hover:opacity-100 opacity-0 cursor-pointer btn btn-circle btn-ghost btn-xs"
+              >
+                <ArrowUturnRightIcon className="size-4"/>
+              </div>
 
-          {/* message */}
-          {
-            parsedUrl ?
-              <Link href={chat.message} target={urlHost !== window.location.host ? '_blank' : ''} className={`relative link-hover ${isEmoji ? 'text-4xl' : 'text-base'} break-all z-3 mx-2 py-1`}>{chat.message}</Link> :
-              <p className={`relative ${isEmoji ? 'text-4xl' : 'text-base'} break-all z-3 mx-2 py-1`}>{chat.message}</p>
-          }
-        </div>
+              {/* dropdown */}
+              <Menu
+                buttonIcon={
+                  <span className="group-hover:opacity-100 opacity-0 btn btn-circle btn-ghost btn-xs">
+                    <EllipsisVerticalIcon className="size-5" />
+                  </span>
+                }
+                menuItems={options}
+                placement={self ? "bottom-end" : "bottom-start"}
+              />
+            </div>
+          </div>
 
-        {
-          chat.from !== 'system' &&
-          <>
-            {/* timestamp and status */}
-            < div className={`flex items-center gap-2 mx-1 mt-1 text-xs ${self ? 'ml-auto' : 'mr-auto flex-row-reverse'}`}>
-              <label htmlFor="">{moment(new Date(chat.timestamp)).format('LT')}</label>
+          <span />
+
+          {/* timestamp and status */}
+          {shouldRenderTimestamp && (
+            <div
+              className={`flex items-center gap-2 whitespace-nowrap ${!self ? "mx-4" : ""} mt-1 text-xs ${self ? "ml-auto" : "mr-auto flex-row-reverse"}`}
+            >
+              <label htmlFor="">
+                {moment(new Date(chat.timestamp)).format("LT")}
+              </label>
               {self && <ReadReceiptIcons readReceipt={readReceipt} />}
             </div>
-
-            {/* dropdown */}
-            <div className="absolute top-1 right-1 text-left">
-              <Menu as="div" className="relative inline-block text-left">
-                <Menu.Button ref={refs.setReference} className="group-hover:opacity-100 outline-none duration-300 text-white rounded-full opacity-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                    <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                  </svg>
-                </Menu.Button>
-                <Menu.Items
-                  className="absolute right-0 w-28 origin-top-right divide-y divide-gray-100 rounded-md bg-base-100 shadow-lg ring-1 ring-black/5 focus:outline-none z-10"
-                  ref={refs.setFloating}
-                  style={floatingStyles}
-                >
-                  <div className="p-0.5">
-                    {
-                      options.map((option, i) => (
-                        option ? <Menu.Item key={i}>
-                          <div
-                            className={`group btn btn-md w-full h-10 min-h-10 btn-ghost justify-start`}
-                            onClick={option.handler}
-                          >
-                            {option.label}
-                          </div>
-                        </Menu.Item> : null
-                      ))
-                    }
-                  </div>
-                </Menu.Items>
-              </Menu>
-            </div>
-          </>
-        }
-
+          )}
+        </div>
       </div>
-    </div >
+    </div>
   );
 }
 
-const AttachmentBox = ({ attachment }: IAttachmentBox) => {
-  const renderAttachment = {
-    images: <ImageAttachment attachment={attachment as IImageAttachment} />,
-    link: <UrlAttachment attachment={attachment as IUrlAttachment} />
-  }
-
-  return (
-    <div>
-      {renderAttachment[attachment.type as keyof typeof renderAttachment]}
-    </div>
-  )
-}
-
-const ReadReceiptIcons = ({ readReceipt }: { readReceipt?: string }) => {
-
-  if (readReceipt === 'seen')
-    return (
-      <div className={`flex`}>
-        <div className={`size-[6px] rounded-full bg-primary -translate-x-[2px]`} />
-        <div className={`size-[6px] rounded-full bg-primary`} />
-      </div>
-    )
-  if (readReceipt === 'received' || readReceipt === 'unseen')
-    return (
-      <div className={`flex`}>
-        <div className={`size-[6px] rounded-full bg-black/50 -translate-x-[2px]`} />
-        <div className={`size-[6px] rounded-full bg-black/50`} />
-      </div>
-    )
-  return <div className={`size-[6px] rounded-full bg-black/50`} />
-
-}
-
-export default memo(Chat)
-
-
-
-
-
-
+export default memo(Chat);

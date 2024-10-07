@@ -4,6 +4,7 @@ import useAuth from "../../../hooks/useAuth";
 import { useConversationStore } from "../../../store/conversationStore";
 import { useMessageStore } from "../../../store/messageStore";
 import { useStore } from "../../../store/global";
+import { IGroupConversation } from "../../../interfaces/conversationInterface";
 
 const closeModal = () => {
     (document?.getElementById('action-modal') as HTMLDialogElement)?.close()
@@ -18,7 +19,7 @@ const GroupExitModal = () => {
     const { user } = useAuth()
     const selectedConversation = useConversationStore(s => s.selectedConversation) as IGroupConversation
 
-    const handleMessageDelete = () => {
+    const handleExitingGroup = () => {
         leaveGroup(selectedConversation, user!)
         toggleProfile(false)
         setSelectedConversation(null)
@@ -27,7 +28,7 @@ const GroupExitModal = () => {
     }
 
     return (
-        <div className="modal-box flex flex-col justify-between gap-4 p-8 w-full max-w-xs bg-base-100 ">
+        <div className="modal-box flex flex-col justify-between gap-4 p-8 w-full max-w-xs bg-[--modal]">
             <div className="flex items-center justify-between">
                 <label htmlFor="">Exit Group ?</label>
             </div>
@@ -38,7 +39,7 @@ const GroupExitModal = () => {
                     </div>
                 </form>
                 <div className="w-full">
-                    <button onClick={handleMessageDelete} className="btn btn-sm btn-secondary w-full">Yes</button>
+                    <button onClick={handleExitingGroup} className="btn btn-sm btn-secondary w-full">Yes</button>
                 </div>
             </div>
         </div >

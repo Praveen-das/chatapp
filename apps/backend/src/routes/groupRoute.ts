@@ -14,7 +14,7 @@ router
 
     .delete('/delete/:id', groupController._deleteGroup)
 
-    .post('/add', groupController._addMemberToGroup)
+    .post('/add', groupController._addMembersToGroup)
 
     .patch('/admins/add', groupController._makeUserAdmin)
 

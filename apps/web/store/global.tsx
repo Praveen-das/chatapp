@@ -1,15 +1,17 @@
 import { create } from "zustand";
+import { IUser } from "../interfaces/userInterface";
+import { IGroupConversation } from "../interfaces/conversationInterface";
 
 interface IGlobalStore {
     users: IUser[]
     setUsers: (users: IUser[]) => void
     addNewUser: (user: IUser) => void
     updateUserRule: (userId: string, rule: IUserRules) => void
-    updateUserStatus: (userId: string, status: 'online' | 'offline') => void
+    updateUserStatus: (userId: string, status: 'online' | 'offline', lastSeen?: number) => void
 
     selectedUser: IUser | null
     setSelectedUser: (user: IUser | null) => void
-    
+
     selectedGroup: IGroupConversation | null
     setSelectedGroup: (group: IGroupConversation | null) => void
 
@@ -27,10 +29,13 @@ interface IGlobalStore {
 
     dashboardTab: string
     setDashboardTab: (value: string) => void
+
+    uploadProgress:Map<string,number>
+    setUploadProgress:(fileId:string,progress:number)=>void
 }
 
 export const useStore = create<IGlobalStore>((set, get) => {
-    return  {
+    return {
         users: [],
         setUsers: (users) => set({ users }),
         addNewUser: (user) => {
@@ -48,19 +53,19 @@ export const useStore = create<IGlobalStore>((set, get) => {
             const newUsers = get().users.map(u => u.id === userId ? { ...u, rules: { ...u.rules, ...rule } } : u)
             set({ users: newUsers })
         },
-        updateUserStatus: (userId, status) => {
-            const newUsers = get().users.map(u => u.id === userId ? { ...u, status } : u)
+        updateUserStatus: (userId, status, lastSeen) => {
+            const newUsers = get().users.map(u => u.id === userId ? { ...u, status, lastSeen: lastSeen ? lastSeen : u.lastSeen } : u)
             set({ users: newUsers })
         },
 
         selectedUser: null,
-        setSelectedUser: (user) => set({ selectedUser: user }),
-        
+        setSelectedUser: (selectedUser) => set({ selectedUser }),
+
         selectedGroup: null,
         setSelectedGroup: (group) => set({ selectedGroup: group }),
 
         selectedGroupMembers: [],
-        setSelectedGroupMembers: (id: string | null) => {
+        setSelectedGroupMembers: (id) => {
             const _selectedGroupMembers = get().selectedGroupMembers
 
             if (!id) return set({ selectedGroupMembers: [] })
@@ -83,6 +88,9 @@ export const useStore = create<IGlobalStore>((set, get) => {
         setProfileTab: (value) => set({ profileTab: value }),
 
         dashboardTab: '',
-        setDashboardTab: (value) => set({ dashboardTab: value })
+        setDashboardTab: (value) => set({ dashboardTab: value }),
+
+        uploadProgress:new Map(),
+        setUploadProgress:(fileId,progress)=>set(s=>({uploadProgress:new Map(s.uploadProgress).set(fileId,progress)}))
     }
 })

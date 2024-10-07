@@ -1,19 +1,30 @@
-import { Schema, model, SchemaTypes } from "mongoose";
-import { userSchema } from "./UserModal";
+import { Schema, model } from "mongoose";
+import { IUserConversation } from "../interfaces/conversationInterface";
 
-const schemaOptions = { toJSON: { virtuals: true } }
+const schemaOptions = { toJSON: { virtuals: true } };
 
-const conversationSchema = new Schema({
-    id: String,
+export const userSchema = new Schema({
+  id: Schema.Types.ObjectId,
+  timeOfJoining: Number,
+  timeOfDeletion: Number,
+  deletedForUser: Boolean,
+});
+
+userSchema.index({id:1})
+
+const conversationSchema = new Schema<IUserConversation>(
+  {
+    id: Schema.Types.ObjectId,
     host: String,
     members: [userSchema],
     createdAt: Number,
     updatedAt: Number,
-    // deletedFor: [String],
-    // recentMessage: messageSchema,
-}, schemaOptions)
+  },
+  schemaOptions
+);
 
-const Conversations = model('conversation', conversationSchema)
+conversationSchema.index({id:1})
 
-export default Conversations
+const Conversations = model("conversation", conversationSchema);
 
+export { Conversations };

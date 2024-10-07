@@ -8,7 +8,7 @@ const settings = {
     visible: {
         opacity: 1,
         transition: {
-            duration: 0.1,
+            duration: 0.10,
         }
     }
 }
@@ -16,11 +16,11 @@ const settings = {
 const profilDetails = {
     hidden: {
         width: '0%',
-        marginRight: '-16px'
+        marginLeft: '-1rem'
     },
     visible: {
-        width: 'calc(100%/3)',
-        marginRight: '0'
+        width: '100%',
+        marginLeft: '0'
     },
 
 }

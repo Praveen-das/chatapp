@@ -40,7 +40,7 @@ const Tab = (
           initial='hidden'
           animate={'visible'}
           exit='hidden'
-          className={`absolute top-0 flex flex-col gap-4 w-full h-full bg-base-300 z-10`}
+          className={`absolute top-0 flex flex-col gap-4 w-full h-full z-10`}
         >
           {children}
         </motion.div>

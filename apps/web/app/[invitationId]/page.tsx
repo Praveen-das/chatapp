@@ -1,8 +1,7 @@
 'use client'
 import { useEffect } from 'react'
 import { redirect } from 'next/navigation';
-import getLocalStorage from '../../lib/localStorage';
-import App from '../../components/App';
+import getLocalStorage from '@lib/localStorage';
 
 function page({ params: { invitationId } }: { params: { invitationId: string } }) {
 
@@ -11,7 +10,6 @@ function page({ params: { invitationId } }: { params: { invitationId: string } }
         redirect('/')
     }, [invitationId])
 
-    return null
 }
 
 export default page

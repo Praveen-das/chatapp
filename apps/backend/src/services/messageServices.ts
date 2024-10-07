@@ -1,173 +1,186 @@
-import Messages from "../models/MessageModel";
+import { Types } from "mongoose";
+import { MessageDeleteFlag, Messages } from "../models/MessageModel";
 import client from "../redis/client";
+import { IMessage } from "../interfaces/messageInterface";
 
 async function saveUserMessage(messages: IMessage[]) {
-    try {
-        const res = await Messages.insertMany(messages)
-        await client.del('messages_cache')
-        return res
-    } catch (error) {
-        console.log("saveUserMessage----->", error);
-    }
+  try {
+    const res = await Messages.insertMany(messages);
+    await client.del("messages_cache");
+    return res;
+  } catch (error) {
+    console.log("saveUserMessage----->", error);
+  }
 }
 
 async function getMessages() {
-    try {
-        return await Messages.find()
-    } catch (error) {
-        console.log(error);
-    }
+  try {
+    return await Messages.find();
+  } catch (error) {
+    console.log(error);
+  }
 }
 
-async function getUserMessages(userId: string): Promise<Map<string, IMessage[]>> {
-    try {
-        const res = await Messages.aggregate([
+async function getUserMessages(
+  userId: string
+): Promise<Map<string, IMessage[]>> {
+  try {
+    const res = await Messages.aggregate([
+      {
+        $lookup: {
+          from: "groups",
+          let: {
+            conversationId: "$conversationId",
+          },
+          pipeline: [
             {
-                $lookup: {
-                    from: "groups",
-                    let: {
-                        conversationId: "$conversationId"
-                    },
-                    pipeline: [
-                        {
-                            $match: {
-                                $expr: {
-                                    $eq: ["$id", "$$conversationId"]
-                                }
-                            }
-                        }
-                    ],
-                    as: "conversation"
-                }
+              $match: {
+                $expr: {
+                  $eq: ["$id", "$$conversationId"],
+                },
+              },
             },
-            {
-                $unwind: "$conversation"
+          ],
+          as: "conversation",
+        },
+      },
+      {
+        $unwind: "$conversation",
+      },
+      {
+        $match: { "conversation.members": userId },
+      },
+      {
+        $group: {
+          _id: "$conversationId",
+          messages: {
+            $push: {
+              $cond: {
+                if: {
+                  $in: [userId, "$deletedFor"],
+                },
+                then: "$$REMOVE",
+                else: {
+                  id: "$id",
+                  conversationId: "$conversationId",
+                  from: "$from",
+                  to: "$to",
+                  timestamp: "$timestamp",
+                  message: "$message",
+                  reply: "$reply",
+                  readReceipt: "$readReceipt",
+                },
+              },
             },
-            {
-                $match: { "conversation.members": userId }
-            },
-            {
-                $group: {
-                    _id: "$conversationId",
-                    messages: {
-                        $push: {
-                            $cond: {
-                                if: {
-                                    $in: [
-                                        userId,
-                                        "$deletedFor"
-                                    ]
-                                },
-                                then: "$$REMOVE",
-                                else: {
-                                    id: "$id",
-                                    conversationId: "$conversationId",
-                                    from: "$from",
-                                    to: "$to",
-                                    timestamp: "$timestamp",
-                                    message: "$message",
-                                    reply: "$reply",
-                                    readReceipt: "$readReceipt"
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            {
-                $addFields: {
-                    conversationId: "$_id"
-                }
-            },
-            {
-                $project: {
-                    _id: 0,
-                    "messages.deletedFor": 0
-                }
-            }
-        ])
+          },
+        },
+      },
+      {
+        $addFields: {
+          conversationId: "$_id",
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          "messages.deletedFor": 0,
+        },
+      },
+    ]);
 
-        const response: any = res.map(({ conversationId, messages }) => [conversationId, messages])
+    const response: any = res.map(({ conversationId, messages }) => [
+      conversationId,
+      messages,
+    ]);
 
-        return response
-    } catch (error) {
-        console.log("getUserMessages---->", error);
-        return new Map()
-    }
+    return response;
+  } catch (error) {
+    console.log("getUserMessages---->", error);
+    return new Map();
+  }
 }
 
 async function deleteUserMessages(messagesId: string[]) {
-    try {
-        const res = await Messages.deleteMany({ id: { $in: messagesId } })
-    } catch (error) {
-        console.log("getUserMessages---->", error);
-    }
+  try {
+    const res = await Messages.deleteMany({ id: { $in: messagesId } });
+  } catch (error) {
+    console.log("getUserMessages---->", error);
+  }
 }
 
 const updateUserMessages = async (updates: Partial<IMessage>[]) => {
-    var bulkOps: BulkOperation[] = [];
-    
-    updates.forEach((update) => {
-        const { id, ...items } = update
-        let updateObj
+  var bulkOps: BulkOperation[] = [];
 
-        if (!!items.readReceipt?.length) {
-            updateObj = {
-                $set: {
-                    "readReceipt.$[element].status": items.readReceipt[0].status
-                }
-            };
+  updates.forEach((update) => {
+    let { id, ...items } = update;
+    let messageId = new Types.ObjectId(id)
+    let userId = new Types.ObjectId(items.readReceipt?.[0].userId)
+    let updateObj;
 
-            bulkOps.push({
-                updateOne: {
-                    filter: { id },
-                    update: updateObj,
-                    arrayFilters: [{ "element.userId": items.readReceipt?.[0].userId }]
-                }
-            });
-        }
-        else {
-            updateObj = { $set: items };
-            bulkOps.push({
-                updateOne: {
-                    filter: { id },
-                    update: updateObj,
-                }
-            });
-        }
-    });
+    if (!!items.readReceipt?.length) {
+      updateObj = {
+        $set: {
+          "readReceipt.$[element].status": items.readReceipt[0].status,
+        },
+      };
 
-    try {
-        const res = await Messages.bulkWrite(bulkOps)
-    } catch (error) {
-        console.log(error);
+      bulkOps.push({
+        updateOne: {
+          filter: { id:messageId },
+          update: updateObj,
+          arrayFilters: [{ "element.userId": userId }],
+        },
+      });
+    } else {
+      updateObj = { $set: items };
+      bulkOps.push({
+        updateOne: {
+          filter: { id:messageId },
+          update: updateObj,
+        },
+      });
     }
-}
+  });
 
-const deleteMessageForUser = async (collection: { id: string, deletedFor: string }[]) => {
-    var bulkOps: BulkOperation[] = [];
+  try {
+    const res = await Messages.bulkWrite(bulkOps);
+  } catch (error) {
+    console.log(error);
+  }
+};
 
-    collection.forEach(({ id, deletedFor }) => {
-        bulkOps.push({
-            updateOne: {
-                filter: { id },
-                update: { $push: { deletedFor } }
-            }
-        });
+const deleteMessagesForUser = async (
+  collections: { userId: string; messageId: string }[]
+) => {
+  var bulkOps: BulkOperation[] = [];
+  
+  collections.forEach(({ userId, messageId }) => {
+    let collection = {
+      messageId: new Types.ObjectId(messageId),
+      userId: new Types.ObjectId(userId),
+    };
+
+    bulkOps.push({
+      updateOne: {
+        filter: collection,
+        update: { ...collection, deleted: true },
+        upsert: true,
+      },
     });
+  });
 
-    try {
-        const res = await Messages.bulkWrite(bulkOps)
-    } catch (error) {
-        console.log(error);
-    }
-}
+  try {
+    const res = await MessageDeleteFlag.bulkWrite(bulkOps);
+  } catch (error) {
+    console.log('MessageDeleteFlag.bulkWrite error------->',error);
+  }
+};
 
-export {
-    getMessages,
-    getUserMessages,
-    saveUserMessage,
-    updateUserMessages,
-    deleteUserMessages,
-    deleteMessageForUser
-}
+export default {
+  getMessages,
+  getUserMessages,
+  saveUserMessage,
+  updateUserMessages,
+  deleteUserMessages,
+  deleteMessagesForUser,
+};

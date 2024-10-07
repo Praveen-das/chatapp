@@ -12,7 +12,7 @@ const rulesSchema = new Schema({
 })
 
 export const userSchema = new Schema({
-    id: String,
+    id: Schema.Types.ObjectId,
     username: {
         type: String,
         required: true

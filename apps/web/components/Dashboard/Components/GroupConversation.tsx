@@ -1,11 +1,12 @@
 "use client";
-import React, { Fragment, memo, useCallback, useEffect, useState } from "react";
+import React, { memo, useCallback, useEffect, useState } from "react";
 import { useMessageStore } from "../../../store/messageStore";
 import moment from "moment";
 import { useStore } from "../../../store/global";
 import socket from "../../../lib/ws";
 import { Avatar } from "./Avatar";
 import { useConversationStore } from "../../../store/conversationStore";
+import { IGroupConversation } from "../../../interfaces/conversationInterface";
 
 
 interface IGroupProps {
@@ -13,25 +14,20 @@ interface IGroupProps {
   isSelectedGroup?: boolean
 }
 
-
-const links = [
-  { href: '/account-settings', label: 'Reply' },
-  { href: '/support', label: 'Forward' },
-  { href: '/license', label: 'Delete' },
-]
-
 function GroupConversation({ conversation, isSelectedGroup }: IGroupProps): React.JSX.Element {
   const unreadMessagesStore = useMessageStore(s => s.unreadMessages);
   const [unreadMessages, setUnreadMessages] = useState(0)
   const setSelectedConversation = useConversationStore(s => s.setSelectedConversation);
   const setSelectedUser = useStore(s => s.setSelectedUser);
   const toggleProfile = useStore(s => s.toggleProfile);
-
+  const recentMessages = useMessageStore((s) => s.recentMessage)
+  const recentMessagePayload = recentMessages.get(conversation.id);
+  
   const handleSelectedConversation = useCallback(() => {
     setSelectedConversation(conversation.id)
     setSelectedUser(null)
     toggleProfile(false)
-    socket.selectedConversation = conversation as IConversation;
+    socket.selectedConversation = conversation;
   }, [conversation]);
 
   useEffect(() => {
@@ -44,31 +40,30 @@ function GroupConversation({ conversation, isSelectedGroup }: IGroupProps): Reac
     }
 
   }, [unreadMessagesStore, isSelectedGroup])
-
-  const recentMessagePayload = conversation.recentMessage
+  
+  console.log(recentMessagePayload)
+  
   const recentMessageSender = conversation.members.find(m => m.id === recentMessagePayload?.from)?.username
   const recentMessage = recentMessageSender + ':' + recentMessagePayload?.message
-  const haveRecentMessage = conversation.recentMessage
-
+  
   return (
     <div onClick={handleSelectedConversation} className="flex">
       <div
-        className={`group flex gap-6 px-4 items-center w-full min-h-[75px] ${isSelectedGroup && 'bg-primary'}  rounded-2xl cursor-pointer`}
-      // style={{ gridTemplateColumns: 'auto minmax(0px,1fr)' }}
+        className={`group flex gap-6 px-4 items-center w-full min-h-[75px] ${isSelectedGroup ? "bg-primary text-white" : ""}  rounded-2xl cursor-pointer`}
       >
-        <Avatar onlineIndication={false} />
+        <Avatar url={conversation.profilePicture} onlineIndication={false} />
         <div className="min-w-0 w-full">
           <div className="flex gap-4 justify-between items-center">
             <h1 className="text-sm truncate">
               {conversation.displayName}
             </h1>
             {
-              haveRecentMessage &&
+              recentMessagePayload &&
               <label className='text-sm whitespace-nowrap' htmlFor="">{moment(new Date(recentMessagePayload?.timestamp!)).format('LT')}</label>
             }
           </div>
           {
-            haveRecentMessage &&
+            recentMessagePayload &&
             <div className="flex justify-between items-center h-5 ">
               <h1 className="text-sm truncate w-2/3">
                 {recentMessage}

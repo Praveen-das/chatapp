@@ -2,51 +2,86 @@ import { Server } from "socket.io";
 import { ISocket } from "../interfaces/socketInterfaces";
 import { getConversations } from "../services/getConversations";
 import produceMessage from "../kafka/kafka";
-import sessionStore from "../session";
+import axiosClient from "../lib/axiosClient";
 
-let blockedUsers: IUBlockReq[] = []
+let blockedUsers: IBlocked[] = [];
 
-export default async function registerUserHandlers(io: Server, socket: ISocket) {
+export default async function registerUserHandlers(
+  io: Server,
+  socket: ISocket
+) {
+  try {
+    const conversations = await getConversations(socket);
 
-    try {
-        const conversations = await getConversations(socket)
+    socket.emit("conversations", conversations);
+  } catch (error) {
+    console.log("🚀 ~ registerUserHandlers ~ error:", error);
+  }
 
-        socket.emit("conversations", {
-            ...conversations,
-            blockedUsers: blockedUsers.filter(u => u.userId === socket.userId),
-            blockedByUsers: blockedUsers.filter(u => u.blockedId === socket.userId,)
-        });
+  socket.join(socket.userId!);
 
-    } catch (error) {
-        console.log("🚀 ~ registerUserHandlers ~ error:", error)
+  io.emit("user connected", { userId: socket.userId });
+
+  produceMessage(
+    { id: socket.userId, updates: { status: "online", lastSeen: Date.now() } },
+    "UPDATE_USER"
+  );
+
+  socket.on("REQUEST:BLOCK_USER", (req: IBlocked) => {
+    let { id, user, blockedUser } = req 
+    let to = [user.id,blockedUser.id]
+
+    let body:IUBlockReq = {
+      id,
+      userId:user.id,
+      blockedId:blockedUser.id
     }
 
-    socket.join(socket.userId!);
+    io.to(to).emit("RESPONSE:BLOCK_USER", req);
+    axiosClient.post('/user/block',body)
+  });
 
-    io.emit("user connected", { userId: socket.userId });
+  socket.on("REQUEST:UNBLOCK_USER", (req: IBlocked) => {
+    let { id, user, blockedUser } = req 
+    let to = [user.id,blockedUser.id]
+    
+    io.to(to).emit("RESPONSE:UNBLOCK_USER", req);
+    axiosClient.delete(`/user/unblock/${id}`)
+  });
 
-    produceMessage({ id: socket.userId, updates: { status: 'online', lastSeen: Date.now() } }, 'UPDATE_USER')
+  socket.on("updateUser", (req: IUserUpdateRequest) => {
+    const body = {
+      id: req.userId,
+      updates: req.updates,
+    };
 
-    socket.on("REQUEST:BLOCK_USER", (req: IUBlockReq) => {
-        blockedUsers.push(req)
-        io.to([socket.userId!, req.blockedId]).emit("RESPONSE:BLOCK_USER", req)
-    })
+    produceMessage(body, "UPDATE_USER");
+  });
 
-    socket.on("REQUEST:UNBLOCK_USER", (req: IUBlockReq) => {
-        blockedUsers = blockedUsers.filter(u => u.blockedId !== req.blockedId && u.userId !== req.userId)
-        io.to(socket.userId!).to(req.blockedId).emit("RESPONSE:UNBLOCK_USER", req)
-    })
+  socket.on("updateUserRule", (req: IUserRuleChangeRequest) => {
+    let key = Object.keys(req.rules)[0];
 
-    socket.on("updateUserRule", (req: IUserRuleChangeRequest) => {
-        let key = Object.keys(req.rules)[0]
+    let value = req.rules[key as keyof typeof req.rules].isVisible;
 
-        let value = req.rules[key as keyof typeof req.rules].isVisible
+    const body = {
+      id: req.userId,
+      updates: { [`rules.${key}.isVisible`]: value },
+    };
 
-        const body = { id: req.userId, updates: { [`rules.${key}.isVisible`]: value } }
+    io.emit("updateUserRule", req);
 
-        io.emit("updateUserRule", req);
+    produceMessage(body, "UPDATE_USER");
+  });
 
-        produceMessage(body, 'UPDATE_USER');
-    })
+  socket.on("CLEAR_CONVERSATION", (req: IClearConversationRequest) => {
+    produceMessage(req, "CLEAR_CONVERSATION_FOR_USER");
+  });
+
+  socket.on("DELETE_CONVERSATION", (req: IClearConversationRequest) => {
+    produceMessage(req, "CLEAR_CONVERSATION_FOR_USER");
+  });
+
+  socket.on("CLEAR_GROUP_CONVERSATION", (req: IClearConversationRequest) => {
+    produceMessage(req, "CLEAR_GROUP_CONVERSATION_FOR_USER");
+  });
 }
-

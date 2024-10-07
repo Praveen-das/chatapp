@@ -4,7 +4,7 @@ export const NotificationBlockedAlert = () => {
     const setModal = useStore(s => s.setModal)
 
     return (
-        <div className="modal-box relative flex flex-col gap-2 max-w-[450px] bg-base-300 ">
+        <div className="modal-box relative flex flex-col gap-2 max-w-[450px] bg-[--modal]">
             <div className="flex justify-between items-center w-full ">
                 <label className="font-bold text-lg" htmlFor="">Notifications disabled</label>
                 <form method="dialog">

@@ -10,11 +10,12 @@ export default function handleDisconnection(io: Server, socket: ISocket) {
         const isDisconnected = matchingSockets.length === 0;
 
         if (isDisconnected) {
-            
-            const body = { id: socket.userId, updates: { status: 'offline', lastSeen: Date.now() } }
-            
+            let lastSeen = Date.now()
+
+            const body = { id: socket.userId, updates: { status: 'offline', lastSeen } }
+
             produceMessage(body, 'UPDATE_USER')
-            socket.broadcast.emit("user disconnected", { userId: socket.userId });
+            socket.broadcast.emit("user disconnected", { userId: socket.userId, lastSeen });
         }
     });
 }

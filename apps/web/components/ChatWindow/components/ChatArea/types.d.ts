@@ -1,3 +1,0 @@
-interface IAttachmentBox {
-    attachment: IAttachment
-}

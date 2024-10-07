@@ -4,10 +4,9 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 
 
 interface IPersistentStoreContext {
-    usersProfilePref: IUserRuleChangeRequest[]
-    getUserProfilePref: (userId: string) => IProfilePref | null
-    setUserProfilePref: (prefs: IUserRuleChangeRequest[]) => void
-    updateUserProfilePref: (userId: string, pref: Partial<IProfilePref>) => void
+    usersProfilePref: IUserRules[]
+    setUserProfilePref: (prefs: IUserRules[]) => void
+    updateUserProfilePref: (userId: string, pref: Partial<IUserRules>) => void
 
     userNotificationPref: IUserNotificationPref
     setUserNotificationPref: (key: string, value: boolean) => void
@@ -18,24 +17,9 @@ interface IPersistentStoreContext {
     // updateUserPref: (userId: string, pref: IUserPref) => void,
 }
 
-const USER_PREF_DEFAULT: IProfilePref = {
-    about: true,
-    lastSeen: true,
-    onlineStatus: true,
-    profilePicture: true,
-}
-
 export const usePersistentStore = create(persist<IPersistentStoreContext>((set, get) => {
     return {
         usersProfilePref: [],
-        getUserProfilePref: (userId) => {
-            let usersProfilePref = get().usersProfilePref
-            if(!usersProfilePref.length) return null
-            
-            let userPref = usersProfilePref.find(u => u.userId === userId)?.userPref || null
-
-            return userPref
-        },
         setUserProfilePref: (usersProfilePref) => set({ usersProfilePref }),
         updateUserProfilePref: (userId, pref) => {
             const usersProfilePref = get().usersProfilePref

@@ -5,6 +5,7 @@ import Person from "../Components/Person";
 import socket from "../../../lib/ws";
 import { useConversationStore } from "../../../store/conversationStore";
 import SearchUser from "../Components/SearchUser";
+import { IUser } from "../../../interfaces/userInterface";
 
 const ContactsList = () => {
   const setDashboardTab = useStore(s => s.setDashboardTab)

@@ -1,75 +1,53 @@
 import { EachMessagePayload } from "kafkajs";
-import { deleteMessageForUser, saveUserMessage, updateUserMessages } from "../services/messageServices";
 import { consumer } from "../kafka/kafka";
-import conversationServices from "../services/conversationServices";
-import userServices from "../services/userServices";
+import messageController from "./messageController";
+import conversationController from "./conversationController";
+import userController from "./userController";
+import groupController from "./groupController";
 
-const kafkaMessageController = async ({ topic, partition, message: _message, heartbeat, pause }: EachMessagePayload) => {
-    const message = _message.value?.toString()
-    const RESET_TIMEOUT = 60 * 1000
+const kafkaMessageController = async ({
+  topic,
+  partition,
+  message: _message,
+  heartbeat,
+  pause,
+}: EachMessagePayload) => {
+  const message = _message.value?.toString();
+  const RESET_TIMEOUT = 60 * 1000;
 
-    if (!message) return
+  function resetConsumer() {
+    pause();
+    setTimeout(() => {
+      consumer.resume([{ topic }]);
+    }, RESET_TIMEOUT);
+  }
 
-    if (topic === "MESSAGES") {
-        try {
-            const { messages, conversation } = JSON.parse(message)
-            
-            if (conversation)
-                await conversationServices.createConversation(conversation)
-            await saveUserMessage(messages)
-        } catch (error) {
-            console.log("db error--->", error);
-            pause();
-            setTimeout(() => {
-                consumer.resume([{ topic: "MESSAGES" }]);
-            }, RESET_TIMEOUT);
-        }
-    }
+  const callback = () => resetConsumer();
 
-    if (topic === "UPDATE_MESSAGES") {
-        try {
-            const { messages } = JSON.parse(message)
-            await updateUserMessages(messages)
-        } catch (error) {
-            console.log("db error--->", error);
-            pause();
-            setTimeout(() => {
-                consumer.resume([{ topic: "UPDATE_MESSAGES" }]);
-            }, RESET_TIMEOUT);
-        }
-    }
+  if (!message) return;
 
-    if (topic === "DELETE_MESSAGE_FOR_USER") {
-        try {
-            const { messages } = JSON.parse(message)
+  switch (topic) {
+    case "MESSAGES":
+      messageController._saveUserMessage(message, callback);
+      break;
+    case "UPDATE_MESSAGES":
+      messageController._updateUserMessages(message, callback);
+      break;
+    case "DELETE_MESSAGE_FOR_USER":
+      messageController._deleteMessagesForUser(message, callback);
+      break;
 
-            await deleteMessageForUser(messages)
-        } catch (error) {
-            console.log("db error--->", error);
-            pause();
-            setTimeout(() => {
-                consumer.resume([{ topic: "DELETE_MESSAGE_FOR_USER" }]);
-            }, RESET_TIMEOUT);
-        }
-    }
+    case "CLEAR_CONVERSATION_FOR_USER":
+      conversationController._clearConversation(message, callback);
+    case "CLEAR_GROUP_CONVERSATION_FOR_USER":
+      groupController._clearGroupConversation(message, callback);
+      break;
+    case "UPDATE_USER":
+      userController._updateUserFromKafka(message, callback);
+      break;
+    default:
+      break;
+  }
+};
 
-    if (topic === 'UPDATE_USER') {
-        try {
-            const res = JSON.parse(message)
-
-            let { id, updates } = res
-
-            userServices.updateUser(id, updates)
-            // await deleteMessageForUser(messages)
-        } catch (error) {
-            console.log("db error--->", error);
-            pause();
-            setTimeout(() => {
-                consumer.resume([{ topic: "UPDATE_USER" }]);
-            }, RESET_TIMEOUT);
-        }
-    }
-
-}
-
-export default kafkaMessageController
+export default kafkaMessageController;

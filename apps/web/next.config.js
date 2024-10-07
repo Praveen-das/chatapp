@@ -1,3 +1,4 @@
+
 /** @type {import('next').NextConfig} */
 module.exports = {
   transpilePackages: ["@repo/ui"],
@@ -16,7 +17,14 @@ module.exports = {
         protocol: 'https',
         hostname: 'images.unsplash.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'ik.imagekit.io',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.**.com',
+      },
     ],
   },
-  
 };

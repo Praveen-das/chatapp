@@ -1,45 +1,19 @@
-'use client'
-import { useEffect } from 'react'
-import { useStore } from '../store/global'
-import getLocalStorage from '../lib/localStorage'
-import axiosClient from '../lib/axiosClient'
-import useAuth from '../hooks/useAuth'
-import { useConversationStore } from '../store/conversationStore'
+import ChatWindow from "@components/ChatWindow/Messenger";
+import Dashboard from "@components/Dashboard/Dashboard";
+import GroupInvitation from "@components/GroupInvitation/GroupInvitation";
+import DisplayProfile from "@components/Profiles/DisplayProfile";
+import Modal from "@components/ui/Modal";
 
-export default function page() {
-  const setModal = useStore(s => s.setModal)
-  const { user } = useAuth()
-  const setSelectedConversation = useConversationStore(s => s.setSelectedConversation)
+export default function(){
+    return(
+        <div className='relative flex w-full p-4 gap-4 h-screen bg-base-300 '>
+            <Modal />
+            <GroupInvitation/>
+            {/* <Navbar /> */}
 
-  useEffect(() => {
-    (async () => {
-      const invitationId = getLocalStorage()?.getItem('invitationId')
-
-      if (invitationId) {
-        await axiosClient<IGroupConversation[]>(`/group/fetch/${invitationId}`)
-          .then(res => {
-            const conversation = res.data[0]
-
-            if (conversation) {
-              if (conversation.members.find(m => m.id === user?.id))
-                setSelectedConversation(conversation.id)
-              else {
-                setModal({ activeModal: 'joinGroupModal', state: conversation })
-                document.querySelector<HTMLDialogElement>('#action-modal')?.showModal()
-              }
-            } else {
-              setModal({ activeModal: 'joinGroupModal', state: null })
-              document.querySelector<HTMLDialogElement>('#action-modal')?.showModal()
-            }
-          })
-          .catch(res => {
-            console.log(res)
-          })
-        getLocalStorage()?.removeItem('invitationId')
-      }
-    })()
-  }, [user])
-
-  return null
-}
-
+            <Dashboard />
+            <ChatWindow />
+            <DisplayProfile />
+        </div>
+    )
+};

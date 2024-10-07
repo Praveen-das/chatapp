@@ -4,9 +4,7 @@ import { Inter } from "next/font/google";
 import AuthContext from "../context/AuthContext";
 import { SockerProvider } from "../context/SocketProvider";
 import { ThemeProvider } from "next-themes";
-import Modal from "../components/ui/Modal";
 import { ThemeManager } from "../components/ThemeManager";
-import App from "../components/App";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,20 +18,19 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }): JSX.Element {
+  
   return (
     <html lang="en">
-      <AuthContext>
-        <SockerProvider>
-          <body className={inter.className}>
+      <body className={inter.className}>
+        <AuthContext>
+          <SockerProvider>
             <ThemeProvider enableSystem>
-              {/* <Modal /> */}
               <ThemeManager />
-              <App />
               {children}
             </ThemeProvider>
-          </body>
-        </SockerProvider>
-      </AuthContext>
+          </SockerProvider>
+        </AuthContext>
+      </body>
     </html>
   );
 }

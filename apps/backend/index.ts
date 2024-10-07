@@ -4,7 +4,6 @@ import initDatabase from './src/db/mongoose'
 import { initKafkaConsumer } from './src/kafka/kafka'
 import cors from 'cors'
 import bodyParser from 'body-parser'
-import mongoose from 'mongoose'
 
 (async () => {
     const app = express()

@@ -1,91 +1,84 @@
+
 interface IReadReceipt {
-    userId: string
-    status: number
+  userId: string;
+  status: number;
 }
 
 interface IUrlMetadata {
-    title: string
-    url: string
-    host: string
-    description: string
-    image: string
-    error?: number
+  title: string;
+  url: string;
+  host: string;
+  description: string;
+  image: string;
+  error?: number;
 }
 
-type IAttachmentStatus = 'loaded' | 'uploaded' | 'error'
+type IAttachmentStatus = "loaded" | "uploaded" | "error";
 
-interface IImageAttachment {
-    id: string
-    type: 'images'
-    
-    status?: IAttachmentStatus
-    url: string
-    thumbnail: string
+interface IImageAttachment extends IImagePayload {
+  id: string;
+  type: "images";
+
+}
+
+interface IImagePayload {
+  fileId?: string;
+  name: string;
+  size: number;
+  filePath: string;
+  url: string;
+  fileType: string;
+  thumbnailUrl: string;
 }
 
 interface IUrlAttachment {
-    id: string
-    type: 'link'
-    host: string
-    url: string
-    metadata?: IUrlMetadata
+  id: string;
+  type: "link";
+  host: string;
+  url: string;
+  metadata?: IUrlMetadata;
 }
 
-type IAttachment = IImageAttachment | IUrlAttachment
+type IAttachment = IImageAttachment | IUrlAttachment;
 
-interface IMessage {
-    id: string
-    conversationId?: string,
-    message: string
-    from?: string
-    to: string
-    attachment: IAttachment | null
-    timestamp: number
-    readReceipt: IReadReceipt[]
-    deletedFor?: string[]
-    status?: IChatDeleteOptions
-    reply?: IMessageReply
-    host: 'user' | 'group'
-}
-
-interface IChatDeleteOptions {
-    deletedFor: 'all' | string
+interface IMessageDeleteFlag {
+  userId: string;
+  messageId: string;
+  deleted: boolean;
 }
 
 interface IMessageReply {
-    username: string
-    message: string
-    offsetTop: number
-    attachment?: IAttachment
+  username: string;
+  message: string;
+  offsetTop: number;
+  attachment?: IAttachment;
 }
 
-type IKeyVal = string | number | IStatus
+type IKeyVal = string | number | IStatus;
 
 interface IRes {
-    [key: string | number]: string | number
+  [key: string | number]: string | number;
 }
 
 interface BulkOperation {
-    updateOne: {
-        filter: any;
-        update: any;
-        arrayFilters?: any
-    };
+  updateOne: {
+    filter: any;
+    update: any;
+    upsert?: boolean;
+    arrayFilters?: any;
+  };
 }
 
-interface IConversation {
-    id: string,
-    host?: 'user' | 'group'
-    members: IUser[],
-    createdAt: number,
-    updatedAt: number,
+interface IGroupCreationReq {
+  id: string;
+  displayName: string;
+  members: string[];
+  createdBy:string
+  admins:string[]
 }
 
-interface IUser {
-    id: string
-    username: string
-    bio: string
-    profilePicture: string
-    createdAt: number
-    updatedAt: number
-}
+
+
+
+
+

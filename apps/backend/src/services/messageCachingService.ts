@@ -1,4 +1,5 @@
 import Redis from "ioredis";
+import { IMessage } from "../interfaces/messageInterface";
 
 class MessageCachingService {
     redisClient

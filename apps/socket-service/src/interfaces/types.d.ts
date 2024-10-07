@@ -1,130 +1,189 @@
-
-interface IStatus { deletedFor: 'all' | string }
+interface IStatus {
+  deletedFor: "all" | string;
+}
 
 interface IReadReceipt {
-    userId: string
-    status: number
+  userId: string;
+  status: number;
 }
 
-interface IRequest {
-    from: string
-    to: string
-    updates: IUpdatesCollection[]
+type IUpdatesCollection = Partial<IMessage>;
+
+type IUpdates = Map<
+  { conversationId: string; to: string },
+  IUpdatesCollection[]
+>;
+
+interface IClearConversationRequest {
+  conversationId: string;
+  userId: string;
+  deletedForUser?: boolean;
+  timeOfDeletion?:number
 }
-
-type IUpdatesCollection = Partial<IMessage>
-
-type IUpdates = Map<{ conversationId: string, to: string }, IUpdatesCollection[]>
 
 interface IDeleteRequest {
-    conversationId: string
-    to: string
-    messages: any[]
+  conversation: IGroupConversation | IConversation;
+  to: string;
+  messages: any[];
+}
+
+interface IDeleteForUserRequest {
+  conversationId: string;
+  collection: {
+    userId: string;
+    messageId: string;
+  }[];
 }
 
 interface IRule {
-    isVisible: boolean
+  isVisible: boolean;
 }
 
 interface IUserRules {
-    profilePicture: IRule
-    bio: IRule
-    lastSeen: IRule
-    ReadReceipts: IRule
+  profilePicture: IRule;
+  bio: IRule;
+  lastSeen: IRule;
+  ReadReceipts: IRule;
 }
 
 interface IUser {
-    id: string
-    username: string
-    bio: string
-    profilePicture: string
-    rules?: IUserRules
-    createdAt: number
-    updatedAt: number
-    self?: boolean
+  id: string;
+  username: string;
+  bio: string;
+  profilePicture: string;
+  rules?: IUserRules;
+  createdAt: number;
+  updatedAt: number;
+  self?: boolean;
 }
 
 interface ISession {
-    sessionId: string
-    userId: string
-    username: string
+  sessionId: string;
+  userId: string;
+  username: string;
 }
 
+interface IImagePayload {
+  fileId?: string;
+  name: string;
+  size: number;
+  filePath?: string;
+  file?: File;
+  url: string;
+  fileType: string;
+  width?: number;
+  height?: number;
+  thumbnailUrl?: string;
+}
+
+type IAttachment = IImageAttachment | IUrlAttachment;
+
+type IImageAttachment = IImagePayload & {
+  id: string;
+  type: "images";
+  sender?: string;
+  status?: "uploading"|"success";
+};
+
+interface IUrlAttachment {
+  id: string;
+  type: "link";
+  host: string;
+  url: string;
+  // metadata: IUrlMetadata | null;
+}
+
+
 interface IMessage {
-    id: string
-    conversationId: string
-    message: string
-    reply?: string
-    from: string
-    to: string
-    timestamp: number
-    readReceipt: IReadReceipt[]
-    deletedFor: string[]
+  id: string;
+  conversationId?: string;
+  from?: string | "system";
+  to: string;
+  message: string;
+
+  attachment: IAttachment | null;
+  reply?: IMessageReply;
+  readReceipt: IReadReceipt[];
+  deleted: boolean;
+  timestamp: number;
 }
 
 interface IMessageStore {
-    saveMessages: (messages: IMessage[]) => void
-    findMessagesForUser: (userId: string) => void
-    updateUserMessages: (messagesId: string[], key: string, value: string) => void
+  saveMessages: (messages: IMessage[]) => void;
+  findMessagesForUser: (userId: string) => void;
+  updateUserMessages: (
+    messagesId: string[],
+    key: string,
+    value: string
+  ) => void;
 }
 
-type IKeyVal = string | number | IStatus
+type IKeyVal = string | number | IStatus;
 
-interface IGroupMember {
-    username: string
-    userId: string
-    isAdmin: boolean
+interface IGroupMember extends IUser {
+  isAdmin: boolean;
 }
 
-interface IGroup {
-    displayName: string,
-    members: IGroupMember[],
-    id?: string
-}
+type IUsers = IUser[];
 
-type IUsers = IUser[]
-type IGroups = IGroup[]
+type IHost = "user" | "group";
 
-interface IConversation {
-    id: string
-    host?: 'user' | 'group'
-    members: IUser[]
-    createdAt: number
-    updatedAt: number
-    messages?: IMessage[]
-    recentMessage?: IMessage
-}
-
-interface IGroupCreationReq {
-    displayName: string
-    members: string[]
+interface IUserConversation {
+  id: string;
+  host: "user";
+  members: IUser[];
+  createdAt: number;
+  updatedAt: number;
+  messages?: IMessage[];
+  recentMessage?: IMessage;
+  unsaved?: boolean;
 }
 
 interface IGroupConversation {
-    id: string
-    channelId?: string
-    invitationId?: string
-    displayName?: string
-    desc?: string
-    host?: 'user' | 'group'
-    createdBy: string
-    members: IUser[] | string[]
-    admins: string[]
-    messages?: IMessage[]
-    createdAt: number
-    updatedAt: number
-    recentMessage?: IMessage
+  id: string;
+  channelId: string;
+  invitationId?: string;
+  displayName?: string;
+  desc?: string;
+  host: "group";
+  members: IGroupMember[];
+  createdBy: string;
+  admins: string[];
+  messages?: IMessage[];
+  createdAt: number;
+  updatedAt: number;
+  recentMessage?: IMessage;
+}
+
+type IConversation = IUserConversation | IGroupConversation 
+
+interface IGroupCreationReq {
+  displayName: string;
+  members: string[];
+  createdBy:string
+  admins:string[]
+}
+
+interface IBlocked {
+  id: string;
+  user: IUser;
+  blockedUser: IUser;
 }
 
 interface IUBlockReq {
-    userId: string
-    blockedId: string
-    createtAt: number
+  id: string;
+  userId: string;
+  blockedId: string;
 }
 
-type IArrayMap = [string, IMessage[]]
+type IArrayMap = [string, IMessage[]];
+
+interface IUserUpdateRequest {
+  userId: string;
+  updates: Partial<IUser>;
+}
 
 interface IUserRuleChangeRequest {
-    userId: string, rules: IUserRules
+  userId: string;
+  rules: IUserRules;
 }
-

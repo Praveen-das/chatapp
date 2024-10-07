@@ -1,416 +1,497 @@
-import Group from '../models/groupModel'
-
-interface IGroupMember {
-    username: string
-    userId: string
-    isAdmin: boolean
-}
-
-interface IGroup {
-    id: string,
-    channelId?: string,
-    displayName?: string
-    host?: 'user' | 'group'
-    members: IGroupMember[],
-    createdAt: number,
-    updatedAt: number,
-}
+import { Types } from "mongoose";
+import { IGroup } from "../interfaces/groupInterface";
+import Group from "../models/groupModel";
+import {
+  IDeleteConversationRequest,
+  IMember,
+} from "../interfaces/conversationInterface";
 
 // createGroup
 async function createGroup(data: IGroup) {
-    try {
-        const group = new Group(data)
-        await group.save()
-        const populatedGroup = await Group.aggregate([
-            {
-                $match: { id: group.id }
-            },
-            {
-                $lookup: {
-                    from: 'users',
-                    localField: 'members',
-                    foreignField: 'id',
-                    as: 'members'
-                }
-            },
-        ])
+  console.log('creation data',data);
+  
+  try {
+    const group = new Group(data);
+    await group.save();
 
-        return populatedGroup[0]
+    const populatedGroup = await Group.aggregate([
+      {
+        $match: { id: group.id },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "members.id",
+          foreignField: "id",
+          as: "members",
+        },
+      },
+    ]);
 
-    } catch (error) {
-        console.log('createGroup--->', error);
-        throw error
-    }
+    return populatedGroup[0];
+  } catch (error) {
+    console.log("createGroup--->", error);
+    throw error;
+  }
 }
-async function generateGroupInvitationId(id: string) {
-    try {
-        const invitationId = crypto.randomUUID()
-        await Group.findOneAndUpdate({ id }, { invitationId })
-        const populatedGroup = await Group.aggregate([
-            {
-                $match: { id }
-            },
-            {
-                $lookup: {
-                    from: 'users',
-                    localField: 'members',
-                    foreignField: 'id',
-                    as: 'members'
-                }
-            },
-        ])
 
-        return populatedGroup[0]
+// generate InvitationId
+async function generateGroupInvitationId(groupId: string) {
+  try {
+    const invitationId = new Types.ObjectId();
+    const id = new Types.ObjectId(groupId);
 
-    } catch (error) {
-        console.log('createGroup--->', error);
-        throw error
-    }
+    await Group.findOneAndUpdate({ id }, { invitationId });
+
+    const populatedGroup = await Group.aggregate([
+      {
+        $match: { id },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "members.id",
+          foreignField: "id",
+          as: "members",
+        },
+      },
+    ]);
+
+    return populatedGroup[0];
+  } catch (error) {
+    console.log("createGroup--->", error);
+    throw error;
+  }
 }
 
 // fetchGroupsForUser
-async function fetchGroupById(id: string) {
-    try {
-        const groups = await Group
-            .aggregate([
-                {
-                    $match: { invitationId: id }
-                },
-                // {
-                //     $lookup: {
-                //         from: "messages",
-                //         let: { id: "$id" },
-                //         pipeline: [
-                //             {
-                //                 $match: {
-                //                     $expr: { $eq: ["$conversationId", "$$id"] }
-                //                 },
-                //             },
-                //         ],
-                //         as: "messages"
-                //     }
-                // },
-                {
-                    $lookup: {
-                        from: 'users',
-                        localField: 'members',
-                        foreignField: 'id',
-                        as: 'members'
-                    }
-                },
-            ])
+async function fetchGroupById(groupId: string) {
+  const id = new Types.ObjectId(groupId);
 
-        return groups
-
-    } catch (error) {
-        console.log('fetchGroupsByUserId--->', error);
-    }
+  try {
+    const groups = await Group.aggregate([
+      {
+        $match: { invitationId: id },
+      },
+      // {
+      //     $lookup: {
+      //         from: "messages",
+      //         let: { id: "$id" },
+      //         pipeline: [
+      //             {
+      //                 $match: {
+      //                     $expr: { $eq: ["$conversationId", "$$id"] }
+      //                 },
+      //             },
+      //         ],
+      //         as: "messages"
+      //     }
+      // },
+      {
+        $lookup: {
+          from: "users",
+          localField: "members.id",
+          foreignField: "id",
+          as: "members",
+        },
+      },
+    ]);
+    
+    return groups;
+  } catch (error) {
+    console.log("fetchGroupsByUserId--->", error);
+  }
 }
 
-async function fetchGroupsByUserId(userId: string) {
-    try {
-        const groups = await Group
-            .aggregate([
-                {
+async function fetchGroupsByUserId(id: string) {
+  const userId = new Types.ObjectId(id);
+
+  try {
+    const groups = await Group.aggregate([
+      {
+        $match: {
+          "members.id": userId,
+        },
+      },
+
+      {
+        $addFields: {
+          userStatus: {
+            $filter: {
+              input: "$members",
+              as: "member",
+              cond: {
+                $eq: ["$$member.id", userId],
+              },
+            },
+          },
+        },
+      },
+      {
+        $unwind: {
+          path: "$userStatus",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      {
+        $lookup: {
+          from: "users",
+          localField: "members.id",
+          foreignField: "id",
+          as: "members",
+        },
+      },
+      {
+        $lookup: {
+          from: "messages",
+          localField: "id",
+          foreignField: "conversationId",
+          let: {
+            timeOfJoining: "$userStatus.timeOfJoining",
+            timeOfDeletion: "$userStatus.timeOfDeletion",
+          },
+          pipeline: [
+            {
+              $lookup: {
+                from: "messagedeleteflags",
+                let: {
+                  id: "$id",
+                  userId,
+                },
+                pipeline: [
+                  {
                     $match: {
-                        members: {
-                            $in: [userId]
-                        }
-                    }
-                },
-                {
-                    $lookup: {
-                        from: "messages",
-                        let: { id: "$id" },
-                        pipeline: [
-                            {
-                                $match: {
-                                    $expr: { $eq: ["$conversationId", "$$id"] }
-                                },
-                            },
-                            {
-                                $match: {
-                                    deletedFor: {
-                                        $nin: [userId]
-                                    }
-                                }
-                            },
-                            {
-                                $project: {
-                                    deletedFor: 0
-                                }
-                            }
+                      $expr: {
+                        $and: [
+                          {
+                            $eq: ["$messageId", "$$id"],
+                          },
+                          {
+                            $eq: ["$userId", "$$userId"],
+                          },
                         ],
-                        as: "messages"
-                    }
+                      },
+                    },
+                  },
+                ],
+                as: "messageDeleted",
+              },
+            },
+            {
+              $unwind: {
+                path: "$messageDeleted",
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    {
+                      $ne: ["$messageDeleted.deleted", true],
+                    },
+                    {
+                      $gt: ["$timestamp", "$$timeOfJoining"],
+                    },
+                    {
+                      $gt: ["$timestamp", "$$timeOfDeletion"],
+                    },
+                  ],
                 },
-                {
-                    $lookup: {
-                        from: 'users',
-                        localField: 'members',
-                        foreignField: 'id',
-                        as: 'members'
-                    }
-                },
-            ])
+              },
+            },
+          ],
+          as: "messages",
+        },
+      },
+      {
+        $project: {
+          userStatus: 0,
+        },
+      },
+    ]);
 
-
-        return groups
-
-    } catch (error) {
-        console.log('fetchGroupsByUserId--->', error);
-    }
+    return groups;
+  } catch (error) {
+    console.log("fetchGroupsByUserId--->", error);
+  }
 }
 
 // fetchAllGroups
 async function fetchGroups() {
-    try {
+  try {
+    const groups = await Group.aggregate([
+      {
+        $addFields: {
+          id: { $toString: "$_id" },
+        },
+      },
+      {
+        $lookup: {
+          from: "messages",
+          localField: "id",
+          foreignField: "to",
+          as: "messages",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "members.id",
+          foreignField: "id",
+          as: "members",
+        },
+      },
+    ]);
 
-        const groups = await Group
-            .aggregate([
-                {
-                    $addFields: {
-                        id: { $toString: '$_id' }
-                    }
-                },
-                {
-                    $lookup: {
-                        from: 'messages',
-                        localField: 'id',
-                        foreignField: 'to',
-                        as: 'messages'
-                    }
-                },
-                {
-                    $lookup: {
-                        from: 'users',
-                        localField: 'members',
-                        foreignField: 'id',
-                        as: 'members'
-                    }
-                },
-            ])
-
-        return groups
-
-    } catch (error) {
-        console.log('fetchGroupsByUserId--->', error);
-
-    }
+    return groups;
+  } catch (error) {
+    console.log("fetchGroupsByUserId--->", error);
+  }
 }
 
 // updateGroupMemberRole
-async function updateGroupMemberRole(groupId: string, userId: string, isAdmin: boolean) {
-    try {
+async function updateGroupMemberRole(
+  _groupId: string,
+  _userId: string,
+  isAdmin: boolean
+) {
+  const groupId = new Types.ObjectId(_groupId);
+  const userId = new Types.ObjectId(_userId);
 
-        const updatedGroup = await Group
-            .findOneAndUpdate(
-                { id: groupId, 'members.userId': userId },
-                { $set: { 'members.$.isAdmin': isAdmin } },
-                { new: true });
+  try {
+    const updatedGroup = await Group.findOneAndUpdate(
+      { id: groupId, "members.userId": userId },
+      { $set: { "members.$.isAdmin": isAdmin } },
+      { new: true }
+    );
 
-        return updatedGroup;
-
-    } catch (error) {
-        console.error('Error adding user to group:', error);
-        throw error;
-    }
+    return updatedGroup;
+  } catch (error) {
+    console.error("Error adding user to group:", error);
+    throw error;
+  }
 }
 
-async function addMemberToGroup(conversationId: string, users: string[]) {
-    try {
+async function addMembersToGroup(_conversationId: string, _members: IMember[]) {
+  const conversationId = new Types.ObjectId(_conversationId);
+  const members = _members.map((m) => ({ ...m, id: new Types.ObjectId(m.id) }));
 
-        const updatedGroup = await Group
-            .findOneAndUpdate({ id: conversationId }, {
-                $push: { members: users }
-            }, { new: true });
+  try {
+    const updatedGroup = await Group.findOneAndUpdate(
+      { id: conversationId },
+      {
+        $push: { members },
+      },
+      { new: true }
+    );
 
-        return await Group.aggregate([
-            {
-                $match: { id: conversationId }
-            },
-            {
-                $lookup: {
-                    from: 'users',
-                    localField: 'members',
-                    foreignField: 'id',
-                    as: 'members'
-                },
-            },
-            {
-                $lookup: {
-                    from: "messages",
-                    let: { id: "$id" },
-                    pipeline: [
-                        {
-                            $match: {
-                                $expr: {
-                                    $eq: ["$conversationId", "$$id"]
-                                }
-                            }
-                        },
-                        {
-                            $match: {
-                                deletedFor: {
-                                    $nin: users
-                                }
-                            }
-                        },
-                        {
-                            $project: {
-                                deletedFor: 0
-                            }
-                        }
-                    ],
-                    as: "messages"
-                }
-            },
-        ]);
-
-    } catch (error) {
-        console.error('Error adding user to group:', error);
-        throw error;
-    }
+    return await Group.aggregate([
+      {
+        $match: { id: conversationId },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "members.id",
+          foreignField: "id",
+          as: "members",
+        },
+      },
+      // {
+      //   $lookup: {
+      //     from: "messages",
+      //     let: { id: "$id" },
+      //     pipeline: [
+      //       {
+      //         $match: {
+      //           $expr: {
+      //             $eq: ["$conversationId", "$$id"],
+      //           },
+      //         },
+      //       },
+      //     ],
+      //     as: "messages",
+      //   },
+      // },
+    ]);
+  } catch (error) {
+    console.error("Error adding user to group:", error);
+    throw error;
+  }
 }
 
 // removeMemberFromGroup
-async function removeMemberFromGroup(conversationId: string, userId: string) {
-    try {
-        const updatedGroup = await Group
-            .findOneAndUpdate({ id: conversationId }, {
-                $pull: { members: userId, admins: userId }
-            }, { new: true });
+async function removeMemberFromGroup(_conversationId: string, _userId: string) {
+  const userId = new Types.ObjectId(_userId);
+  const conversationId = new Types.ObjectId(_conversationId);
 
-        return await Group.aggregate([
-            {
-                $match: { id: conversationId }
-            },
-            {
-                $lookup: {
-                    from: 'users',
-                    localField: 'members',
-                    foreignField: 'id',
-                    as: 'members'
-                }
-            },
-        ]);
+  try {
+    const updatedGroup = await Group.findOneAndUpdate(
+      { id: conversationId },
+      {
+        $pull: { members: { id: userId }, admins: userId },
+      },
+      { new: true }
+    );
 
-    } catch (error) {
-        console.error('Error adding user to group:', error);
-        throw error;
-    }
+    return await Group.aggregate([
+      {
+        $match: { id: conversationId },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "members.id",
+          foreignField: "id",
+          as: "members",
+        },
+      },
+    ]);
+  } catch (error) {
+    console.error("Error adding user to group:", error);
+    throw error;
+  }
 }
 
 // updateGroup
-async function updateGroup(conversationId: string, updates: Partial<IGroup>) {
+async function updateGroup(_conversationId: string, updates: Partial<IGroup>) {
+  const conversationId = new Types.ObjectId(_conversationId);
 
-    try {
+  try {
+    const updatedGroup = await Group.findOneAndUpdate(
+      { id: conversationId },
+      updates,
+      { new: true }
+    );
 
-        const updatedGroup = await Group
-            .findOneAndUpdate({ id: conversationId }, updates, { new: true });
-
-        return await Group.aggregate([
-            {
-                $match: { id: conversationId }
-            },
-            {
-                $lookup: {
-                    from: 'users',
-                    localField: 'members',
-                    foreignField: 'id',
-                    as: 'members'
-                }
-            },
-        ]);
-
-    } catch (error) {
-        console.error('Error adding user to group:', error);
-        throw error;
-    }
+    return await Group.aggregate([
+      {
+        $match: { id: conversationId },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "members.id",
+          foreignField: "id",
+          as: "members",
+        },
+      },
+    ]);
+  } catch (error) {
+    console.error("Error adding user to group:", error);
+    throw error;
+  }
 }
 
 // deleteGroup
-async function deleteGroup(groupId: string) {
-    try {
+async function deleteGroup(_groupId: string) {
+  const groupId = new Types.ObjectId(_groupId);
 
-        const updatedGroup = await Group.findByIdAndDelete(groupId);
+  try {
+    const updatedGroup = await Group.findByIdAndDelete(groupId);
 
-        return updatedGroup;
-
-    } catch (error) {
-        console.error('Error adding user to group:', error);
-        throw error;
-    }
+    return updatedGroup;
+  } catch (error) {
+    console.error("Error adding user to group:", error);
+    throw error;
+  }
 }
 
 // make user as admin
-async function makeUserAdmin(conversationId: string, userId: string) {
-    try {
+async function makeUserAdmin(_conversationId: string, _userId: string) {
+  const conversationId = new Types.ObjectId(_conversationId);
+  const userId = new Types.ObjectId(_userId);
 
-        const updatedGroup = await Group
-            .findOneAndUpdate({ id: conversationId }, {
-                $push: { admins: userId }
-            }, { new: true });
+  try {
+    const updatedGroup = await Group.findOneAndUpdate(
+      { id: conversationId },
+      {
+        $push: { admins: userId },
+      },
+      { new: true }
+    );
 
-        return await Group.aggregate([
-            {
-                $match: { id: conversationId }
-            },
-            {
-                $lookup: {
-                    from: 'users',
-                    localField: 'members',
-                    foreignField: 'id',
-                    as: 'members'
-                }
-            },
-        ]);
-
-    } catch (error) {
-        console.error('Error adding user to group:', error);
-        throw error;
-    }
+    return await Group.aggregate([
+      {
+        $match: { id: conversationId },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "members.id",
+          foreignField: "id",
+          as: "members",
+        },
+      },
+    ]);
+  } catch (error) {
+    console.error("Error adding user to group:", error);
+    throw error;
+  }
 }
 
 // remove user from admin
-async function removeUserAdmin(conversationId: string, userId: string) {
-    try {
-        const updatedGroup = await Group
-            .findOneAndUpdate({ id: conversationId }, {
-                $pull: { admins: userId }
-            }, { new: true });
+async function removeUserAdmin(_conversationId: string, _userId: string) {
+  const conversationId = new Types.ObjectId(_conversationId);
+  const userId = new Types.ObjectId(_userId);
 
-        return await Group.aggregate([
-            {
-                $match: { id: conversationId }
-            },
-            {
-                $lookup: {
-                    from: 'users',
-                    localField: 'members',
-                    foreignField: 'id',
-                    as: 'members'
-                }
-            },
-        ]);
+  try {
+    const updatedGroup = await Group.findOneAndUpdate(
+      { id: conversationId },
+      {
+        $pull: { admins: userId },
+      },
+      { new: true }
+    );
 
-    } catch (error) {
-        console.error('Error adding user to group:', error);
-        throw error;
-    }
+    return await Group.aggregate([
+      {
+        $match: { id: conversationId },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "members.id",
+          foreignField: "id",
+          as: "members",
+        },
+      },
+    ]);
+  } catch (error) {
+    console.error("Error adding user to group:", error);
+    throw error;
+  }
+}
+
+async function clearGroupConversation(req: IDeleteConversationRequest) {
+  const res = await Group.updateOne(
+    { id: req.conversationId, "members.id": req.userId },
+    {
+      $set: {
+        "members.$.deletedForUser": req.deletedForUser,
+        "members.$.timeOfDeletion": req.timeOfDeletion,
+      },
+    },
+    { upsert: true }
+  );
+
+  return res;
 }
 
 export {
-    createGroup,
-    generateGroupInvitationId,
-    fetchGroups,
-    fetchGroupsByUserId,
-    addMemberToGroup,
-    removeMemberFromGroup,
-    updateGroupMemberRole,
-    updateGroup,
-    deleteGroup,
-    fetchGroupById,
-    makeUserAdmin,
-    removeUserAdmin,
-}
+  createGroup,
+  generateGroupInvitationId,
+  fetchGroups,
+  fetchGroupsByUserId,
+  addMembersToGroup,
+  removeMemberFromGroup,
+  updateGroupMemberRole,
+  updateGroup,
+  deleteGroup,
+  fetchGroupById,
+  makeUserAdmin,
+  removeUserAdmin,
+  clearGroupConversation,
+};

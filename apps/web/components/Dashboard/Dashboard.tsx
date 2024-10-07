@@ -15,9 +15,9 @@ import { useStore } from "../../store/global";
 
 export default function Dashboard(): JSX.Element {
   const dashboardTab = useStore(s => s.dashboardTab)
-  
+
   return (
-    <div className="relative w-1/3 h-full overflow-hidden">
+    <div className="relative w-full max-w-[calc((100%-(1rem*2))/3)] h-full overflow-hidden">
       {/* conversations */}
       <Tabs activeTab={dashboardTab} initialTab="dashboard">
         <Tab component="dashboard">

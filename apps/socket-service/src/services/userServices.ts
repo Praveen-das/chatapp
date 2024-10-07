@@ -9,6 +9,15 @@ export async function findUserGroups(userId: string): Promise<IGroupConversation
         });
 }
 
+export async function getBlockedList(userId: string): Promise<IGroupConversation[]> {
+    return await axiosClient(`/user/blockedList/${userId}`)
+        .then(res => res.data)
+        .catch(err => {
+            console.log("getBlockedList------------>", err.errors)
+            return []
+        });
+}
+
 export async function findUserConversations(userId: string): Promise<IConversation[]> {
     return await axiosClient(`/conversation/${userId}`)
         .then(res => res.data)

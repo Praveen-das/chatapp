@@ -1,26 +1,30 @@
 import mongoose, { Schema, model } from "mongoose";
-import { userSchema } from "./UserModal";
+import { userSchema } from "./ConversationModel";
 
-const schemaOptions = { toJSON: { virtuals: true } }
+const schemaOptions = { toJSON: { virtuals: true } };
 
-const groupSchema = new Schema({
-    id: String,
+const groupSchema = new Schema(
+  {
+    id: Schema.Types.ObjectId,
     host: String,
-    members: [String],
+    members: [userSchema],
     desc: {
-        type: String,
-        default: ''
+      type: String,
+      default: "",
     },
-    createdBy: String,
+    createdBy: Schema.Types.ObjectId,
     createdAt: Number,
     updatedAt: Number,
-    invitationId: String,
+    invitationId: Schema.Types.ObjectId,
 
     channelId: String,
     displayName: String,
-    admins: [String],
-}, schemaOptions)
+    profilePicture: String,
+    admins: [Schema.Types.ObjectId],
+  },
+  schemaOptions
+);
 
-const Groups = model('groups', groupSchema)
+const Groups = model("groups", groupSchema);
 
-export default Groups
+export default Groups;

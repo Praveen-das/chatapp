@@ -1,6 +1,4 @@
 "use client";
-import { Popover } from "@headlessui/react";
-import moment from "moment";
 import useSocket from "../../../../context/SocketProvider";
 import useAuth from "../../../../hooks/useAuth";
 import useSelectedConversation from "../../../../hooks/useSelectedConversation";
@@ -8,131 +6,175 @@ import { useConversationStore } from "../../../../store/conversationStore";
 import { useStore } from "../../../../store/global";
 import { useMessageStore } from "../../../../store/messageStore";
 import { Avatar } from "../../../Dashboard/Components/Avatar";
-import { getRelativeTime } from "../../../../helpers/helpers";
+import { getRelativeTime } from "@lib/utils";
+import useSelectedUser from "../../../../hooks/useSelectedUser";
+import ObjectId from "bson-objectid";
+import Menu from "@components/ui/Menu";
+import { EllipsisVerticalIcon } from "@heroicons/react/24/solid";
 
 export default function ChatHeader({ showMenu = true }) {
-  const { user: _user } = useAuth()
-  const users = useStore(s => s.users)
-  const setModal = useStore(s => s.setModal)
-  const { sendMessageDeleteRequest, blockedUsers, blockedByUsers, sendUserBlockRequest, sendUserUnBlockRequest } = useSocket();
+  const { user: _user } = useAuth();
+  const users = useStore((s) => s.users);
+  const setModal = useStore((s) => s.setModal);
+  const {
+    sendRequestToClearUserConversation,
+    sendRequestToClearGroupConversation,
+    blockedUsers,
+    // blockedByUsers,
+    sendUserBlockRequest,
+    sendUserUnBlockRequest,
+  } = useSocket();
 
-  const selectedChats = useMessageStore(s => s.selectedChats)
-  const setSelectedChats = useMessageStore(s => s.setSelectedChats)
-  const clearChat = useMessageStore(s => s.clearChat)
-  const clearUserMessageHistory = useMessageStore(s => s.clearUserMessageHistory)
+  const selectedChats = useMessageStore((s) => s.selectedChats);
+  const setSelectedChats = useMessageStore((s) => s.setSelectedChats);
+  const clearChat = useMessageStore((s) => s.clearChat);
 
-  const setSelectedConversation = useConversationStore(s => s.setSelectedConversation);
+  const setSelectedConversation = useConversationStore(
+    (s) => s.setSelectedConversation
+  );
   const selectedConversation = useSelectedConversation();
-  const selectedUser = useStore(s => s.selectedUser);
-  const setSelectedUser = useStore(s => s.setSelectedUser);
-  const toggleProfile = useStore(s => s.toggleProfile)
+  const selectedUser = useSelectedUser();
+  const setSelectedUser = useStore((s) => s.setSelectedUser);
+  const toggleProfile = useStore((s) => s.toggleProfile);
+  const profile = useStore((s) => s.profile);
 
-  const conversationId = selectedConversation?.id!
-  const receiver = users.find(s => !s.self && selectedConversation?.members.find(m => m.id === s.id)) || selectedUser
-  const isBlockedUser = blockedUsers.some(u => u.blockedId === receiver?.id!)
-  const isBlockedByUser = blockedByUsers.some(u => u?.userId === receiver?.id!)
+  const conversationId = selectedConversation?.id!;
+  const receiver =
+    users.find(
+      (s) => !s.self && selectedConversation?.members.find((m) => m.id === s.id)
+    ) || selectedUser;
+
+  const blockedUser = blockedUsers.find(
+    ({ blockedUser }) => blockedUser.id === receiver?.id!
+  );
+  const blockedByUser = blockedUsers.find(
+    ({ user }) => user.id === receiver?.id!
+  );
 
   const handleBlockingUser = () => {
     const req = {
-      userId: _user?.id!,
-      blockedId: receiver?.id!,
-      createtAt: Date.now()
-    }
+      id: new ObjectId().toHexString(),
+      user: _user!,
+      blockedUser: receiver!,
+    };
 
-    if (isBlockedUser)
-      sendUserUnBlockRequest(req)
-    else sendUserBlockRequest(req)
-  }
+    sendUserBlockRequest(req);
+  };
+
+  const handleUnblockingUser = () => {
+    if (blockedUser) sendUserUnBlockRequest(blockedUser);
+  };
 
   const handleExitingGroup = () => {
-    setModal({ activeModal: 'groupExitModal' });
-    (document?.getElementById('action-modal') as HTMLDialogElement)?.showModal()
-  }
+    setModal({ activeModal: "groupExitModal" });
+    (
+      document?.getElementById("action-modal") as HTMLDialogElement
+    )?.showModal();
+  };
 
   const handleClearChat = () => {
-    const history = useMessageStore.getState().messageHistory.get(conversationId) || []
-    const _messages = useMessageStore.getState().messageStore.get(conversationId) || []
-    const messages = [...history, ..._messages].map(({ id }) => ({ id, deletedFor: _user?.id! }))
+    clearChat(conversationId);
 
-    sendMessageDeleteRequest({ conversationId, messages })
-    clearChat(conversationId)
-    clearUserMessageHistory(conversationId)
-  }
+    let req = {
+      conversationId,
+      userId: _user?.id!,
+      timeOfDeletion: Date.now(),
+    };
+
+    if (selectedConversation?.host === "group")
+      return sendRequestToClearGroupConversation(req);
+    sendRequestToClearUserConversation(req);
+  };
 
   const options = [
-    !!selectedChats.length &&
-    { label: 'Clear Selection', handler: () => setSelectedChats(null) },
-    {
-      label: 'Close chat', handler: () => {
-        toggleProfile(false)
-        setSelectedConversation(null)
-        setSelectedUser(null)
-      }
+    !!selectedChats.length && {
+      label: "Clear Selection",
+      handler: () => setSelectedChats(null),
     },
-    { label: 'Clear chat', handler: handleClearChat },
-    selectedConversation?.host === 'group' ? { label: 'Exit group', handler: handleExitingGroup } :
-      receiver && { label: isBlockedUser ? 'Unblock' : 'Block', handler: handleBlockingUser },
-  ]
+    {
+      label: "Close chat",
+      handler: () => {
+        toggleProfile(false);
+        setSelectedConversation(null);
+        setSelectedUser(null);
+      },
+    },
+    { label: "Clear chat", handler: handleClearChat },
+    selectedConversation?.host === "group"
+      ? { label: "Exit group", handler: handleExitingGroup }
+      : receiver && {
+          label: blockedUser ? "Unblock" : "Block",
+          handler: blockedUser ? handleUnblockingUser : handleBlockingUser,
+        },
+  ];
 
   function openProfile() {
-    toggleProfile(true)
+    toggleProfile(!profile);
   }
 
-  const isOnline = receiver?.status === 'online'
-  const isGroup = selectedConversation?.host === 'group'
-  const isHidden = !receiver?.rules?.profilePicture.isVisible
+  const isOnline = receiver?.status === "online";
+  const isGroup = selectedConversation?.host === "group";
+  const isHidden = !receiver?.rules?.profilePicture.isVisible;
 
-  const displayName = isGroup ? (selectedConversation as IGroupConversation)?.displayName : receiver?.username
+  const displayName = isGroup
+    ? selectedConversation?.displayName
+    : receiver?.username;
+  const lastSeen = getRelativeTime(receiver?.lastSeen!);
 
   return (
     <>
-      <div onClick={openProfile} className="min-h-16 flex items-center  gap-4 px-4">
-        <div className='w-full flex items-center gap-4 cursor-pointer'>
-          <Avatar profileHidden={!isGroup && isHidden} size='45px' onlineIndication={false} />
-          <div className="grid gap-1">
-            <label htmlFor="username">{displayName}</label>
-            {
-              !isGroup ?
-                receiver &&
-                (isOnline || receiver.rules?.lastSeen.isVisible) &&
-                !isBlockedByUser &&
-                !isBlockedUser &&
-                <label className="text-xs" htmlFor="lastseen">
-                  {isOnline ? 'online' : getRelativeTime(receiver.lastSeen!)}
-                </label> :
-                <label className="text-xs pointer-events-none whitespace-nowrap truncate" htmlFor="members">
-                  {selectedConversation.members.map((m, i, a) => i !== a.length - 1 ? m.username + ', ' : m.username)}
-                </label>
+      <div className="text-xs min-h-16 flex items-center gap-4 px-4 ">
+        <div
+          onClick={openProfile}
+          className="w-full flex items-center gap-4 cursor-pointer"
+        >
+          <Avatar
+            url={
+              selectedConversation?.host === "group"
+                ? selectedConversation.profilePicture
+                : receiver?.profilePicture
             }
+            profileHidden={!isGroup && isHidden}
+            size="45px"
+            onlineIndication={false}
+          />
+          <div className="grid gap-1">
+            <label className="text-sm" htmlFor="username">
+              {displayName}
+            </label>
+            {!isGroup ? (
+              receiver &&
+              (isOnline || receiver.rules?.lastSeen.isVisible) &&
+              !blockedByUser &&
+              !blockedUser && (
+                <label htmlFor="lastseen">
+                  {isOnline ? "online" : lastSeen}
+                </label>
+              )
+            ) : (
+              <label
+                className="pointer-events-none whitespace-nowrap truncate"
+                htmlFor="members"
+              >
+                {selectedConversation.members.map((m, i, a) =>
+                  i !== a.length - 1 ? m.username + ", " : m.username
+                )}
+              </label>
+            )}
           </div>
         </div>
-        {
-          showMenu &&
-          <Popover as="div" className="relative inline-block text-left ml-auto">
-            <Popover.Button className="btn btn-sm btn-circle btn-ghost outline-none">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" />
-              </svg>
-            </Popover.Button>
-            <Popover.Panel className="grid absolute mt-2 right-2 z-10 whitespace-nowrap rounded-md p-1 bg-base-100 shadow-lg ring-1 ring-black ring-opacity-5 overflow-hidden">
-              {
-                options.map((option, i) => (
-                  option &&
-                  <Popover.Button
-                    key={i}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      option.handler()
-                    }}
-                    className='btn btn-md h-10 min-h-10 btn-ghost justify-start'
-                  >
-                    {option.label}
-                  </Popover.Button>
-                ))
-              }
-            </Popover.Panel>
-          </Popover>
-        }
+
+        {showMenu && (
+          <Menu
+            buttonIcon={
+              <span className="btn btn-circle btn-ghost btn-sm">
+                <EllipsisVerticalIcon className="size-6" />
+              </span>
+            }
+            menuItems={options}
+            placement="bottom-end"
+          />
+        )}
       </div>
     </>
   );
