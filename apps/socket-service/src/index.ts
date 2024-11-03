@@ -3,6 +3,8 @@ import http from 'http'
 import redisClient from './redis/client'
 import { setupWorker } from '@socket.io/sticky';
 
+const PORT = process.env.PORT || 3002;
+
 (async () => {
     const httpServer = http.createServer();
 

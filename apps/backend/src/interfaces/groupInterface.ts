@@ -6,7 +6,7 @@ export interface IGroup {
   channelId: Types.ObjectId;
   invitationId?: Types.ObjectId;
   displayName: string;
-  createdBy: string;
+  createdBy: Types.ObjectId;
   admins: Types.ObjectId[];
   host: "group";
   members: IMember[];

@@ -9,7 +9,7 @@ import GeneralSettings from "./GeneralSettings";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import motionconfig from "../../../config/config";
-import { Avatar } from "../Components/Avatar";
+import Avatar from "../Components/Avatar";
 import TextArea from "../../ui/TextArea";
 import { useTabs } from "./Tabs";
 import useSocket from "../../../context/SocketProvider";
@@ -117,7 +117,7 @@ const Settings = () => {
 
   return (
     <>
-      <div className="flex relative flex-col gap-10 text-sm w-full py-4 overflow-y-scroll z-50 no-scrollbar">
+      <div className="flex relative flex-col max-sm:gap-8 gap-10 text-sm w-full h-full py-4 overflow-y-scroll z-50 no-scrollbar">
         <AnimatePresence>
           {open && (
             <div className="relative -mt-10 z-50">
@@ -156,7 +156,7 @@ const Settings = () => {
         </div>
 
         {/* username */}
-        <div className="grid relative px-4">
+        <div className="grid relative max-sm:px-0 px-4">
           <label className="text-sm text-primary" htmlFor="username">
             Username
           </label>
@@ -243,7 +243,7 @@ const Settings = () => {
         </div>
 
         {/* bio */}
-        <div className="grid relative px-4">
+        <div className="grid relative max-sm:px-0 px-4">
           <label className="text-sm text-primary" htmlFor="About">
             About
           </label>
@@ -302,7 +302,7 @@ const Settings = () => {
               </>
             ) : (
               <>
-                <p>{user?.bio} </p>
+                <p className="whitespace-pre-wrap">{user?.bio} </p>
                 <div
                   onClick={handleEditBio}
                   tabIndex={0}
@@ -333,7 +333,7 @@ const Settings = () => {
           <div
             onClick={() => handleMenu("generalSettings")}
             tabIndex={0}
-            className="hover:bg-[--hover-secondary] w-full flex gap-4 items-center duration-200 px-4 py-4 cursor-pointer"
+            className="hover:bg-[--hover-secondary] w-full flex gap-4 items-center duration-200 max-sm:px-0 px-4 py-4 cursor-pointer"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -378,7 +378,7 @@ const Settings = () => {
           <div
             onClick={() => handleMenu("blockedContacts")}
             tabIndex={0}
-            className="hover:bg-[--hover-secondary] w-full flex gap-4 items-center duration-200 px-4 py-4 cursor-pointer"
+            className="hover:bg-[--hover-secondary] w-full flex gap-4 items-center duration-200 max-sm:px-0 px-4 py-4 cursor-pointer"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -415,7 +415,7 @@ const Settings = () => {
         </div>
 
         {/* Logout */}
-        <div className="flex flex-col gap-6 w-full px-4">
+        <div className="flex flex-col gap-6 w-full max-sm:px-0 px-4 mt-auto">
           <div className="btn btn-primary text-white flex gap-2 items-center">
             <svg
               xmlns="http://www.w3.org/2000/svg"

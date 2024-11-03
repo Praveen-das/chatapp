@@ -1,7 +1,7 @@
 import { IUser } from "../../../../interfaces/userInterface";
 
 export function User({ person, isSelected = false, selectable = true }: { person: IUser; isSelected?: boolean, selectable?: boolean }): React.JSX.Element {
-    return <div className='px-6 flex items-center hover:bg-[--hover-secondary] gap-4 w-full h-16 py-2 cursor-pointer'>
+    return <div className='max-sm:px-4 px-6 flex items-center hover:bg-[--hover-secondary] gap-4 w-full h-16 py-2 cursor-pointer'>
         <div className="h-full aspect-square rounded-full bg-base-100"></div>
         <div className="h-full w-full flex justify-between items-center">
             <label className="text-sm pointer-events-none" htmlFor="">{person.self ? 'yourself' + person.id : person.id}</label>

@@ -5,14 +5,16 @@ import useSelectedConversation from "../../../../hooks/useSelectedConversation";
 import { useConversationStore } from "../../../../store/conversationStore";
 import { useStore } from "../../../../store/global";
 import { useMessageStore } from "../../../../store/messageStore";
-import { Avatar } from "../../../Dashboard/Components/Avatar";
+import Avatar from "../../../Dashboard/Components/Avatar";
 import { getRelativeTime } from "@lib/utils";
 import useSelectedUser from "../../../../hooks/useSelectedUser";
 import ObjectId from "bson-objectid";
 import Menu from "@components/ui/Menu";
-import { EllipsisVerticalIcon } from "@heroicons/react/24/solid";
+import { ArrowLeftIcon, EllipsisVerticalIcon } from "@heroicons/react/24/solid";
+import { useAttachments } from "store/attachments";
+import { memo, MouseEvent } from "react";
 
-export default function ChatHeader({ showMenu = true }) {
+function ChatHeader({ showMenu = true }) {
   const { user: _user } = useAuth();
   const users = useStore((s) => s.users);
   const setModal = useStore((s) => s.setModal);
@@ -25,6 +27,8 @@ export default function ChatHeader({ showMenu = true }) {
     sendUserUnBlockRequest,
   } = useSocket();
 
+  const images = useAttachments((s) => s.images);
+  const clearImages = useAttachments((s) => s.clearImages);
   const selectedChats = useMessageStore((s) => s.selectedChats);
   const setSelectedChats = useMessageStore((s) => s.setSelectedChats);
   const clearChat = useMessageStore((s) => s.clearChat);
@@ -37,6 +41,8 @@ export default function ChatHeader({ showMenu = true }) {
   const setSelectedUser = useStore((s) => s.setSelectedUser);
   const toggleProfile = useStore((s) => s.toggleProfile);
   const profile = useStore((s) => s.profile);
+  const setDeviceTab = useStore((s) => s.setDeviceTab);
+  const setDashboardTab = useStore(s => s.setDashboardTab)
 
   const conversationId = selectedConversation?.id!;
   const receiver =
@@ -109,7 +115,14 @@ export default function ChatHeader({ showMenu = true }) {
   ];
 
   function openProfile() {
+    // setDeviceTab('userProfile')
     toggleProfile(!profile);
+  }
+
+  function handleClose(e: MouseEvent<HTMLSpanElement>) {
+    e.stopPropagation();
+    if (!!images.length) clearImages();
+    else setDeviceTab("");
   }
 
   const isOnline = receiver?.status === "online";
@@ -123,11 +136,17 @@ export default function ChatHeader({ showMenu = true }) {
 
   return (
     <>
-      <div className="text-xs min-h-16 flex items-center gap-4 px-4 ">
+      <div className="text-xs min-h-16 flex items-center max-sm:px-2 px-4 ">
         <div
           onClick={openProfile}
-          className="w-full flex items-center gap-4 cursor-pointer"
+          className="max-sm:gap-2 sm:gap-4 w-full flex items-center gap-4 cursor-pointer"
         >
+          <span
+            onClick={handleClose}
+            className="sm:hidden btn btn-circle btn-ghost btn-sm"
+          >
+            <ArrowLeftIcon className="size-5" />
+          </span>
           <Avatar
             url={
               selectedConversation?.host === "group"
@@ -179,3 +198,5 @@ export default function ChatHeader({ showMenu = true }) {
     </>
   );
 }
+
+export default memo(ChatHeader)

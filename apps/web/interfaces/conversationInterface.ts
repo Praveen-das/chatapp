@@ -1,36 +1,34 @@
 import { IMessage } from "./messageInterface";
 import { IUser } from "./userInterface";
 
-export interface IUserConversation {
+export interface IConversationBase {
   id: string;
   displayName?: string;
   profilePicture?: string;
-  host: "user";
-  members: IUser[];
   createdAt: number;
   updatedAt: number;
   messages?: IMessage[];
+
   recentMessage?: IMessage;
   unsaved?: boolean;
-  deletedForUser?: boolean;
+  deletedUsers?: string[] | null;
+  isArchived?: boolean;
+  archived?: string[];
 }
 
-export interface IGroupConversation {
-  id: string;
+export interface IUserConversation extends IConversationBase {
+  host: "user";
+  members: IUser[];
+}
+
+export interface IGroupConversation extends IConversationBase {
   channelId?: string;
   invitationId?: string;
-  displayName?: string;
-  profilePicture?: string;
   desc?: string;
   host: "group";
   members: IGroupMember[];
-  createdBy: string;
   admins: string[];
-  messages?: IMessage[];
-  createdAt: number;
-  updatedAt: number;
-  recentMessage?: IMessage;
-  unsaved?: boolean;
+  createdBy?:string
 }
 
 export type IConversation = IUserConversation | IGroupConversation;
@@ -42,10 +40,18 @@ export interface IDeleteRequest {
 
 export interface IGroupMember extends IUser {
   isAdmin: boolean;
+  timeOfJoining: number;
+}
+
+export interface IClearConversationRequest {
+  conversationId: string;
+  userId: string;
+  deletedForUser?: boolean;
+  timeOfDeletion: number;
 }
 
 export interface IDeleteConversationRequest {
-  conversationId: string;
+  conversation: IConversation;
   userId: string;
   deletedForUser?: boolean;
   timeOfDeletion: number;

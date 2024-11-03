@@ -34,8 +34,8 @@ async function getUserById(userId: Types.ObjectId) {
 }
 
 async function updateUser(_userId: string, updates: Partial<IUser>) {
-  const userId = new Types.ObjectId(_userId);
   try {
+    const userId = new Types.ObjectId(_userId);
     const result = await User.findOneAndUpdate(
       { id: userId },
       { ...updates },

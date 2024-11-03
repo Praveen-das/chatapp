@@ -1,22 +1,16 @@
 import { Schema, model } from "mongoose";
 import { IUserConversation } from "../interfaces/conversationInterface";
+import { memberSchema } from "./schemas/memberSchema";
 
 const schemaOptions = { toJSON: { virtuals: true } };
 
-export const userSchema = new Schema({
-  id: Schema.Types.ObjectId,
-  timeOfJoining: Number,
-  timeOfDeletion: Number,
-  deletedForUser: Boolean,
-});
-
-userSchema.index({id:1})
+memberSchema.index({id:1})
 
 const conversationSchema = new Schema<IUserConversation>(
   {
     id: Schema.Types.ObjectId,
     host: String,
-    members: [userSchema],
+    members: [memberSchema],
     createdAt: Number,
     updatedAt: Number,
   },
@@ -27,4 +21,4 @@ conversationSchema.index({id:1})
 
 const Conversations = model("conversation", conversationSchema);
 
-export { Conversations };
+export default Conversations;

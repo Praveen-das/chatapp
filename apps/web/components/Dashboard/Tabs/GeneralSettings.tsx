@@ -3,7 +3,6 @@
 import { useTheme } from "next-themes";
 import React, {
   ChangeEvent,
-  ChangeEventHandler,
   useEffect,
   useState,
 } from "react";
@@ -82,8 +81,8 @@ function GeneralSettings() {
   const checkBoxStyle = 'checkbox checkbox-primary [--chkfg:oklch(var(--b3))] checkbox-sm'
 
   return (
-    <div className="flex flex-col gap-10 text-sm w-full overflow-y-scroll no-scrollbar">
-      <div className="grid gap-4 px-4">
+    <div className="flex flex-col max-sm:gap-8 gap-10 text-sm w-full overflow-y-scroll no-scrollbar pb-4">
+      <div className="grid gap-4 max-sm:px-0 px-4">
         <label className="text-sm text-primary" htmlFor="Theme">
           Manage Profile Visibility
         </label>
@@ -136,7 +135,7 @@ function GeneralSettings() {
           </label>
         </div>
       </div>
-      <div className="grid gap-4 px-4">
+      <div className="grid gap-4 max-sm:px-0 px-4">
         <label className="text-sm text-primary" htmlFor="Theme">
           Notifications
         </label>
@@ -165,7 +164,7 @@ function GeneralSettings() {
           </label>
         </div>
       </div>
-      <div className="grid gap-4 px-4">
+      <div className="grid gap-4 max-sm:px-0 px-4">
         <label className="text-sm text-primary" htmlFor="Theme">
           Theme
         </label>

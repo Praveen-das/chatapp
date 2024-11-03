@@ -34,8 +34,3 @@ interface IUserNotificationPref {
   groupNotification: boolean;
 }
 
-
-type IModal<T = any> = {
-  activeModal: string;
-  state?: T;
-};

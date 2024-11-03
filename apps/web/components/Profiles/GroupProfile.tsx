@@ -16,12 +16,14 @@ import { IUser } from "../../interfaces/userInterface";
 import { useConversationStore } from "../../store/conversationStore";
 import { useStore } from "../../store/global";
 import EmojiPicker from "../ChatWindow/components/ChatInput/EmojiPicker";
-import { Avatar } from "../Dashboard/Components/Avatar";
+import Avatar from "../Dashboard/Components/Avatar";
 import AdminTag from "../ui/AdminTag";
 import TextArea from "../ui/TextArea";
 import MediaSelection from "./MediaSelection";
 import Menu from "@components/ui/Menu";
 import { uploadImage } from "@lib/imageKit";
+import modals from "@components/ui/modals";
+import { IModalKey } from "@interfaces/modalInterface";
 
 function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
   const { sendGroupInfoUpdateRequest } = useSocket();
@@ -90,7 +92,7 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
     setOpen((s) => (s !== value ? value : ""));
   }
 
-  function toggleModal(activeModal: string) {
+  function toggleModal(activeModal: IModalKey) {
     setModal({ activeModal });
     (
       document?.getElementById("action-modal") as HTMLDialogElement
@@ -166,7 +168,7 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
       </AnimatePresence>
 
       {/* Header */}
-      <div className="min-h-16 w-full flex items-center gap-4 px-4">
+      <div className="min-h-16 w-full flex items-center max-sm:gap-2 gap-4 max-sm:px-2 px-4">
         <button
           onClick={closeProfile}
           className={`btn btn-sm btn-ghost btn-circle`}
@@ -190,7 +192,7 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
       </div>
 
       {/* Profile details */}
-      <div className="flex gap-6 text-sm flex-col overflow-y-scroll py-6 no-scrollbar">
+      <div className="flex h-full gap-6 text-sm flex-col overflow-y-scroll max-sm:py-3 py-6 no-scrollbar">
         {/* profile */}
         <div className="w-full flex flex-col gap-2 items-center ">
           <Avatar
@@ -204,7 +206,7 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
             onChange={handleUpdatingProfilePicture}
             onPreview={openViewProfilePictureModal}
           />
-          <div className="w-full px-8">
+          <div className="w-full max-sm:px-4 px-8">
             <label
               className={`${editGroupName ? "border-b-primary pl-0  pr-14" : "border-b-transparent"} bg-transparent border-b-2 rounded-none textarea relative flex justify-center items-center w-full gap-2`}
             >
@@ -292,7 +294,7 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
 
         <div className="w-full min-h-[2px] bg-black/20" />
 
-        <div className="grid relative px-8">
+        <div className="grid relative max-sm:px-4 px-8">
           {conversation.desc && (
             <label className="text-sm text-primary" htmlFor="About">
               Description
@@ -392,7 +394,7 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
 
         {/* conversation members */}
         <div className="w-full flex flex-col">
-          <div className="flex gap-4 px-8">
+          <div className="flex gap-4 max-sm:px-4 px-8">
             <label className="text-sm text-primary mb-2 " htmlFor="">
               Group members
             </label>
@@ -402,7 +404,7 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
             <div
               tabIndex={0}
               onClick={() => toggleModal("addGroupMembersModal")}
-              className="hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 px-8 py-3 cursor-pointer"
+              className="hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-8 py-3 cursor-pointer"
             >
               <div className="flex items-center justify-center w-[40px] h-[40px] bg-gray-500 rounded-full">
                 <svg
@@ -425,7 +427,7 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
             <div
               onClick={() => setProfileTab("inviteLink")}
               tabIndex={0}
-              className="hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 px-8 py-3 cursor-pointer"
+              className="hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-8 py-3 cursor-pointer"
             >
               <div className="flex items-center justify-center w-[40px] h-[40px] bg-gray-500 rounded-full">
                 <svg
@@ -459,7 +461,7 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
         </div>
 
         {/* Actions */}
-        <div className="flex flex-col gap-2 px-8">
+        <div className="flex flex-col gap-2 max-sm:px-4 px-8 mt-auto">
           <div
             onClick={handleExitingGroup}
             tabIndex={0}
@@ -517,7 +519,7 @@ function Member({ member }: { member: IGroupMember }) {
   return (
     <div
       key={member.id}
-      className="group hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 px-8 py-3 cursor-pointer"
+      className="group hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-8 max-sm:py-2 py-3 cursor-pointer"
       onClick={handleSelectedUser}
     >
       <Avatar

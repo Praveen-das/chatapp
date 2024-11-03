@@ -3,7 +3,7 @@ import kafkaMessageService from "../controller/kafkaMessageController";
 
 const kafka = new Kafka({
   clientId: "chat-application",
-  brokers: ["192.168.1.4:9092"],
+  brokers: ["192.168.1.7:9092"],
   requestTimeout: 1000 * 60 * 5,
   connectionTimeout: 3000,
   retry: {

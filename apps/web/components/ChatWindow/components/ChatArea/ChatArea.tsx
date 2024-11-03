@@ -43,6 +43,7 @@ function ChatArea() {
   const getMessages = useMessageStore((s) => s.getUserMessages);
   const replyRequest = useMessageStore((s) => s.replyRequest);
   const setReplyRequest = useMessageStore((s) => s.setReplyRequest);
+  const selectedChats = useMessageStore((s) => s.selectedChats);
 
   const [newMessageBadge, setNewMessageBadge] = useState(0);
 
@@ -87,6 +88,7 @@ function ChatArea() {
       haveNewMessages.current = false;
       initialValue.current = 0;
       isFocused.current = true;
+      setReplyRequest(null)
       // socket.selectedConversation = null
     };
   }, [selectedConversation, user]);
@@ -198,10 +200,10 @@ function ChatArea() {
     (index: number) => listRef.current?.scrollTo(index),
     []
   );
-
+  
   return (
     <>
-      <div className="flex flex-col relative h-full overflow-hidden bg-gradient-to-t from-base-200 shadow-lg rounded-2xl">
+      <div className="flex flex-col relative h-full overflow-hidden bg-gradient-to-t from-base-200 shadow-lg sm:rounded-2xl">
         <div className="flex flex-col w-full h-full overflow-y-scroll no-scrollbar">
           <VList
             reverse
@@ -219,13 +221,18 @@ function ChatArea() {
                 <Chat
                   index={index}
                   key={chat.id}
-                  onReply={handleReply}
                   self={self}
                   chat={chat}
-                  onClickReply={handleScrollToIndex}
+                  reply={chat.reply}
+                  canSelect={!!selectedChats.length}
+                  onReply={handleReply}
                   nextMsgIsFromDifferentUser={
-                    messageHistory[index + 1]?.from !== chat.from
+                    index === messageHistory.length - 1
+                      ? !messages.length
+                      : messageHistory[index + 1]?.from !== chat.from
                   }
+                  isSelected={selectedChats.includes(chat)}
+                  onClickReply={handleScrollToIndex}
                 />
               );
             })}
@@ -261,9 +268,12 @@ function ChatArea() {
                       <Chat
                         index={index}
                         key={chat.id}
-                        onReply={handleReply}
                         self={self}
                         chat={chat}
+                        reply={chat.reply}
+                        canSelect={!!selectedChats.length}
+                        isSelected={selectedChats.includes(chat)}
+                        onReply={handleReply}
                         onClickReply={handleScrollToIndex}
                         nextMsgIsFromDifferentUser={
                           messages[index + 1]?.from !== chat.from

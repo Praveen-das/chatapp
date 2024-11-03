@@ -1,42 +1,43 @@
 "use client";
-import React, { memo, useCallback, useEffect, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useMessageStore } from "../../../store/messageStore";
 import moment from "moment";
 import useSocket from "../../../context/SocketProvider";
 import { useStore } from "../../../store/global";
 import socket from "../../../lib/ws";
-import { Avatar } from "./Avatar";
+import Avatar from "./Avatar";
 import useAuth from "../../../hooks/useAuth";
 import { useConversationStore } from "../../../store/conversationStore";
 import { IUserConversation } from "../../../interfaces/conversationInterface";
+import Menu from "@components/ui/Menu";
+import useMenuOptions from "./useMenuOptions";
 
 interface IConve {
   conversation: IUserConversation;
-  isSelected?: boolean;
+  isSelected: boolean;
   lastSeen?: string;
 }
 
 function Conversation({ conversation, isSelected }: IConve): React.JSX.Element {
   const { user: currentUser } = useAuth();
   const { blockedUsers } = useSocket();
-  const users = useStore((s) => s.users);
   const unreadMessagesStore = useMessageStore((s) => s.unreadMessages);
   const setSelectedConversation = useConversationStore(
     (s) => s.setSelectedConversation
   );
   const setSelectedUser = useStore((s) => s.setSelectedUser);
   const toggleProfile = useStore((s) => s.toggleProfile);
-  const recentMessages = useMessageStore((s) => s.recentMessage)
-  const recentMessage = recentMessages.get(conversation.id);
+  const setDeviceTab = useStore((s) => s.setDeviceTab);
+  const recentMessage = conversation.recentMessage;
+  const [unreadMessages, setUnreadMessages] = useState(0);
 
   const handleSelectedConversation = useCallback(() => {
+    setDeviceTab('chatarea')
     setSelectedConversation(conversation.id);
     setSelectedUser(null);
     toggleProfile(false);
     socket.selectedConversation = conversation;
   }, [conversation]);
-
-  const [unreadMessages, setUnreadMessages] = useState(0);
 
   useEffect(() => {
     let _unreadMessages = unreadMessagesStore.get(conversation.id)?.length || 0;
@@ -52,31 +53,54 @@ function Conversation({ conversation, isSelected }: IConve): React.JSX.Element {
     (member) => member.id !== currentUser?.id
   );
 
-  const receiver = users.find((connectedUser) => connectedUser.id === member?.id);
+  const receiver = conversation.members.find(
+    (connectedUser) => connectedUser.id === member?.id
+  );
 
   if (!receiver) return <></>;
 
-  const blockedUser = blockedUsers.some(
-    (u) => u.blockedUser.id === receiver.id || u.user.id === receiver.id
-  );
+  const blockedUser = blockedUsers.find(
+    (u) => u.blockedUser.id === receiver.id
+  )!;
 
   const isOnline = receiver.status === "online";
+
+  const { handleArchiving, handleBlockingUser, handleDeletingConversation } =
+    useMenuOptions({
+      conversation,
+      isSelected,
+    });
+
+  const options = useMemo(() => {
+    return [
+      {
+        label: conversation.isArchived ? "Unarchive chat" : "Archive chat",
+        handler: () => handleArchiving(),
+      },
+      {
+        label: "Delete chat",
+        handler: () => handleDeletingConversation(),
+      },
+      {
+        label: blockedUser ? "Unblock" : "Block",
+        handler: () => handleBlockingUser(),
+      },
+    ];
+  }, [isSelected, blockedUser, conversation]);
 
   return (
     <div onClick={handleSelectedConversation} className="flex">
       <div
-        className={`group flex gap-6 px-4 items-center w-full min-h-[75px] ${isSelected ? "bg-primary text-white" : ""} rounded-2xl cursor-pointer`}
+        className={`group flex gap-4 sm:px-4 items-center w-full max-sm:py-2 sm:min-h-[75px] ${isSelected ? "sm:bg-primary text-white" : ""} rounded-2xl cursor-pointer`}
       >
         <Avatar
           url={receiver.profilePicture}
           profileHidden={!receiver.rules?.profilePicture.isVisible}
-          online={(!blockedUser) && isOnline}
+          online={!blockedUser && isOnline}
         />
         <div className="min-w-0 w-full">
           <div className="flex gap-4 justify-between items-center">
-            <h1 className="text-sm truncate">
-              {receiver.username}
-            </h1>
+            <h1 className="text-sm truncate">{receiver.username}</h1>
             {recentMessage && (
               <label className="text-xs whitespace-nowrap" htmlFor="">
                 {moment(new Date(recentMessage?.timestamp!)).format("LT")}
@@ -127,53 +151,37 @@ function Conversation({ conversation, isSelected }: IConve): React.JSX.Element {
                   <div className="truncate">{recentMessage?.message}</div>
                 )}
               </div>
-              <div className="flex items-center duration-100 group-hover:translate-x-0 translate-x-5">
+              <div className="flex items-center">
                 {unreadMessages > 0 && (
                   <h1 className="flex justify-center items-center text-xs bg-primary text-white w-5 h-5 rounded-full duration-100 group-hover:opacity-0">
                     {unreadMessages}
                   </h1>
                 )}
-                <button className="btn btn-circle btn-ghost w-6 h-6 min-h-6 -mr-1 duration-100 opacity-0 group-hover:opacity-100">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    className="w-5 h-5"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </button>
+                <Menu
+                  buttonIcon={
+                    <span className="btn btn-circle btn-ghost w-6 h-6 min-h-6 -mr-1 duration-100 opacity-0 group-hover:opacity-100">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="w-5 h-5"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </span>
+                  }
+                  menuItems={options}
+                  placement={self ? "bottom-end" : "bottom-start"}
+                />
               </div>
             </div>
           )}
         </div>
       </div>
-
-      {/* <Menu as="div" className="relative inline-block text-left">
-        <Menu.Button className=''>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-            <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-          </svg>
-        </Menu.Button>
-
-        <Menu.Items className="absolute right-0 z-10 whitespace-nowrap origin-top-right rounded-md py-1 bg-white shadow-lg ring-1 ring-black ring-opacity-5 overflow-hidden focus:outline-none">
-          {links.map((link, i) => (
-            <Menu.Item key={i}>
-              {({ active }) => (
-                <a
-                  href="#"
-                  className={`${active ? 'text-primary' : 'text-gray-700'} flex gap-3 items-center rounded-md px-4 py-2 text-sm`}>
-                  {link.label}
-                </a>
-              )}
-            </Menu.Item>
-          ))}
-        </Menu.Items>
-      </Menu> */}
     </div>
   );
 }

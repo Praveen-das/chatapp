@@ -8,15 +8,13 @@ import { getImages } from "@lib/utils";
 import useMessage from "../../../../hooks/useMessage";
 import useSocket from "../../../../context/SocketProvider";
 import { useConversationStore } from "../../../../store/conversationStore";
-import { IImageAttachment } from "../../../../interfaces/messageInterface";
+import { IImageAttachment, IMessage } from "../../../../interfaces/messageInterface";
 import ObjectID from "bson-objectid";
 import { uploadImage } from "@lib/imageKit";
 import { useStore } from "../../../../store/global";
 import useAuth from "@hooks/useAuth";
 import { generateConversation } from "@lib/conversation";
 import { flip, shift, useFloating } from "@floating-ui/react";
-import { AnimatePresence, motion } from "framer-motion";
-import motionconfig from "../../../../config/config";
 
 function ImageSelector() {
   const { user } = useAuth();
@@ -27,7 +25,6 @@ function ImageSelector() {
   const addToMediaStore = useAttachments((s) => s.addToMediaStore);
 
   const setMessageStore = useMessageStore((s) => s.setMessageStore);
-  const setRecentMessage = useMessageStore((s) => s.setRecentMessage);
   const updateMessages = useMessageStore((s) => s.updateUserMessages);
 
   const { generateMessageTemplate } = useMessage();
@@ -70,6 +67,7 @@ function ImageSelector() {
       selectedConversation,
       conversations,
       setConversation,
+      updateConversation,
       setSelectedConversation,
     } = useConversationStore.getState();
 
@@ -84,7 +82,7 @@ function ImageSelector() {
     const conversationId = conversation?.id!;
     const userMedia: IImageAttachment[] = [];
 
-    const payload = images.map((image, i) => {
+    const messages = images.map((image, i) => {
       let caption = captions[i];
 
       let attachment: IImageAttachment = {
@@ -94,57 +92,58 @@ function ImageSelector() {
         ...image,
       };
 
-      const message = generateMessageTemplate(
-        conversation!,
-        caption,
-        attachment
-      );
-
-      return message;
+      return generateMessageTemplate(conversation!, caption, attachment);
     });
 
     clearImages();
     setCaptions([]);
 
-    setConversation(conversation);
-    setSelectedConversation(conversationId);
-    setMessageStore(conversationId, payload);
+    if (conversation.unsaved) setConversation(conversation);
 
-    const promises = payload.map((message) => {
-      let attachment = message.attachment;
+    setSelectedConversation(conversationId);
+    setMessageStore(conversationId, messages);
+
+    const uploadImageAttachment = async (message: IMessage) => {
+      const attachment = message.attachment;
       if (attachment?.type === "images" && attachment.status === "uploading") {
         const handleUploadProgress = (progress: number) => {
           setUploadProgress(attachment.fileId!, progress);
         };
 
-        return uploadImage(attachment.file!, attachment.file?.name!,false, handleUploadProgress)
-          .then((res) => {
-            if (attachment) {
-              URL.revokeObjectURL(attachment.url);
-              attachment.status = "success";
-              attachment.file = undefined;
-              attachment.sender = message.from;
+        try {
+          const res = await uploadImage(
+            attachment.file!,
+            attachment.file?.name!,
+            false,
+            handleUploadProgress
+          );
 
-              if (message.attachment?.type === "images") {
-                message.attachment = { ...message.attachment, ...res };
-                userMedia.push(message.attachment);
-              }
+          URL.revokeObjectURL(attachment.url);
+          attachment.status = "success";
+          attachment.file = undefined;
+          attachment.sender = message.from;
 
-              updateMessages(conversationId, [message]);
-            }
-          })
-          .catch((err) => console.log(err));
+          if (message.attachment?.type === "images") {
+            message.attachment = { ...message.attachment, ...res };
+            userMedia.push(message.attachment);
+          }
+
+          updateMessages(conversationId, [message]);
+        } catch (err) {
+          console.error("Image upload failed", err);
+        }
       }
-    });
+    };
 
-    await Promise.all(promises);
+    const uploadPromises = messages.map(uploadImageAttachment);
+    await Promise.allSettled(uploadPromises);
 
-    const recentMessage = payload.at(-1);
-    conversation.recentMessage = recentMessage;
+    sendMessage(messages, conversation!);
 
-    setRecentMessage(conversationId, recentMessage || null);
+    const recentMessage = messages.at(-1);
+
+    updateConversation(conversationId, { recentMessage, unsaved: false });
     addToMediaStore(conversationId, "images", userMedia);
-    sendMessage(payload, conversation!);
   };
 
   const removeImage = (index: number, e: MouseEvent<HTMLDivElement>) => {
@@ -170,7 +169,7 @@ function ImageSelector() {
           <div onClick={() => setOpen(false)} className="fixed inset-0 z-20 " />
         </>
       )}
-      <div className="flex flex-col gap-6 items-center h-full bg-gradient-to-t from-base-200 px-4 rounded-2xl overflow-hidden">
+      <div className="flex flex-col gap-6 items-center h-full bg-gradient-to-t from-base-200 px-4 mt-2 sm:rounded-2xl overflow-hidden">
         <div className="flex flex-col w-full h-full overflow-hidden">
           <Image
             width={500}
@@ -209,7 +208,7 @@ function ImageSelector() {
           />
         </div>
         <div
-          className="grid gap-2 items-center w-full px-4 my-10 "
+          className="grid gap-2 items-center w-full px-4 max-sm:my-6 my-10"
           style={{ gridTemplateColumns: "1fr min-content" }}
         >
           <div

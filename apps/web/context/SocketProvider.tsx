@@ -24,6 +24,8 @@ import {
   IGroupConversation,
   IGroupMember,
   IConversation,
+  IClearConversationRequest,
+  IConversationBase,
 } from "../interfaces/conversationInterface";
 import {
   IAttachment,
@@ -70,11 +72,13 @@ const useContextData = () => {
   const deleteUserMessages = useMessageStore((s) => s.deleteUserMessages);
   const updateReadReceipt = useMessageStore((s) => s.updateReadReceipt);
   const setMessageHistory = useMessageStore((s) => s.setMessageHistory);
-  const setRecentMessage = useMessageStore((s) => s.setRecentMessage);
   const updateConversation = useConversationStore((s) => s.updateConversation);
+  const setAdmin = useConversationStore((s) => s.setAdmin);
+  const updateGroupConversation = useConversationStore(
+    (s) => s.updateGroupConversation
+  );
   const addMembers = useConversationStore((s) => s.addMembers);
   const removeMember = useConversationStore((s) => s.removeMember);
-  const addToMediaStore = useAttachments((s) => s.addToMediaStore);
   const setMediaStore = useAttachments((s) => s.setMediaStore);
   const updateUserStatus = useStore((s) => s.updateUserStatus);
 
@@ -113,7 +117,10 @@ const useContextData = () => {
     socket.on("GROUP_ADD_MEMBERS", handleAddingMembersToGroup);
     socket.on("GROUP_REMOVE_MEMBER", handleRemovingMemberFromGroup);
     socket.on("UPDATE_GROUP", handleUpdatingGroup);
-
+    socket.on("SET_GROUP_ADMIN", handleSettingGroupAdmin);
+    socket.on("DELETE_CONVERSATION", handleDeletingConversation);
+    socket.on("UPDATE_CONVERSATION", handleUpdatingConversation);
+    
     return () => {
       socket.off("session", onSessionReceived);
       socket.off("conversations", onReceiveConnectedUsers);
@@ -135,6 +142,9 @@ const useContextData = () => {
       socket.off("GROUP_ADD_MEMBERS", handleAddingMembersToGroup);
       socket.off("GROUP_REMOVE_MEMBER", handleRemovingMemberFromGroup);
       socket.off("UPDATE_GROUP", handleUpdatingGroup);
+      socket.on("SET_GROUP_ADMIN", handleSettingGroupAdmin);
+      socket.off("DELETE_CONVERSATION", handleDeletingConversation);
+      socket.on("UPDATE_CONVERSATION", handleUpdatingConversation);
     };
   }, []);
 
@@ -200,17 +210,22 @@ const useContextData = () => {
     } = processMessagesForUser(userRef.current?.id!, status, _messages);
 
     const mediaStore = { images: imageAttachments, link: urlAttachments };
-    const recentMessage = messages.at(-1) || null
-    conversation.recentMessage = recentMessage!
-
+    const recentMessage = messages.at(-1);
+    conversation.recentMessage = recentMessage!;
+    
     if (!!updates.length) {
       updates.forEach(({ key, value }) => {
         updatesCollection.upsert(key, value);
       });
     }
 
-    setConversation(conversation)
-    setRecentMessage(conversationId, recentMessage);
+    if (conversation.unsaved) {
+      delete conversation.unsaved;
+      setConversation(conversation);
+    } else {
+      updateConversation(conversationId, { recentMessage });
+    }
+
     setMediaStore(conversationId, mediaStore);
     setUnreadMessages(conversationId, unreadMessages);
     setMessageStore(conversationId, messages);
@@ -287,7 +302,7 @@ const useContextData = () => {
     systemMessage: IMessage
   ) => {
     if (systemMessage) setMessageStore(conversation.id, [systemMessage]);
-    updateConversation(conversation.id, conversation);
+    updateGroupConversation(conversation.id, conversation);
   };
 
   const handleAddingMembersToGroup = (
@@ -316,16 +331,43 @@ const useContextData = () => {
     removeMember(id, userId, userId === userRef.current?.id);
   };
 
+  const handleDeletingConversation = ({
+    conversationId,
+    userId,
+  }: {
+    conversationId: string;
+    userId: string;
+  }) => {
+    const deleteConversation =
+      useConversationStore.getState().deleteConversation;
+    deleteConversation(conversationId, userId);
+  };
+
+  const handleSettingGroupAdmin = setAdmin;
+
+  const handleUpdatingConversation = (conversationId:string,update:Partial<IConversationBase>)=>{
+    const updateConversation = useConversationStore.getState().updateConversation
+    updateConversation(conversationId,update)
+  }
+
   //senders///////////////////////////
 
+  const sendRequestToArchiveConversation = (conversationId: string) => {
+    socket.emit("ARCHIVE_CONVERSATION", conversationId);
+  };
+  
+  const sendRequestToUnarchiveConversation = (conversationId: string) => {
+    socket.emit("UNARCHIVE_CONVERSATION", conversationId);
+  };
+
   const sendRequestToClearUserConversation = (
-    req: IDeleteConversationRequest
+    req: IClearConversationRequest
   ) => {
     socket.emit("CLEAR_CONVERSATION", req);
   };
 
   const sendRequestToClearGroupConversation = (
-    req: IDeleteConversationRequest
+    req: IClearConversationRequest
   ) => {
     socket.emit("CLEAR_GROUP_CONVERSATION", req);
   };
@@ -376,21 +418,23 @@ const useContextData = () => {
     _conversation: IUserConversation | IGroupConversation
   ) => {
     let conversation = { ..._conversation };
-    const receiver = conversation.members.find(
-      (m) => m.id !== userRef.current?.id
-    );
-    const blockedByUser = blockedUsers.some(
-      ({ blockedUser }) => blockedUser.id === receiver?.id
-    );
+    if (_conversation.host === "user") {
+      const receiver = conversation.members.find(
+        (m) => m.id !== userRef.current?.id
+      );
+      const blockedByUser = blockedUsers.some(
+        ({ user }) => user.id === receiver?.id
+      );
 
-    if (blockedByUser) {
-      messages.forEach((message) => Object.assign(message, { to: "" }));
+      if (blockedByUser) {
+        messages.forEach((message) => Object.assign(message, { to: "" }));
 
-      Object.assign(conversation, {
-        members: conversation.members.filter(
-          (m) => m.id === userRef.current?.id
-        ),
-      });
+        Object.assign(conversation, {
+          members: conversation.members.filter(
+            (m) => m.id === userRef.current?.id
+          ),
+        });
+      }
     }
 
     socket?.emit("message", { messages, conversation });
@@ -467,14 +511,13 @@ const useContextData = () => {
       }
 
       const mediaStore = { images: imageAttachments, link: urlAttachments };
-      conversation.recentMessage = messages?.at(-1)
+      conversation.recentMessage = messages?.at(-1);
 
       setConversation(conversation);
 
       messageStore.set(conversationId, messages || []);
       setMediaStore(conversationId, mediaStore);
       setUnreadMessages(conversationId, unreadMessages);
-      setRecentMessage(conversationId, messages?.at(-1) || null);
 
       delete conversation.messages;
     });
@@ -530,6 +573,8 @@ const useContextData = () => {
     sendConversationDeleteRequest,
     sendRequestToClearGroupConversation,
     sendRequestToClearUserConversation,
+    sendRequestToArchiveConversation,
+    sendRequestToUnarchiveConversation,
   };
 };
 

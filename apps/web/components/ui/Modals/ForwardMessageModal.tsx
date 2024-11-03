@@ -12,9 +12,10 @@ import { useStore } from "../../../store/global";
 import { User } from "./components/User";
 import { Conversation } from "./components/Conversation";
 import useAuth from "../../../hooks/useAuth";
-import {  IConversation } from "../../../interfaces/conversationInterface";
+import { IConversation } from "../../../interfaces/conversationInterface";
 import { IMessage } from "../../../interfaces/messageInterface";
 import { IUser } from "../../../interfaces/userInterface";
+import { IModal } from "@interfaces/modalInterface";
 
 const closeModal = () => {
   (document?.getElementById("action-modal") as HTMLDialogElement)?.close();
@@ -23,8 +24,8 @@ const closeModal = () => {
 export const ForwardMessageModal = ({ title }: { title: string }) => {
   const { user } = useAuth();
   const setMessageStore = useMessageStore((s) => s.setMessageStore);
-  const setRecentMessage = useMessageStore((s) => s.setRecentMessage);
   const setConversation = useConversationStore((s) => s.setConversation);
+  const updateConversation = useConversationStore((s) => s.updateConversation);
 
   const { sendMessage } = useSocket();
   const { regenerateMessageTemplate } = useMessage();
@@ -80,7 +81,7 @@ export const ForwardMessageModal = ({ title }: { title: string }) => {
 
       sendMessage(messages, conversation);
       setMessageStore(conversation.id, messages);
-      setRecentMessage(conversation.id, messages.at(-1) || null);
+      updateConversation(conversation.id, { recentMessage: messages.at(-1) });
     });
 
     selectedUsers.forEach((selectedUser) => {
@@ -91,10 +92,12 @@ export const ForwardMessageModal = ({ title }: { title: string }) => {
         return newMessage;
       });
 
+      conversation.recentMessage = messages.at(-1)
+
       sendMessage(messages, conversation);
+      delete conversation.unsaved;
       setConversation(conversation);
       setMessageStore(conversation.id, messages);
-      setRecentMessage(conversation.id, messages.at(-1) || null);
     });
 
     setSelectedUsers([]);
@@ -118,8 +121,8 @@ export const ForwardMessageModal = ({ title }: { title: string }) => {
   };
 
   return (
-    <div className="modal-box h-full px-0 relative flex flex-col max-w-[450px] bg-[--modal]">
-      <div className="flex px-6 justify-between items-center w-full">
+    <div className="modal-box max-sm:max-w-full max-sm:max-h-full max-sm:rounded-none max-sm:pt-4 pb-0 max-sm:w-full max-sm:h-full h-full px-0 relative flex flex-col max-w-[450px] bg-[--modal]">
+      <div className="flex max-sm:px-4 px-6 justify-between items-center w-full">
         <h3 className="font-medium text-lg">{title}</h3>
         <form method="dialog">
           <button className="btn btn-circle btn-sm btn-ghost">
@@ -138,11 +141,11 @@ export const ForwardMessageModal = ({ title }: { title: string }) => {
           </button>
         </form>
       </div>
-      <div className="px-6 mt-4">
+      <div className="max-sm:px-4 px-6 mt-4">
         <SearchUser onChange={setQuery} />
       </div>
       <div className="w-full h-full space-y-2 overflow-y-scroll no-scrollbar mt-4">
-        <span className="flex w-full pl-6 pt-2 pb-1 text-sm">
+        <span className="flex w-full max-sm:px-4 pl-6 pt-2 pb-1 text-sm">
           Recents Chats
         </span>
         {(query ? conversationsQueryResult : conversations).map(
@@ -158,7 +161,7 @@ export const ForwardMessageModal = ({ title }: { title: string }) => {
             </div>
           )
         )}
-        <span className="flex w-full pl-6 pt-2 pb-1 text-sm">All Contacts</span>
+        <span className="flex w-full max-sm:px-4 pl-6 pt-2 pb-1 text-sm">All Contacts</span>
         {(query ? usersQueryResult : users).map((person) => (
           <div key={person.id} onClick={() => handleSelectedUsers(person)}>
             <User isSelected={selectedUsers.includes(person)} person={person} />

@@ -11,6 +11,7 @@ const ContactsList = () => {
   const setDashboardTab = useStore(s => s.setDashboardTab)
   const users = useStore(s => s.users)
   const toggleProfile = useStore(s => s.toggleProfile);
+  const setDeviceTab = useStore(s => s.setDeviceTab);
   const setSelectedUser = useStore(s => s.setSelectedUser);
   const setSelectedConversation = useConversationStore(s => s.setSelectedConversation);
   const conversations = useConversationStore(s => s.conversations);
@@ -36,6 +37,7 @@ const ContactsList = () => {
     };
 
     toggleProfile(false)
+    setDeviceTab('chatarea');
     setDashboardTab('dashboard');
   };
 

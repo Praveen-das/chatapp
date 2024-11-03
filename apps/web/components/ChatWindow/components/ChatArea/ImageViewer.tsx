@@ -20,6 +20,7 @@ import {
   IUserMedia,
 } from "../../../../interfaces/messageInterface";
 import Image from "next/image";
+import { IModal } from "@interfaces/modalInterface";
 
 function ImageViewer() {
   const selectedConversation = useConversationStore(
@@ -113,19 +114,19 @@ function ImageViewer() {
     //   {selectedAttachment && (
     //   )}
     // </AnimatePresence>
-    <motion.div
+    <div
       // variants={container}
       // initial="hidden"
       // animate="visible"
       // exit="hidden"
-      className="fixed inset-0 flex flex-col gap-2 w-full max-w-full h-full max-h-full rounded-none bg-base-200 overflow-hidden p-4 z-50"
+      className="fixed inset-0 flex flex-col gap-2 w-full max-w-full h-full max-h-full rounded-none bg-gradient-to-t to-base-300 from-base-200 overflow-hidden p-4 z-50"
     >
       {/* Header----------------- */}
-      <motion.div
+      <div
         // variants={item}
         className="flex justify-between gap-2"
       >
-        <div className="flex items-center gap-4  px-4">
+        <div className="flex items-center gap-4 ">
           <div className="size-12 bg-gray-700 rounded-full"></div>
           <div className="grid gap-1">
             <label className="text-sm" htmlFor="username">
@@ -174,7 +175,7 @@ function ImageViewer() {
             </svg>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Image viewer----------------- */}
       <Swiper
@@ -234,7 +235,7 @@ function ImageViewer() {
         ref={paginationRef}
         className="swiper-pagination flex justify-center flex-row-reverse overflow-scroll no-scrollbar mt-4"
       ></div>
-    </motion.div>
+    </div>
   );
 }
 

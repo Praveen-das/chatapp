@@ -77,7 +77,7 @@ async function getUserMessages(
       },
       {
         $addFields: {
-          conversationId: "$_id",
+          conversationId: "$id",
         },
       },
       {
@@ -109,40 +109,39 @@ async function deleteUserMessages(messagesId: string[]) {
 }
 
 const updateUserMessages = async (updates: Partial<IMessage>[]) => {
-  var bulkOps: BulkOperation[] = [];
-
-  updates.forEach((update) => {
-    let { id, ...items } = update;
-    let messageId = new Types.ObjectId(id)
-    let userId = new Types.ObjectId(items.readReceipt?.[0].userId)
-    let updateObj;
-
-    if (!!items.readReceipt?.length) {
-      updateObj = {
-        $set: {
-          "readReceipt.$[element].status": items.readReceipt[0].status,
-        },
-      };
-
-      bulkOps.push({
-        updateOne: {
-          filter: { id:messageId },
-          update: updateObj,
-          arrayFilters: [{ "element.userId": userId }],
-        },
-      });
-    } else {
-      updateObj = { $set: items };
-      bulkOps.push({
-        updateOne: {
-          filter: { id:messageId },
-          update: updateObj,
-        },
-      });
-    }
-  });
-
   try {
+    var bulkOps: BulkOperation[] = [];
+
+    updates.forEach((update) => {
+      let { id, ...items } = update;
+      let messageId = new Types.ObjectId(id);
+      let userId = new Types.ObjectId(items.readReceipt?.[0].userId);
+      let updateObj;
+
+      if (!!items.readReceipt?.length) {
+        updateObj = {
+          $set: {
+            "readReceipt.$[element].status": items.readReceipt[0].status,
+          },
+        };
+
+        bulkOps.push({
+          updateOne: {
+            filter: { id: messageId },
+            update: updateObj,
+            arrayFilters: [{ "element.userId": userId }],
+          },
+        });
+      } else {
+        updateObj = { $set: items };
+        bulkOps.push({
+          updateOne: {
+            filter: { id: messageId },
+            update: updateObj,
+          },
+        });
+      }
+    });
     const res = await Messages.bulkWrite(bulkOps);
   } catch (error) {
     console.log(error);
@@ -152,27 +151,26 @@ const updateUserMessages = async (updates: Partial<IMessage>[]) => {
 const deleteMessagesForUser = async (
   collections: { userId: string; messageId: string }[]
 ) => {
-  var bulkOps: BulkOperation[] = [];
-  
-  collections.forEach(({ userId, messageId }) => {
-    let collection = {
-      messageId: new Types.ObjectId(messageId),
-      userId: new Types.ObjectId(userId),
-    };
-
-    bulkOps.push({
-      updateOne: {
-        filter: collection,
-        update: { ...collection, deleted: true },
-        upsert: true,
-      },
-    });
-  });
-
   try {
+    var bulkOps: BulkOperation[] = [];
+
+    collections.forEach(({ userId, messageId }) => {
+      let collection = {
+        messageId: new Types.ObjectId(messageId),
+        userId: new Types.ObjectId(userId),
+      };
+
+      bulkOps.push({
+        updateOne: {
+          filter: collection,
+          update: { ...collection, deleted: true },
+          upsert: true,
+        },
+      });
+    });
     const res = await MessageDeleteFlag.bulkWrite(bulkOps);
   } catch (error) {
-    console.log('MessageDeleteFlag.bulkWrite error------->',error);
+    console.log("MessageDeleteFlag.bulkWrite error------->", error);
   }
 };
 

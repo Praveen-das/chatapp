@@ -2,12 +2,12 @@ import { Kafka, Producer } from "kafkajs";
 
 const kafka = new Kafka({
     clientId: "chat-app",
-    brokers: ["192.168.1.4:9092"],
+    brokers: ["192.168.1.7:9092"],
 });
 
 let producer: null | Producer = null;
 
-export async function createProducer() {
+async function createProducer() {
     if (producer) return producer;
 
     const _producer = kafka.producer();

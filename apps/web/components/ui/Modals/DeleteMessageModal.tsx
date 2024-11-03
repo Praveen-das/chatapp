@@ -6,6 +6,7 @@ import { useStore } from "../../../store/global";
 import useSelectedConversation from "../../../hooks/useSelectedConversation";
 import { IMessage } from "../../../interfaces/messageInterface";
 import { IGroupConversation } from "../../../interfaces/conversationInterface";
+import { IModal } from "@interfaces/modalInterface";
 
 const closeModal = () => {
   (document?.getElementById("action-modal") as HTMLDialogElement)?.close();

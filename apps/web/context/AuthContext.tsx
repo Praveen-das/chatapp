@@ -59,5 +59,5 @@ export default function AuthContext({
   children: React.ReactNode;
 }) {
   const value = useContextData();
-  return <Context.Provider value={value}>{children}</Context.Provider>;
+  return <Context.Provider value={value}>{value.user && children}</Context.Provider>;
 }

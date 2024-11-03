@@ -1,7 +1,7 @@
 "use client";
 import React, { Fragment, useEffect, useState } from "react";
 import { useStore } from "../../../store/global";
-import { Avatar } from "./Avatar";
+import Avatar from "./Avatar";
 import { IUser } from "../../../interfaces/userInterface";
 
 interface IPerson {
@@ -20,7 +20,7 @@ export default function Person({
   return (
     <div
       onClick={onClick}
-      className={`group ${person.self && "border-2 border-white border-solid pointer-events-none"} flex gap-6 px-4 items-center w-full min-h-[75px]  rounded-2xl cursor-pointer`}
+      className={`group ${person.self && "border-2 border-white border-solid pointer-events-none"} flex gap-6 max-sm:px-0 px-4 items-center w-full max-sm:py-2 sm:min-h-[75px]  rounded-2xl cursor-pointer`}
     >
       <Avatar
         url={person.profilePicture}

@@ -47,6 +47,7 @@ function useMessage() {
         timestamp: Date.now(),
         readReceipt,
         deleted: false,
+        user:conversation.host === 'group' ? user! :undefined
       };
 
       return payload;
@@ -82,6 +83,7 @@ function useMessage() {
         timestamp: Date.now(),
         readReceipt,
         deleted: false,
+        user:conversation.host === 'group' ? user! :undefined
       };
 
       return payload;

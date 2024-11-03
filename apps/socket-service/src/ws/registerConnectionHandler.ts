@@ -4,11 +4,14 @@ import handleDisconnection from "./handleDisconnection";
 import registerGroupHandlers from "./registerGroupHandlers";
 import registerMessageHandlers from "./registerMessageHandlers";
 import registerUserHandlers from "./registerUserHandlers";
+import registerConversationHandlers from "./registerConversationHandlers";
 
 export async function onConnection(io: Server, socket: ISocket) {
     console.log(`Socket ${socket.id} connected connected to ${process.pid}`);
 
     registerUserHandlers(io, socket);
+
+    registerConversationHandlers(io, socket)
 
     registerMessageHandlers(io, socket);
 

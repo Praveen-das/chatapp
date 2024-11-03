@@ -1,9 +1,12 @@
+import { IUser } from "./userInterface";
+
 export interface IMessage {
   id: string;
   conversationId?: string;
   from?: string | "system";
   to: string;
   message: string;
+  user?: IUser;
 
   attachment: IAttachment | null;
   reply?: IMessageReply;

@@ -1,59 +1,46 @@
-import { Server } from "socket.io"
-import Redis from 'ioredis'
-import socketSessionMiddleware from "../middleware/socketSessionMiddleware"
-import { createAdapter } from '@socket.io/redis-adapter'
-import { IHttpServer, ISocketService } from "../interfaces/socketInterfaces"
-import config from "../config"
+import { Server } from "socket.io";
+import Redis from "ioredis";
+import socketSessionMiddleware from "../middleware/socketSessionMiddleware";
+import { createAdapter } from "@socket.io/redis-adapter";
+import { IHttpServer, ISocketService } from "../interfaces/socketInterfaces";
 
-import { onConnection } from "./registerConnectionHandler"
+import { onConnection } from "./registerConnectionHandler";
 
 class SocketService implements ISocketService {
-    #_io
-    #server
-    #opts = {
-        cors: config.cors,
-        // maxHttpBufferSize: 1e8
-    }
+  io;
+  server;
 
-    constructor(server: IHttpServer) {
-        console.log('Socket Service runnning...')
-        this.#server = server
-        this.#_io = new Server(this.#server, this.#opts);
-    }
+  constructor(server: IHttpServer) {
+    console.log("Socket Service runnning...");
+    this.server = server;
+    this.io = new Server(this.server);
+  }
 
-    get io() {
-        return this.#_io;
-    }
+  initAdapter(client: Redis) {
+    const pub = client;
+    const sub = client.duplicate();
 
-    initAdapter(client: Redis) {
-        const pub = client
-        const sub = client.duplicate()
+    pub.on("error", (err) => {
+      console.log("Redis pubClient Error", err);
+      // pub.disconnect()
+      console.log("Client disconnected");
+    });
 
-        pub.on('error', err => {
-            console.log('Redis pubClient Error', err)
-            // pub.disconnect()
-            console.log('Client disconnected')
-        });
+    sub.on("error", (err) => {
+      console.log("Redis subClient Error", err);
+      // sub.disconnect()
+      console.log("Client disconnected");
+    });
 
-        sub.on('error', err => {
-            console.log('Redis subClient Error', err)
-            // sub.disconnect()
-            console.log('Client disconnected')
-        });
+    const adapter = createAdapter(pub, sub);
+    this.io.adapter(adapter);
+  }
 
-        const adapter = createAdapter(pub, sub)
-        this.io.adapter(adapter)
-    }
-
-    initListeners() {
-        console.log('Socket Listener initailized...')
-
-        const io = this.io;
-
-        io.use(socketSessionMiddleware)
-
-        io.on('connection', (socket) => onConnection(io, socket))
-    }
+  initListeners() {
+    console.log("Socket Listener initailized...");
+    this.io.use(socketSessionMiddleware);
+    this.io.on("connection", (socket) => onConnection(this.io, socket));
+  }
 }
 
-export default SocketService
+export default SocketService;

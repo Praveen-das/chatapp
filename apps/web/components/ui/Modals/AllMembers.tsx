@@ -2,7 +2,7 @@ import { useState, useMemo, MouseEvent, MouseEventHandler } from "react";
 import useSocket from "../../../context/SocketProvider";
 import useSelectedConversation from "../../../hooks/useSelectedConversation";
 import { useConversationStore } from "../../../store/conversationStore";
-import { Avatar } from "../../Dashboard/Components/Avatar";
+import Avatar from "../../Dashboard/Components/Avatar";
 import SearchUser from "../../Dashboard/Components/SearchUser";
 import AdminTag from "../AdminTag";
 import { useStore } from "../../../store/global";
@@ -148,9 +148,9 @@ export const AllMembers = () => {
 
         <div
           id="container"
-          className="modal-box relative flex flex-col max-w-[450px] h-full m-auto  px-0 pb-0 bg-[--modal] z-0 overflow-hidden"
+          className="modal-box max-sm:max-w-full max-sm:max-h-full max-sm:rounded-none max-sm:pt-4 max-sm:w-full max-sm:h-full relative flex flex-col max-w-[450px] h-full m-auto  px-0 pb-0 bg-[--modal] z-0 overflow-hidden"
         >
-          <div className="flex px-6 justify-between items-center w-full ">
+          <div className="flex max-sm:px-4 px-6 justify-between items-center w-full ">
             <h3 className="font-medium text-lg">Group members</h3>
             <form method="dialog">
               <button className="btn btn-circle btn-sm btn-ghost">
@@ -169,7 +169,7 @@ export const AllMembers = () => {
               </button>
             </form>
           </div>
-          <div className="px-6 mt-4">
+          <div className="max-sm:px-4 px-6 mt-4">
             <SearchUser
               onChange={setQuery}
               highlightElm=".displayName"
@@ -202,7 +202,7 @@ export const AllMembers = () => {
                 ))
               : _members.map(([key, groupMembers]) => (
                   <div key={key}>
-                    <div className="w-full flex gap-2 items-end px-6 my-2">
+                    <div className="w-full flex gap-2 items-end max-sm:px-4 px-6 my-2">
                       <label
                         className="text-sm px-2 py-[2px] bg-primary text-white rounded-lg"
                         htmlFor=""
@@ -213,6 +213,7 @@ export const AllMembers = () => {
                     </div>
                     {groupMembers.map((member) => (
                       <Member
+                        key={member.id}
                         member={member}
                         onClick={(e) => handleSelecting(e, member)}
                       />
@@ -237,7 +238,7 @@ function Member({
     <div
       onClick={onClick}
       key={member.id}
-      className="relative px-10 flex items-center hover:bg-[--hover-secondary] gap-4 w-full h-16 py-2 z-20"
+      className="relative max-sm:px-6 px-10 flex items-center hover:bg-[--hover-secondary] gap-4 w-full h-16 py-2 z-20"
     >
       <Avatar url={member.profilePicture} onlineIndication={false} />
       <div className="w-full flex gap-1 flex-col justify-between">

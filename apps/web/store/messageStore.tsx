@@ -40,9 +40,6 @@ interface IMessageStore {
     collection: IDeleteForUserRequest["collection"]
   ) => void;
 
-  recentMessage: Map<string, IMessage | null>;
-  setRecentMessage: (conversationId: string, message: IMessage | null) => void;
-
   unreadMessages: Map<string, IUnreadMessageMeta[]>;
   getUnreadMessages: (userId: string) => IUnreadMessageMeta[];
   setUnreadMessages: (
@@ -145,10 +142,6 @@ export const useMessageStore = create(
       setMessages: (messageStore: Map<string, IMessage[]>) => {
         set({ messageStore });
       },
-
-      recentMessage: new Map(),
-      setRecentMessage: (conversationId, recentMessage) =>
-        set((s) => ({recentMessage: new Map(s.recentMessage).set(conversationId, recentMessage)})),
 
       clearChat: (conversationId) =>
         set((s) => ({

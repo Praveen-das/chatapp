@@ -60,8 +60,8 @@ export const AddGroupMembersModal = () => {
     }
 
     return (
-        <div className="modal-box h-full px-0 pb-0 relative flex flex-col max-w-[450px] bg-[--modal]">
-            <div className="flex px-6 justify-between items-center w-full ">
+        <div className="modal-box max-sm:max-w-full max-sm:max-h-full max-sm:rounded-none max-sm:pt-4 max-sm:w-full max-sm:h-full h-full px-0 pb-0 relative flex flex-col max-w-[450px] bg-[--modal]">
+            <div className="flex max-sm:px-4 px-6 justify-between items-center w-full ">
                 <h3 className="font-medium text-lg">Select Contact</h3>
                 <form method="dialog">
                     <button className="btn btn-circle btn-sm btn-ghost">
@@ -71,7 +71,7 @@ export const AddGroupMembersModal = () => {
                     </button>
                 </form>
             </div>
-            <div className="px-6 mt-4">
+            <div className="max-sm:px-4 px-6 mt-4">
                 <SearchUser onChange={setQuery} />
             </div>
             <div className="w-full h-full space-y-2 overflow-y-scroll no-scrollbar mt-4 mb-2">

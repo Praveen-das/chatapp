@@ -39,6 +39,7 @@ const kafkaMessageController = async ({
 
     case "CLEAR_CONVERSATION_FOR_USER":
       conversationController._clearConversation(message, callback);
+      break;
     case "CLEAR_GROUP_CONVERSATION_FOR_USER":
       groupController._clearGroupConversation(message, callback);
       break;

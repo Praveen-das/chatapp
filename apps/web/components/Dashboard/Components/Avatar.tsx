@@ -7,6 +7,7 @@ import React, {
   ChangeEvent,
   ChangeEventHandler,
   MouseEvent,
+  memo,
   useMemo,
   useRef,
   useState,
@@ -28,7 +29,7 @@ interface IAvatar {
   loading?: boolean;
 }
 
-export function Avatar({
+function Avatar({
   online = false,
   onlineIndication = true,
   size = "40px",
@@ -162,3 +163,5 @@ export function Avatar({
     </div>
   );
 }
+
+export default memo(Avatar)

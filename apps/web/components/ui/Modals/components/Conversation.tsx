@@ -10,7 +10,7 @@ export function Conversation({
   const displayName = conversation.displayName;
 
   return (
-    <div className="px-6 flex items-center hover:bg-black hover:bg-opacity-30 gap-4 w-full h-16 py-2 cursor-pointer">
+    <div className="max-sm:px-4 px-6 flex items-center hover:bg-black hover:bg-opacity-30 gap-4 w-full h-16 py-2 cursor-pointer">
       <div className="h-full aspect-square rounded-full bg-base-100"></div>
       <div className="h-full w-full flex justify-between items-center">
         <label className="text-sm pointer-events-none" htmlFor="">

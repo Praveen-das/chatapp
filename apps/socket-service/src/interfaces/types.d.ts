@@ -15,7 +15,7 @@ type IUpdates = Map<
 >;
 
 interface IClearConversationRequest {
-  conversationId: string;
+  conversation: IConversation;
   userId: string;
   deletedForUser?: boolean;
   timeOfDeletion?:number
@@ -137,6 +137,7 @@ interface IUserConversation {
   messages?: IMessage[];
   recentMessage?: IMessage;
   unsaved?: boolean;
+  deletedUsers?:string[]
 }
 
 interface IGroupConversation {

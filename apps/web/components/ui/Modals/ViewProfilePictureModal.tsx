@@ -2,7 +2,8 @@ import { useStore } from "../../../store/global";
 import Image from "next/image";
 import { downloadFromUrl } from "@lib/utils";
 import { UserIcon } from "@heroicons/react/24/solid";
-import { Avatar } from "@components/Dashboard/Components/Avatar";
+import Avatar from "@components/Dashboard/Components/Avatar";
+import { IModal } from "@interfaces/modalInterface";
 
 export const ViewProfilePictureModal = () => {
   const modal = useStore<IModal<{ displayName: string; url: string }> | null>(

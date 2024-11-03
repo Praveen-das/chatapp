@@ -8,7 +8,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import EmojiPicker from "../../ChatWindow/components/ChatInput/EmojiPicker";
 import { flip, shift, useFloating } from "@floating-ui/react";
 import motionconfig from "../../../config/config";
-import { Avatar } from "../Components/Avatar";
+import Avatar from "../Components/Avatar";
 import { uploadImage } from "@lib/imageKit";
 import ObjectID from "bson-objectid";
 
@@ -38,8 +38,10 @@ const GroupCreationTab = () => {
 
   const handleSubmit = async () => {
     const groupId = new ObjectID().toHexString()
-    selectedGroupMembers.push(user?.id!);
     let profilePictureUrl;
+
+    selectedGroupMembers.push(user?.id!);
+
     if (profilePicture) {
       const callback = () => {};
       const res = await uploadImage(profilePicture, groupId, true, callback);
@@ -51,7 +53,7 @@ const GroupCreationTab = () => {
       displayName,
       profilePicture: profilePictureUrl,
       members: selectedGroupMembers,
-      createdBy: user?.username!,
+      createdBy: user?.id!,
       admins: [user?.id!],
     };
 

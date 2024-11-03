@@ -1,12 +1,11 @@
 "use client";
-import React, { ChangeEvent, useEffect, useRef, useState } from "react";
+import React, { ChangeEvent, memo, useEffect, useRef, useState } from "react";
 import { Popover } from "@headlessui/react";
 
 import useSocket from "../../../../context/SocketProvider";
 import { useMessageStore } from "../../../../store/messageStore";
 import useAuth from "@hooks/useAuth";
 import { useStore } from "../../../../store/global";
-import ForwardIcon from "../../../../public/forward.svg";
 import EmojiPicker from "./EmojiPicker";
 import { parseUrl } from "@lib/utils";
 import { useAttachments } from "../../../../store/attachments";
@@ -15,13 +14,18 @@ import useMessage from "@hooks/useMessage";
 import { useConversationStore } from "../../../../store/conversationStore";
 import useSelectedConversation from "@hooks/useSelectedConversation";
 import LinkPreview from "../../../ui/LinkPreview";
-import { IUrlAttachment } from "@interfaces/messageInterface";
+import MediaQuery from "react-responsive";
+
+// import { IUrlAttachment } from "@interfaces/messageInterface";
 import ObjectID from "bson-objectid";
 import { getUrlMetadata } from "@lib/fetchers";
 import { generateConversation } from "@lib/conversation";
 import { getImages } from "@lib/utils";
+import { IUrlAttachment } from "@interfaces/messageInterface";
+import socket from "@lib/ws";
+import { ArrowUturnRightIcon } from "@heroicons/react/24/solid";
 
-export function ChatInput() {
+function ChatInput() {
   const { user } = useAuth();
   const selectedConversation = useConversationStore(
     (s) => s.selectedConversation
@@ -39,14 +43,17 @@ export function ChatInput() {
   );
 
   return (
-    <div className="flex flex-col w-full mx-auto bg-base-200 shadow-lg rounded-2xl">
-      {isBlockedUser ? (
-        <BlockedUserNotification username={selectedConversation?.id!} />
-      ) : !!selectedChats.length ? (
-        <SelectedMessagesActions />
-      ) : (
-        <Input />
-      )}
+    <div className="flex flex-col w-full mx-auto bg-base-200 shadow-lg sm:rounded-2xl">
+      {
+        isBlockedUser ? (
+          <BlockedUserNotification username={selectedConversation?.id!} />
+        ) : (
+          <>
+            <div className="max-sm:hidden">{!!selectedChats.length ? <SelectedMessagesActions /> : <Input />}</div>
+            <div className="sm:hidden"><Input /></div>
+          </>
+        )
+      }
     </div>
   );
 }
@@ -112,7 +119,7 @@ function SelectedMessagesActions() {
           className="btn btn-circle btn-sm btn-ghost"
           onClick={handleForwadingChat}
         >
-          <ForwardIcon className="text-xl fill-white" />
+          <ArrowUturnRightIcon className="size-5" />
         </button>
       </div>
     </div>
@@ -123,9 +130,9 @@ function Input(): React.ReactNode {
   const setMessageStore = useMessageStore((s) => s.setMessageStore);
   const setReplyRequest = useMessageStore((s) => s.setReplyRequest);
   const clearUnreadMessages = useMessageStore((s) => s.clearUnreadMessages);
-  const setRecentMessage = useMessageStore((s) => s.setRecentMessage);
   const conversations = useConversationStore((s) => s.conversations);
   const setConversation = useConversationStore((s) => s.setConversation);
+  const updateConversation = useConversationStore((s) => s.updateConversation);
   const selectedConversation = useSelectedConversation();
   const setSelectedConversation = useConversationStore(
     (s) => s.setSelectedConversation
@@ -138,12 +145,12 @@ function Input(): React.ReactNode {
   const { user } = useAuth();
   const { generateMessageTemplate } = useMessage();
 
-  const [message, setMessage] = useState("");
+  const [messageString, setMessageString] = useState("");
   const [open, setOpen] = useState(false);
   const [metadata, setMetadata] = useState<IUrlMetadata | null>(null);
 
   const handleMessaging = () => {
-    if (!message) return;
+    if (!messageString) return;
 
     let conversation =
       selectedConversation ||
@@ -153,42 +160,42 @@ function Input(): React.ReactNode {
       ) ||
       generateConversation(user!, selectedUser!);
 
-    delete conversation.recentMessage;
-
     const conversationId = conversation?.id;
-    const url = parseUrl(message);
 
-    const urlAttachment: IUrlAttachment | null = url
+    const url = parseUrl(messageString);
+    const attachment: IUrlAttachment | null = url
       ? {
           metadata,
           type: "link",
           id: new ObjectID().toHexString(),
-          url: message,
+          url: messageString,
           host: url.host,
         }
       : null;
 
-    const payload = generateMessageTemplate(
+    const message = generateMessageTemplate(
       conversation,
-      message,
-      urlAttachment
+      messageString,
+      attachment
     );
 
-    const attachment = payload.attachment;
+    sendMessage([message], conversation);
 
-    sendMessage([payload], conversation);
+    if (conversation.unsaved) {
+      delete conversation.unsaved;
+      conversation.recentMessage = message;
+      setConversation(conversation);
+    } else {
+      updateConversation(conversationId, {
+        recentMessage: message,
+        deletedUsers: null,
+      });
+    }
 
-    delete conversation.unsaved;
-    conversation.recentMessage = payload;
+    setMessageStore(conversationId, [message]);
 
-    if (conversation.host === "user" && conversation.deletedForUser)
-      conversation.deletedForUser = false;
-
-    setRecentMessage(conversationId, payload);
-    setConversation(conversation);
-    setMessageStore(conversationId, [payload]);
-
-    attachment &&
+    if (!selectedConversation) socket.selectedConversation = conversation;
+    if (attachment)
       addToMediaStore(conversationId, attachment.type, [attachment]);
 
     clearUnreadMessages(selectedConversation?.id);
@@ -201,29 +208,29 @@ function Input(): React.ReactNode {
   };
 
   const handleEmoji = (emoji: any) => {
-    setMessage((s) => s.concat(emoji.native));
+    setMessageString((s) => s.concat(emoji.native));
   };
 
   useEffect(() => {
-    const isUrl = parseUrl(message);
+    const isUrl = parseUrl(messageString);
 
     (async () => {
       if (isUrl) {
         try {
-          const response = await getUrlMetadata(message);
+          const response = await getUrlMetadata(messageString);
           setMetadata({ ...response });
         } catch (error: any) {
           setMetadata(null);
         }
       }
     })();
-  }, [message]);
+  }, [messageString]);
 
   return (
     <div>
       {metadata && (
         <div className="flex items-center p-2">
-          <LinkPreview metadata={metadata} link={message} />
+          <LinkPreview metadata={metadata} link={messageString} />
           <div
             onClick={() => setMetadata(null)}
             tabIndex={0}
@@ -268,11 +275,10 @@ function Input(): React.ReactNode {
           </svg>
         </div>
         <AttachmentPicker />
-        <input
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          className="w-full h-full bg-transparent outline-none border-none ml-3"
-          type="text"
+        <textarea
+          value={messageString}
+          onChange={(e) => setMessageString(e.target.value)}
+          className="w-full h-full bg-transparent outline-none border-none ml-3 overflow-hidden resize-none"
         />
         <button
           className="btn btn-circle btn-sm btn-ghost"
@@ -372,3 +378,5 @@ function BlockedUserNotification({
     </div>
   );
 }
+
+export default memo(ChatInput)

@@ -40,6 +40,7 @@ const _createGroup = async (
     ...data,
     id: new Types.ObjectId(data.id),
     channelId: new Types.ObjectId(),
+    createdBy:new Types.ObjectId(data.createdBy),
     host: "group",
     admins,
     members,
@@ -134,8 +135,8 @@ const _removeUserAdmin = async (req: Request, res: Response) => {
 
 const _clearGroupConversation = async (req: string, reset: () => void) => {
   try {
-    const parsed:any = JSON.parse(req);
-    
+    const parsed: any = JSON.parse(req);
+
     const conversation = {
       ...parsed,
       conversationId: new Types.ObjectId(parsed.conversationId as string),
@@ -162,5 +163,5 @@ export default {
   _fetchGroupById,
   _makeUserAdmin,
   _removeUserAdmin,
-  _clearGroupConversation
+  _clearGroupConversation,
 };

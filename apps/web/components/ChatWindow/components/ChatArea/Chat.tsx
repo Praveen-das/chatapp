@@ -1,14 +1,13 @@
 "use client";
 
-import React, { memo, useMemo, useRef } from "react";
+import React, { memo, useMemo, useRef, useState } from "react";
 import moment from "moment";
 import { IMessageReadReceipt } from "../../../../enums/enums";
 import { useMessageStore } from "../../../../store/messageStore";
 import { useStore } from "../../../../store/global";
 import { parseUrl } from "@lib/utils";
 import { downloadFromUrl } from "@lib/utils";
-import useAuth from "@hooks/useAuth";
-import { Avatar } from "@components/Dashboard/Components/Avatar";
+import Avatar from "@components/Dashboard/Components/Avatar";
 import Link from "next/link";
 import { useConversationStore } from "../../../../store/conversationStore";
 import {
@@ -20,16 +19,22 @@ import ReadReceiptIcons from "./ReadReceiptIcons";
 import ImageAttachment from "./ImageAttachment";
 import UrlAttachment from "./UrlAttachment";
 import Menu from "@components/ui/Menu";
-import { EllipsisVerticalIcon,ArrowUturnRightIcon } from "@heroicons/react/24/solid";
+import {
+  EllipsisVerticalIcon,
+  ArrowUturnRightIcon,
+} from "@heroicons/react/24/solid";
 
 interface IChat {
   index: number;
   self: boolean;
   chat: IMessage;
+  reply?: IMessageReply;
   onReply: (message: IMessage, index: number) => void;
   onClickReply: (index: number) => void;
   style?: any;
   nextMsgIsFromDifferentUser?: boolean;
+  isSelected?: boolean;
+  canSelect?: boolean;
 }
 
 function checkEmoji(emoji: string) {
@@ -61,33 +66,35 @@ function Chat({
   index,
   self,
   chat,
+  reply,
   onReply,
   onClickReply,
   style,
   nextMsgIsFromDifferentUser,
+  isSelected,
+  canSelect,
 }: IChat): JSX.Element {
-  const { user } = useAuth();
-  const selectedChats = useMessageStore((s) => s.selectedChats);
   const setSelectedChats = useMessageStore((s) => s.setSelectedChats);
   const setModal = useStore((s) => s.setModal);
   const selectedConversation = useConversationStore(
     (s) => s.selectedConversation
   );
 
-  const isSelected = selectedChats.includes(chat);
   const isEmoji = checkEmoji(chat.message);
   const attachment = chat.attachment!;
   const isGroupConversation = selectedConversation?.host === "group";
-  const replyAttachment = chat.reply?.attachment!;
-  const replyUser =
-    chat.reply?.username === user?.username ? "You" : chat.reply?.username;
   const shouldRenderTimestamp = chat.from !== "system";
+  const replyAttachment = reply?.attachment!;
+  const receiver = chat.user;
+  const haveAttachment = !!chat.attachment;
+  const parsedUrl = parseUrl(chat.message);
+  const urlHost = parsedUrl?.host;
 
   const readReceipt = useMemo(
     () =>
-      selectedConversation?.host === "user"
-        ? IMessageReadReceipt[chat.readReceipt[0]?.status || 0]
-        : getReadReceipt(chat),
+      isGroupConversation
+        ? getReadReceipt(chat)
+        : IMessageReadReceipt[chat.readReceipt[0]?.status || 0],
     [chat, selectedConversation]
   );
 
@@ -126,26 +133,41 @@ function Chat({
     document?.querySelector<HTMLDialogElement>("#action-modal")?.showModal();
   };
 
-  const handleReply = () => onClickReply(chat.reply?.offsetTop!);
+  const handleReply = () => onClickReply(reply?.offsetTop!);
 
-  const handleSelectedChats = () =>
-    selectedChats.length && setSelectedChats(chat);
+  const pointerEvent = useRef<NodeJS.Timeout | null>();
 
-  const receiver = isGroupConversation
-    ? selectedConversation?.members.find((u) => u.id === chat.from)
-    : null;
+  const handleSelectingChats = () => {
+    if (pointerEvent.current) clearTimeout(pointerEvent.current);
+    pointerEvent.current = setTimeout(() => {
+      if (!canSelect) {
+        setSelectedChats(chat);
+        pointerEvent.current = null;
+      }
+    }, 500);
+  };
 
-  const haveAttachment =
-    (chat.attachment?.type === "link" && chat.attachment.metadata) ||
-    chat.attachment?.type === "images";
-  const parsedUrl = parseUrl(chat.message);
-  const urlHost = parsedUrl?.host;
+  function onPointerUp() {
+    if (pointerEvent.current) {
+      clearTimeout(pointerEvent.current);
+      canSelect && setSelectedChats(chat);
+    }
+  }
+
+  const [hovered, setHovered] = useState(false);
 
   return (
     <div
       style={style}
-      onClick={handleSelectedChats}
-      className={`group ${!!selectedChats.length ? "cursor-pointer" : ""} ${self ? "ml-auto flex-row-reverse" : "mr-auto"} ${isSelected && "bg-black bg-opacity-20"} flex gap-3 text-xs px-1 pt-2 pb-2`}
+      onPointerEnter={() => {
+        setHovered(true);
+      }}
+      // onPointerLeave={() => {
+      //   setHovered(false);
+      // }}
+      onPointerDown={handleSelectingChats}
+      onPointerUp={onPointerUp}
+      className={`group ${canSelect ? "cursor-pointer" : ""} ${self ? "ml-auto flex-row-reverse" : "mr-auto"} ${isSelected && "bg-black bg-opacity-20"} flex gap-3 text-xs px-4 pt-2 pb-2`}
     >
       {/* chat component */}
       <div
@@ -176,7 +198,7 @@ function Chat({
             ))}
 
           <div
-            className={`relative flex flex-col gap-1 ${self ? "ml-auto" : "mr-auto"} ${attachment ? "w-min" : ""}`}
+            className={`relative flex flex-col gap-1 ${self ? "ml-auto col-span-2" : "mr-auto"} ${attachment ? "w-min" : ""}`}
           >
             {/* chat */}
             <div
@@ -189,7 +211,7 @@ function Chat({
               ) : (
                 <>
                   {/* reply */}
-                  {chat.reply && (
+                  {reply && (
                     <div
                       onClick={handleReply}
                       className={`relative flex gap-2 rounded-xl ${self ? "bg-black/20" : "bg-white/10"} mb-1 z-3 overflow-hidden cursor-pointer`}
@@ -202,9 +224,9 @@ function Chat({
                         />
                       )}
                       <div className="flex flex-col gap-[2px] p-2">
-                        <label htmlFor="">{replyUser}</label>
+                        <label htmlFor="">{reply.username}</label>
                         <p className="text-sm break-all line-clamp-2 pointer-events-none">
-                          {chat.reply.message || "Photo"}
+                          {reply.message || "Photo"}
                         </p>
                       </div>
                       {replyAttachment?.type === "link" &&
@@ -253,7 +275,7 @@ function Chat({
                     ) : (
                       chat.message && (
                         <p
-                          className={`relative ${isEmoji && !haveAttachment ? "text-4xl" : ""} break-all z-3`}
+                          className={`whitespace-pre-wrap relative ${isEmoji && !haveAttachment ? "text-4xl" : ""} break-all z-3`}
                         >
                           {chat.message}
                         </p>
@@ -265,28 +287,31 @@ function Chat({
             </div>
 
             {/* action buttons */}
-            <div
-              className={`flex items-center absolute top-0 bottom-0 ${self ? "-left-[52px] " : "-right-[52px] flex-row-reverse"}`}
-            >
+            {hovered && !canSelect && (
               <div
-                tabIndex={0}
-                onClick={handleForwadingChat}
-                className="group-hover:opacity-100 opacity-0 cursor-pointer btn btn-circle btn-ghost btn-xs"
+                className={`max-sm:hidden flex items-center absolute top-0 bottom-0 ${self ? "-left-[52px] " : "-right-[52px] flex-row-reverse"}`}
               >
-                <ArrowUturnRightIcon className="size-4"/>
-              </div>
+                <div
+                  tabIndex={0}
+                  onClick={handleForwadingChat}
+                  className="group-hover:opacity-100 opacity-0 cursor-pointer btn btn-circle btn-ghost btn-xs"
+                >
+                  <ArrowUturnRightIcon className="size-4" />
+                </div>
 
-              {/* dropdown */}
-              <Menu
-                buttonIcon={
-                  <span className="group-hover:opacity-100 opacity-0 btn btn-circle btn-ghost btn-xs">
-                    <EllipsisVerticalIcon className="size-5" />
-                  </span>
-                }
-                menuItems={options}
-                placement={self ? "bottom-end" : "bottom-start"}
-              />
-            </div>
+                {/* dropdown */}
+                <Menu
+                  buttonIcon={
+                    <span className="group-hover:opacity-100 opacity-0 btn btn-circle btn-ghost btn-xs">
+                      <EllipsisVerticalIcon className="size-5" />
+                    </span>
+                  }
+                  menuItems={options}
+                  placement={self ? "bottom-end" : "bottom-start"}
+                  // onClose={}
+                />
+              </div>
+            )}
           </div>
 
           <span />

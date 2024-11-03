@@ -1,5 +1,5 @@
 import mongoose, { Schema, model } from "mongoose";
-import { userSchema } from "./ConversationModel";
+import { memberSchema } from "./schemas/memberSchema";
 
 const schemaOptions = { toJSON: { virtuals: true } };
 
@@ -7,7 +7,7 @@ const groupSchema = new Schema(
   {
     id: Schema.Types.ObjectId,
     host: String,
-    members: [userSchema],
+    members: [memberSchema],
     desc: {
       type: String,
       default: "",

@@ -6,14 +6,12 @@ export function generateConversation(
   sender: IUser,
   receiver: IUser
 ): IUserConversation {
+  console.log("generating new conversation");
   return {
     id: new ObjectID().toHexString(),
     displayName: receiver.username,
     host: "user",
-    members: [
-      { id: sender.id, timeOfJoining: Date.now() } as any,
-      { id: receiver.id, timeOfJoining: Date.now() } as any,
-    ],
+    members: [sender, receiver],
     createdAt: Date.now(),
     updatedAt: Date.now(),
     unsaved: true,

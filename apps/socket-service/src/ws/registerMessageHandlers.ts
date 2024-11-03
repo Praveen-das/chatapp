@@ -10,18 +10,20 @@ export default function registerMessageHandlers(io: Server, socket: ISocket) {
       conversation,
     }: {
       messages: IMessage[];
-      conversation: IConversation
+      conversation: IConversation;
     }) => {
       let receiver =
         conversation.host === "group"
           ? conversation.channelId
           : conversation.members?.find((m) => m.id !== socket.userId)?.id;
 
-      io.to(receiver!).except(socket.userId!).emit("message receive", { messages, conversation });
-
       if (conversation.host === "user")
         produceMessage({ messages, conversation });
-      if (conversation.host === "group") produceMessage({ messages });
+      else produceMessage({ messages });
+      
+      io.to(receiver!)
+        .except(socket.userId!)
+        .emit("message receive", { messages, conversation });
     }
   );
 

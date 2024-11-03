@@ -1,0 +1,25 @@
+{
+  "name": "gateway",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "dotenv -- tsc-watch --onSuccess \"node dist/index.js\"",
+    "start": "node dist/index.js",
+    "another": "set PORT=8000 && node dist/index.js",
+    "build": "tsc -p ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "tsc-watch": "^6.2.0",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "connect": "^3.7.0",
+    "cors": "^2.8.5",
+    "http-proxy-middleware": "^3.0.3"
+  }
+}

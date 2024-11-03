@@ -16,7 +16,7 @@ interface IReq {
 const _saveUserMessage = async (req: string, reset: () => void) => {
   try {
     const { messages, conversation }: IReq = JSON.parse(req);
-
+    
     if (conversation?.unsaved) {
       delete conversation.unsaved;
 
@@ -40,17 +40,11 @@ const _saveUserMessage = async (req: string, reset: () => void) => {
 
       return;
     }
-
-    if (conversation?.deletedForUser) {
-      const userId = conversation.userStatus?.id!;
-
-      const req = {
-        conversationId: new Types.ObjectId(conversation.id),
-        userId: new Types.ObjectId(userId),
-        deletedForUser: false,
-      };
-
-      await conversationServices.clearConversation(req);
+    
+    if (!!conversation?.deletedUsers?.length) {
+      console.log('reset conversation');
+      
+      await conversationServices.unsetConversationDeletion(conversation.id);
     }
 
     const _messages = messages.map((message) => {
@@ -85,7 +79,8 @@ const _updateUserMessages = async (req: string, reset: () => void) => {
 const _deleteMessagesForUser = async (req: string, reset: () => void) => {
   try {
     const { collection } = JSON.parse(req);
-
+    console.log(collection);
+    
     await messageServices.deleteMessagesForUser(collection);
   } catch (error) {
     console.log("DELETE_MESSAGE_FOR_USER error--->", error);
@@ -149,7 +144,6 @@ const _deleteUserMessage = async (req: Request, res: Response) => {
 
   try {
     const response = await messageServices.deleteUserMessages(messagesId);
-    console.log(response);
     cache.del(cacheKey);
     res.send("ok");
   } catch (error) {

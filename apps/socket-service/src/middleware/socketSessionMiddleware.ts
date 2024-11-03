@@ -21,8 +21,8 @@ export default async function socketSessionMiddleware(
 
   let session = await sessionStore.findSession(sessionId);
   
-  if (!Object.values(session).length)
-    session = (await sessionStore.findSessionByUserId(user.id))!;
+  // if (!Object.values(session).length)
+  //   session = (await sessionStore.findSessionByUserId(user.id))!;
   
   if (session && !!Object.values(session).length) {
     try {
@@ -41,17 +41,13 @@ export default async function socketSessionMiddleware(
     socket.userId = user.id;
     socket.username = user.username;
 
-    console.log("aaaaaaaaaaaaaaaaaaaaaaaaa");
-
     sessionStore.saveSession({
       sessionId,
       userId: socket.userId,
       username: socket.username,
     });
 
-    console.log("ccccccccccccccccccc");
     socket.broadcast.emit("new user created", user);
-
     socket.emit("sessionId", socket.sessionId);
   }
 

@@ -4,12 +4,12 @@ import { getConversations } from "../services/getConversations";
 import produceMessage from "../kafka/kafka";
 import axiosClient from "../lib/axiosClient";
 
-let blockedUsers: IBlocked[] = [];
-
 export default async function registerUserHandlers(
   io: Server,
   socket: ISocket
 ) {
+  socket.join(socket.userId!);
+
   try {
     const conversations = await getConversations(socket);
 
@@ -17,8 +17,6 @@ export default async function registerUserHandlers(
   } catch (error) {
     console.log("🚀 ~ registerUserHandlers ~ error:", error);
   }
-
-  socket.join(socket.userId!);
 
   io.emit("user connected", { userId: socket.userId });
 
@@ -28,25 +26,25 @@ export default async function registerUserHandlers(
   );
 
   socket.on("REQUEST:BLOCK_USER", (req: IBlocked) => {
-    let { id, user, blockedUser } = req 
-    let to = [user.id,blockedUser.id]
+    let { id, user, blockedUser } = req;
+    let to = [user.id, blockedUser.id];
 
-    let body:IUBlockReq = {
+    let body: IUBlockReq = {
       id,
-      userId:user.id,
-      blockedId:blockedUser.id
-    }
+      userId: user.id,
+      blockedId: blockedUser.id,
+    };
 
     io.to(to).emit("RESPONSE:BLOCK_USER", req);
-    axiosClient.post('/user/block',body)
+    axiosClient.post("/user/block", body);
   });
 
   socket.on("REQUEST:UNBLOCK_USER", (req: IBlocked) => {
-    let { id, user, blockedUser } = req 
-    let to = [user.id,blockedUser.id]
-    
+    let { id, user, blockedUser } = req;
+    let to = [user.id, blockedUser.id];
+
     io.to(to).emit("RESPONSE:UNBLOCK_USER", req);
-    axiosClient.delete(`/user/unblock/${id}`)
+    axiosClient.delete(`/user/unblock/${id}`);
   });
 
   socket.on("updateUser", (req: IUserUpdateRequest) => {
@@ -71,17 +69,5 @@ export default async function registerUserHandlers(
     io.emit("updateUserRule", req);
 
     produceMessage(body, "UPDATE_USER");
-  });
-
-  socket.on("CLEAR_CONVERSATION", (req: IClearConversationRequest) => {
-    produceMessage(req, "CLEAR_CONVERSATION_FOR_USER");
-  });
-
-  socket.on("DELETE_CONVERSATION", (req: IClearConversationRequest) => {
-    produceMessage(req, "CLEAR_CONVERSATION_FOR_USER");
-  });
-
-  socket.on("CLEAR_GROUP_CONVERSATION", (req: IClearConversationRequest) => {
-    produceMessage(req, "CLEAR_GROUP_CONVERSATION_FOR_USER");
   });
 }

@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { IUser } from "../interfaces/userInterface";
 import { IGroupConversation } from "../interfaces/conversationInterface";
+import modals from "@components/ui/modals";
+import { IModal } from "@interfaces/modalInterface";
 
 interface IGlobalStore {
     users: IUser[]
@@ -26,6 +28,9 @@ interface IGlobalStore {
 
     profileTab: string
     setProfileTab: (value: string) => void
+
+    deviceTab: string
+    setDeviceTab: (value: string) => void
 
     dashboardTab: string
     setDashboardTab: (value: string) => void
@@ -83,9 +88,12 @@ export const useStore = create<IGlobalStore>((set, get) => {
 
         profile: false,
         toggleProfile: (value) => set(s => ({ profile: value })),
-
+                
         profileTab: '',
         setProfileTab: (value) => set({ profileTab: value }),
+
+        deviceTab: '',
+        setDeviceTab: (value) => set(({ deviceTab: value })),
 
         dashboardTab: '',
         setDashboardTab: (value) => set({ dashboardTab: value }),

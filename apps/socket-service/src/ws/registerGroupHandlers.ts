@@ -62,6 +62,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
       const messageString = getUpdateMessage(updatedProperty);
 
       const message: Partial<IMessage> = {
+        id: crypto.randomUUID(),
         conversationId: conversation.id,
         from: "system",
         message: messageString,
@@ -103,6 +104,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
 
       const broadcastMessage: Partial<IMessage>[] = [
         {
+          id: crypto.randomUUID(),
           conversationId: conversation.id,
           from: "system",
           message: `${user.username} joined the group`,
@@ -111,6 +113,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
 
       const userMessage: Partial<IMessage>[] = [
         {
+          id: crypto.randomUUID(),
           conversationId: conversation.id,
           from: "system",
           message: `You joined the group`,
@@ -122,6 +125,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
         { conversation: _conversation, members: [user] },
         userMessage
       );
+
       io.to(conversation.channelId!)
         .except(user.id)
         .emit(
@@ -143,13 +147,14 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
     }) => {
       const body = { conversationId: conversation.id, userId: user.id };
 
-      // await axiosClient
-      //   .patch(`/group/remove`, body)
-      //   .then((res) => res.data[0])
-      //   .catch((res) => res);
+      await axiosClient
+        .patch(`/group/remove`, body)
+        .then((res) => res.data[0])
+        .catch((res) => res);
 
       const message: Partial<IMessage>[] = [
         {
+          id: crypto.randomUUID(),
           conversationId: conversation.id,
           from: "system",
           message: `${user.username} left the group`,
@@ -199,12 +204,14 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
       );
 
       const messages = newMembers.map((m) => ({
+        id: crypto.randomUUID(),
         conversationId: conversation.id,
         from: "system",
         message: `${socket.username} added ${m.username}`,
       }));
 
       const userMessages = newMembers.map((m) => ({
+        id: crypto.randomUUID(),
         conversationId: conversation.id,
         from: "system",
         message: `${socket.username} added you to the group`,
@@ -250,6 +257,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
 
       const message: Partial<IMessage>[] = [
         {
+          id: crypto.randomUUID(),
           conversationId: conversation.id,
           from: "system",
           message: `${socket.username} removed ${user.username} from the group`,
@@ -280,9 +288,12 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
         .then((res) => res.data[0])
         .catch((res) => res);
 
-      const updatedConversation = getUpdatedValues(conversation, "admins");
-
-      io.to(conversation.channelId!).emit("UPDATE_GROUP", updatedConversation);
+      io.to(conversation.channelId!).emit(
+        "SET_GROUP_ADMIN",
+        conversationId,
+        userId,
+        true
+      );
     }
   );
 
@@ -304,9 +315,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
 
       const members = conversation.members.map((m) => m.id);
 
-      const updatedConversation = getUpdatedValues(conversation, "admins");
-
-      io.to(members).emit("UPDATE_GROUP", updatedConversation);
+      io.to(members).emit("SET_GROUP_ADMIN", conversationId, userId, false);
     }
   );
 }

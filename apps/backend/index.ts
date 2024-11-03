@@ -1,35 +1,34 @@
-import express from 'express'
-import router from './src/routes'
-import initDatabase from './src/db/mongoose'
-import { initKafkaConsumer } from './src/kafka/kafka'
-import cors from 'cors'
-import bodyParser from 'body-parser'
+import express from "express";
+import router from "./src/routes";
+import initDatabase from "./src/db/mongoose";
+import { initKafkaConsumer } from "./src/kafka/kafka";
+import cors from "cors";
+import bodyParser from "body-parser";
 
 (async () => {
-    const app = express()
+  const app = express();
 
-    app.use(cors({
-        origin: ['http://localhost:3000']
-    }))
+  app.use(cors({ origin: ["*"] }));
 
-    app.use(bodyParser.json());
-    
-    app.use(bodyParser.urlencoded({ extended: true }));
+  app.use(bodyParser.json());
 
-    const PORT = process.env.PORT || 4000
+  app.use(bodyParser.urlencoded({ extended: true }));
 
-    try {
-        await initDatabase()
-        initKafkaConsumer()
-    } catch (error) {
-        console.log('error line 20 ----->', error);
-    }
+  const PORT = process.env.PORT || 4000;
 
-    app.use(router)
+  try {
+    await Promise.all([initDatabase(), initKafkaConsumer()]);
+  } catch (error) {
+    console.log("error line 20 ----->", error);
+  }
 
-    app.listen(PORT, () => {
-        console.log(`Backend runnning on port ${PORT}`);
-    })
+  app.use(router); 
+
+  app.use((err:any,req:any,res:any,next:any)=>{
+    console.log('ERROR----------------->',err);
+  })
+
+  app.listen(PORT, () => {
+    console.log(`Backend runnning on port ${PORT}`);
+  });
 })();
-
-

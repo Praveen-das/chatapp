@@ -1,9 +1,10 @@
 import moment from "moment";
 import useSocket from "../../../context/SocketProvider";
 import useAuth from "../../../hooks/useAuth";
-import { Avatar } from "../../Dashboard/Components/Avatar";
+import Avatar from "../../Dashboard/Components/Avatar";
 import { useStore } from "../../../store/global";
 import { IGroupConversation } from "../../../interfaces/conversationInterface";
+import { IModal } from "@interfaces/modalInterface";
 
 const closeModal = () => {
   document?.querySelector<HTMLDialogElement>("#action-modal")?.close();

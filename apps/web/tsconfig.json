@@ -21,6 +21,6 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts"
-, "app/page.tsx", "components/ChatWindow/components/ChatInput/EmojiPicker.tsx", "app/[invitationId]/route.js"  ],
+, "app/(dashboard)/page.tsx", "components/ChatWindow/components/ChatInput/EmojiPicker.tsx", "app/[invitationId]/route.js", "app/manifest.ts", "scripts/generate-vapid-keys.js"  ],
   "exclude": ["node_modules"]
 }

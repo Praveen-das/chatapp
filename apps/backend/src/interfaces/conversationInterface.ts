@@ -2,7 +2,6 @@ import { Types } from "mongoose";
 
 export interface IMember{
   id: Types.ObjectId,
-  timeOfJoining: Number,
   timeOfDeletion?: Number,
   deletedForUser?: Boolean,
 }
@@ -14,11 +13,8 @@ export interface IUserConversation {
   createdAt: number;
   updatedAt: number;
   unsaved?: boolean;
-  userStatus?:{
-    id: string;
-    deletedForUser: boolean;
-  },
-  deletedForUser?: boolean;
+  deletedUsers?: string[];
+  archived?: string[];
 }
 
 export interface IDeleteConversationRequest {

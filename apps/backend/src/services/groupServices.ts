@@ -8,8 +8,6 @@ import {
 
 // createGroup
 async function createGroup(data: IGroup) {
-  console.log('creation data',data);
-  
   try {
     const group = new Group(data);
     await group.save();
@@ -30,7 +28,7 @@ async function createGroup(data: IGroup) {
 
     return populatedGroup[0];
   } catch (error) {
-    console.log("createGroup--->", error);
+    console.log("createGroup----------------->", error);
     throw error;
   }
 }
@@ -66,9 +64,8 @@ async function generateGroupInvitationId(groupId: string) {
 
 // fetchGroupsForUser
 async function fetchGroupById(groupId: string) {
-  const id = new Types.ObjectId(groupId);
-
   try {
+    const id = new Types.ObjectId(groupId);
     const groups = await Group.aggregate([
       {
         $match: { invitationId: id },
@@ -104,9 +101,8 @@ async function fetchGroupById(groupId: string) {
 }
 
 async function fetchGroupsByUserId(id: string) {
-  const userId = new Types.ObjectId(id);
-
   try {
+    const userId = new Types.ObjectId(id);
     const groups = await Group.aggregate([
       {
         $match: {
@@ -117,20 +113,100 @@ async function fetchGroupsByUserId(id: string) {
       {
         $addFields: {
           userStatus: {
-            $filter: {
-              input: "$members",
-              as: "member",
-              cond: {
-                $eq: ["$$member.id", userId],
+            $arrayElemAt: [
+              {
+                $filter: {
+                  input: "$members",
+                  as: "member",
+                  cond: {
+                    $eq: ["$$member.id", userId],
+                  },
+                },
               },
-            },
+              0,
+            ],
           },
         },
       },
+
       {
-        $unwind: {
-          path: "$userStatus",
-          preserveNullAndEmptyArrays: true,
+        $lookup: {
+          from: "messages",
+          let: {
+            timeOfJoining: "$userStatus.timeOfJoining",
+            timeOfDeletion: "$userStatus.timeOfDeletion",
+            conversationId: "$id",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$conversationId", "$$conversationId"] },
+                    { $gte: ["$timestamp", "$$timeOfJoining"] },
+                    {
+                      $or: [
+                        { $gt: ["$timestamp", "$$timeOfDeletion"] },
+                        { $eq: ["$$timeOfDeletion", null] },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+
+            {
+              $lookup: {
+                from: "messagedeleteflags",
+                let: {
+                  messageId: "$id",
+                  userId,
+                },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: {
+                        $and: [
+                          { $eq: ["$messageId", "$$messageId"] },
+                          { $eq: ["$userId", "$$userId"] },
+                        ],
+                      },
+                    },
+                  },
+                ],
+                as: "messageDeleted",
+              },
+            },
+            // Unwind messageDeleted with preservation
+            {
+              $unwind: {
+                path: "$messageDeleted",
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+            // Filter out deleted messages
+            {
+              $match: {
+                $expr: { $ne: ["$messageDeleted.deleted", true] },
+              },
+            },
+
+            {
+              $lookup: {
+                from: "users",
+                localField: "from",
+                foreignField: "id",
+                as: "user",
+              },
+            },
+            {
+              $unwind: {
+                path: "$user",
+                preserveNullAndEmptyArrays: true,
+              },
+            },
+          ],
+          as: "messages",
         },
       },
 
@@ -142,69 +218,41 @@ async function fetchGroupsByUserId(id: string) {
           as: "members",
         },
       },
+      
       {
         $lookup: {
-          from: "messages",
-          localField: "id",
-          foreignField: "conversationId",
-          let: {
-            timeOfJoining: "$userStatus.timeOfJoining",
-            timeOfDeletion: "$userStatus.timeOfDeletion",
-          },
+          from: "archives",
+          let: { conversationId: "$id" },
           pipeline: [
-            {
-              $lookup: {
-                from: "messagedeleteflags",
-                let: {
-                  id: "$id",
-                  userId,
-                },
-                pipeline: [
-                  {
-                    $match: {
-                      $expr: {
-                        $and: [
-                          {
-                            $eq: ["$messageId", "$$id"],
-                          },
-                          {
-                            $eq: ["$userId", "$$userId"],
-                          },
-                        ],
-                      },
-                    },
-                  },
-                ],
-                as: "messageDeleted",
-              },
-            },
-            {
-              $unwind: {
-                path: "$messageDeleted",
-                preserveNullAndEmptyArrays: true,
-              },
-            },
             {
               $match: {
                 $expr: {
                   $and: [
                     {
-                      $ne: ["$messageDeleted.deleted", true],
+                      $eq: ["$conversationId", "$$conversationId"],
                     },
-                    {
-                      $gt: ["$timestamp", "$$timeOfJoining"],
-                    },
-                    {
-                      $gt: ["$timestamp", "$$timeOfDeletion"],
-                    },
+                    { $eq: ["$userId", userId] },
                   ],
                 },
               },
             },
           ],
-          as: "messages",
+          as: "isArchived",
         },
       },
+
+      {
+        $addFields: {
+          isArchived: {
+            $cond: {
+              if: { $gt: [{ $size: "$isArchived" }, 0] },
+              then: true,
+              else: false,
+            },
+          },
+        },
+      },
+
       {
         $project: {
           userStatus: 0,
@@ -257,10 +305,9 @@ async function updateGroupMemberRole(
   _userId: string,
   isAdmin: boolean
 ) {
-  const groupId = new Types.ObjectId(_groupId);
-  const userId = new Types.ObjectId(_userId);
-
   try {
+    const groupId = new Types.ObjectId(_groupId);
+    const userId = new Types.ObjectId(_userId);
     const updatedGroup = await Group.findOneAndUpdate(
       { id: groupId, "members.userId": userId },
       { $set: { "members.$.isAdmin": isAdmin } },
@@ -275,10 +322,12 @@ async function updateGroupMemberRole(
 }
 
 async function addMembersToGroup(_conversationId: string, _members: IMember[]) {
-  const conversationId = new Types.ObjectId(_conversationId);
-  const members = _members.map((m) => ({ ...m, id: new Types.ObjectId(m.id) }));
-
   try {
+    const conversationId = new Types.ObjectId(_conversationId);
+    const members = _members.map((m) => ({
+      ...m,
+      id: new Types.ObjectId(m.id),
+    }));
     const updatedGroup = await Group.findOneAndUpdate(
       { id: conversationId },
       {
@@ -324,10 +373,9 @@ async function addMembersToGroup(_conversationId: string, _members: IMember[]) {
 
 // removeMemberFromGroup
 async function removeMemberFromGroup(_conversationId: string, _userId: string) {
-  const userId = new Types.ObjectId(_userId);
-  const conversationId = new Types.ObjectId(_conversationId);
-
   try {
+    const userId = new Types.ObjectId(_userId);
+    const conversationId = new Types.ObjectId(_conversationId);
     const updatedGroup = await Group.findOneAndUpdate(
       { id: conversationId },
       {
@@ -357,9 +405,8 @@ async function removeMemberFromGroup(_conversationId: string, _userId: string) {
 
 // updateGroup
 async function updateGroup(_conversationId: string, updates: Partial<IGroup>) {
-  const conversationId = new Types.ObjectId(_conversationId);
-
   try {
+    const conversationId = new Types.ObjectId(_conversationId);
     const updatedGroup = await Group.findOneAndUpdate(
       { id: conversationId },
       updates,
@@ -387,9 +434,8 @@ async function updateGroup(_conversationId: string, updates: Partial<IGroup>) {
 
 // deleteGroup
 async function deleteGroup(_groupId: string) {
-  const groupId = new Types.ObjectId(_groupId);
-
   try {
+    const groupId = new Types.ObjectId(_groupId);
     const updatedGroup = await Group.findByIdAndDelete(groupId);
 
     return updatedGroup;
@@ -401,10 +447,9 @@ async function deleteGroup(_groupId: string) {
 
 // make user as admin
 async function makeUserAdmin(_conversationId: string, _userId: string) {
-  const conversationId = new Types.ObjectId(_conversationId);
-  const userId = new Types.ObjectId(_userId);
-
   try {
+    const conversationId = new Types.ObjectId(_conversationId);
+    const userId = new Types.ObjectId(_userId);
     const updatedGroup = await Group.findOneAndUpdate(
       { id: conversationId },
       {
@@ -434,10 +479,9 @@ async function makeUserAdmin(_conversationId: string, _userId: string) {
 
 // remove user from admin
 async function removeUserAdmin(_conversationId: string, _userId: string) {
-  const conversationId = new Types.ObjectId(_conversationId);
-  const userId = new Types.ObjectId(_userId);
-
   try {
+    const conversationId = new Types.ObjectId(_conversationId);
+    const userId = new Types.ObjectId(_userId);
     const updatedGroup = await Group.findOneAndUpdate(
       { id: conversationId },
       {
@@ -466,18 +510,22 @@ async function removeUserAdmin(_conversationId: string, _userId: string) {
 }
 
 async function clearGroupConversation(req: IDeleteConversationRequest) {
-  const res = await Group.updateOne(
-    { id: req.conversationId, "members.id": req.userId },
-    {
-      $set: {
-        "members.$.deletedForUser": req.deletedForUser,
-        "members.$.timeOfDeletion": req.timeOfDeletion,
+  try {
+    const res = await Group.updateOne(
+      { id: req.conversationId, "members.id": req.userId },
+      {
+        $set: {
+          "members.$.deletedForUser": req.deletedForUser,
+          "members.$.timeOfDeletion": req.timeOfDeletion,
+        },
       },
-    },
-    { upsert: true }
-  );
+      { upsert: true }
+    );
 
-  return res;
+    return res;
+  } catch (error) {
+    console.log("clearGroupConversation---------->", error);
+  }
 }
 
 export {

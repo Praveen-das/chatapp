@@ -2,7 +2,7 @@
 
 import { useStore } from "../../store/global";
 import moment from "moment";
-import { Avatar } from "../Dashboard/Components/Avatar";
+import Avatar from "../Dashboard/Components/Avatar";
 import { useConversationStore } from "../../store/conversationStore";
 import useAuth from "../../hooks/useAuth";
 import MediaSelection from "./MediaSelection";
@@ -42,6 +42,7 @@ function UserProfile({
   );
   const toggleProfile = useStore((s) => s.toggleProfile);
   const setProfileTab = useStore((s) => s.setProfileTab);
+  const setDeviceTab = useStore((s) => s.setDeviceTab);
   const clearChat = useMessageStore((s) => s.clearChat);
 
   const isOnline = user?.status === "online";
@@ -52,7 +53,9 @@ function UserProfile({
     const selectedConversation =
       useConversationStore.getState().selectedConversation;
     if (selectedConversation?.host === "group") setProfileTab("conversation");
-    else toggleProfile(false);
+    else {
+      toggleProfile(false);
+    }
     // setSelectedUser(null);
   }
 
@@ -68,20 +71,22 @@ function UserProfile({
   }
 
   const handleDeletingConversation = () => {
-    let conversationId = conversation?.id!;
+    if (!conversation) return;
+    let conversationId = conversation.id;
 
     let req = {
-      conversationId,
+      conversation,
       userId: currentUser?.id!,
       deletedForUser: true,
       timeOfDeletion: Date.now(),
     };
 
     sendConversationDeleteRequest(req);
-    deleteConversation(conversationId);
+    deleteConversation(conversationId, currentUser?.id!);
     clearChat(conversationId);
     toggleProfile(false);
     setSelectedConversation(null);
+    setDeviceTab("");
   };
 
   const handleBlockingUser = () => {
@@ -109,7 +114,7 @@ function UserProfile({
   return (
     <>
       {/* Header */}
-      <div className="min-h-16 w-full flex items-center gap-4 px-4">
+      <div className="min-h-16 w-full flex items-center max-sm:gap-2 gap-4 max-sm:px-2 px-4">
         <button
           onClick={closeProfile}
           className={`btn btn-sm btn-ghost btn-circle`}
@@ -132,7 +137,7 @@ function UserProfile({
         <label htmlFor="contact info">Contact info</label>
       </div>
       {/* Profile details */}
-      <div className="flex gap-6 text-sm flex-col overflow-y-scroll py-6 no-scrollbar">
+      <div className="flex h-full gap-6 text-sm flex-col overflow-y-scroll max-sm:py-3 py-6 no-scrollbar">
         {/* profile */}
         <div className="w-full flex flex-col gap-2 items-center ">
           <Avatar
@@ -178,7 +183,7 @@ function UserProfile({
 
         {/* about */}
         {user?.rules?.bio.isVisible && (
-          <div className="w-full flex flex-col px-8">
+          <div className="w-full flex flex-col max-sm:px-4 px-8">
             <label className="text-sm text-primary" htmlFor="">
               About
             </label>
@@ -201,23 +206,24 @@ function UserProfile({
             </label>
             <div className="flex flex-col w-full ">
               {groupsInCommon.map((group) => (
-                <Group group={group} />
+                <Group key={group.id} group={group} />
               ))}
             </div>
           </div>
         )}
 
         {/* Actions */}
-        <div className="flex flex-col gap-2 px-8">
-          {conversation?.host === "user" && !conversation.deletedForUser && (
-            <div
-              onClick={handleDeletingConversation}
-              tabIndex={0}
-              className="btn btn-block btn-outline btn-error"
-            >
-              Delete chat
-            </div>
-          )}
+        <div className="flex flex-col gap-2 mt-auto max-sm:px-4 px-8">
+          {conversation?.host === "user" &&
+            !conversation.deletedUsers?.includes(user.id) && (
+              <div
+                onClick={handleDeletingConversation}
+                tabIndex={0}
+                className="btn btn-block btn-outline btn-error"
+              >
+                Delete chat
+              </div>
+            )}
           <div
             onClick={handleBlockingUser}
             tabIndex={0}

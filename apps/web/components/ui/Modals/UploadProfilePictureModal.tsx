@@ -6,6 +6,7 @@ import "./style.css";
 import { CheckCircleIcon } from "@heroicons/react/24/solid";
 import { CheckIcon } from "@heroicons/react/16/solid";
 import useAuth from "@hooks/useAuth";
+import { IModal } from "@interfaces/modalInterface";
 
 const closeModal = () => {
   document.querySelector<HTMLDialogElement>("#action-modal")?.close();

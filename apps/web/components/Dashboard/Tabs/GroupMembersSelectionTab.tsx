@@ -18,10 +18,6 @@ const GroupMembersSelectionTab = () => {
     return users.filter((user) => user.username.includes(query));
   }, [query, users]);
 
-  const removeUser = (id: string) => {
-    setSelectedGroupMembers(id);
-  };
-
   const handleSelectedUser = (id: string) => {
     setSelectedGroupMembers(id);
   };
@@ -34,7 +30,7 @@ const GroupMembersSelectionTab = () => {
           {selectedGroupMembers.map((id, idx) => (
             <label
               key={id}
-              onClick={() => removeUser(id)}
+              onClick={() => handleSelectedUser(id)}
               className="truncate min-w-36 bg-[--100-primary] text-white px-2 py-1 rounded-full cursor-pointer hover:line-through"
               htmlFor=""
             >

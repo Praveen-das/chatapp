@@ -74,10 +74,33 @@ const _updateConversationById = async (req: Request, res: Response) => {
   }
 };
 
+async function _addToArchive(req: Request<any,any,{ conversationId: string; userId: string }>, res: Response) {
+  if (!req.body) return;
+  const conversationId = new Types.ObjectId(req.body.conversationId);
+  const userId = new Types.ObjectId(req.body.userId);
+  
+  await conversationServices.addToArchive(conversationId, userId);
+  res.json("ok");
+}
+
+async function _removeFromArchive(
+  req: Request<any,any,{ conversationId: string; userId: string }>,
+  res: Response
+) {
+  if (!req.body) return;
+  const conversationId = new Types.ObjectId(req.body.conversationId);
+  const userId = new Types.ObjectId(req.body.userId);
+  
+  await conversationServices.removeFromArchive(conversationId, userId);
+  res.json("ok");
+}
+
 export default {
   _createConversation,
   _fetchAllConversations,
   _getUserConversation,
   _updateConversationById,
   _clearConversation,
+  _addToArchive,
+  _removeFromArchive,
 };

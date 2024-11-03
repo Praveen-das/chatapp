@@ -6,8 +6,8 @@ type IHttpServer = Server | undefined
 type ISocketServer = SocketServer
 
 interface ISocketService {
-    #_io: SocketServer
-    #server: IHttpServer | undefined
+    io: SocketServer
+    server: IHttpServer | undefined
 
     initAdapter(client: Redis)
     initListeners()
