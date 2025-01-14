@@ -1,7 +1,7 @@
 "use client";
 import React, { Fragment, useEffect, useState } from "react";
 import { useStore } from "../../../store/global";
-import Avatar from "./Avatar";
+import Avatar from "../../ui/Avatar";
 import { IUser } from "../../../interfaces/userInterface";
 
 interface IPerson {

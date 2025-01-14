@@ -16,6 +16,7 @@
         "typescript": "^5.4.5"
     },
     "dependencies": {
+        "@skgdev/socket.io-msgpack-javascript": "^1.2.1",
         "@socket.io/redis-adapter": "^8.2.1",
         "@socket.io/redis-emitter": "^5.1.0",
         "@socket.io/sticky": "^1.0.4",
@@ -24,12 +25,17 @@
         "axios-retry": "^4.1.0",
         "bson": "^6.8.0",
         "flat": "^6.0.1",
+        "flatted": "^3.3.2",
         "ioredis": "^5.3.2",
         "kafkajs": "^2.2.4",
         "mongoose": "^8.2.0",
         "plaiceholder": "^3.0.0",
         "redis": "^4.6.13",
         "sharp": "^0.33.5",
-        "socket.io": "^4.7.4"
+        "socket.io": "^4.7.4",
+        "socket.io-cbor-x-parser": "^1.0.3",
+        "socket.io-msgpack-parser": "^3.0.2",
+        "socket.io-parser": "^4.2.4",
+        "superjson": "^2.2.2"
     }
 }

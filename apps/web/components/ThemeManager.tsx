@@ -1,22 +1,32 @@
-'use client';
-import { useEffect } from 'react';
-import { useTheme } from 'next-themes';
+"use client";
+import { useEffect } from "react";
+import { useTheme } from "next-themes";
 
 export function ThemeManager() {
   const { theme, setTheme } = useTheme();
 
   useEffect(() => {
-    const default_mode = theme?.split('-')[0]
+    const active_mode = theme?.split("-")[0];
+    let bgcolor = theme?.split("-")[1];
 
-    if(default_mode === 'DARK' || default_mode === 'LIGHT') return
+    const isSystemDefault =
+      active_mode === "system" ||
+      active_mode === "light" ||
+      active_mode === "dark";
 
-    window.matchMedia('(prefers-color-scheme: dark)').onchange = (e) => {
-      let mode = e.matches ? 'dark' : 'light';
-      let bgcolor = theme?.split('-')[1];
+    const matchMediaList = window.matchMedia("(prefers-color-scheme: dark)")
 
-      let _theme = mode + "-" + bgcolor;
+    const handleChange = (e:MediaQueryListEvent) => {
+      if (!isSystemDefault) return;
+      let mode = e.matches ? "dark" : "light";
 
-      setTheme(_theme);
+      setTheme(bgcolor ? mode + "-" + bgcolor : mode);
+    };
+
+    matchMediaList.addEventListener('change', handleChange);
+    
+    return () => {
+      matchMediaList.removeEventListener('change', handleChange);
     };
   }, [theme]);
 

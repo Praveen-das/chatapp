@@ -1,55 +1,39 @@
 "use client";
-import { memo, useEffect, useState } from "react";
-import { useMessageStore } from "../../../store/messageStore";
-import { useConversationStore } from "../../../store/conversationStore";
-import ArchiveMenu from "./Menu/ArchiveMenu";
-import NewChatMenu  from "./Menu/NewChatMenu";
-import GroupMenu from "./Menu/GroupMenu";
-import OptionsMenu from "./Menu/OptionsMenu";
+import React from "react";
+import { useStore } from "../../../store/global";
+import { ChevronLeftIcon } from "@heroicons/react/24/solid";
 
-function Header() {
-  const unreadMessages = useMessageStore((s) => s.unreadMessages);
-  const selectedConversation = useConversationStore(
-    (s) => s.selectedConversation
-  );
+function Header({
+  title,
+  mainTab,
+  onClose,
+}: {
+  title: string;
+  mainTab: string;
+  onClose?:()=>void
+}) {
+  const setDashboardTab = useStore((s) => s.setDashboardTab);
 
-  const [totalMessages, setTotalMessages] = useState(0);
-
-  useEffect(() => {
-    let total = 0;
-    unreadMessages.forEach((um, key) => {
-      if (selectedConversation?.id === key) return;
-      total += um.length;
-    });
-    setTotalMessages(total);
-  }, [unreadMessages, selectedConversation]);
+  function handleClose(){
+    onClose?.()
+    setDashboardTab(mainTab)
+  }
 
   return (
-    <>
-      <div className="min-h-16 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <label className="text-xl font-bold" htmlFor="">
-            Messages
-          </label>
-          {totalMessages > 0 ? (
-            <span className="flex items-center justify-center text-white rounded-full text-xs w-[20px] h-[20px] bg-primary">
-              {totalMessages}
-            </span>
-          ) : (
-            <span />
-          )}
-        </div>
-        <div className="flex items-center gap-4">
-          <GroupMenu/>
-          <NewChatMenu/>
-          <ArchiveMenu/>
-          <OptionsMenu/>
-        </div>
+    <div className="flex justify-between items-center min-h-16">
+      <div className="flex items-center gap-2">
+        <label className=" text-xl font-bold" htmlFor="">
+          {title}
+        </label>
       </div>
-    </>
+      <button
+        onClick={handleClose}
+        className="btn btn-sm btn-ghost btn-circle "
+      >
+        <ChevronLeftIcon className="size-5" />
+      </button>
+    </div>
   );
 }
 
-export default memo(Header);
-
-
+export default Header;

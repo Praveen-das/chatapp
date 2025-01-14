@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../../../../store/global";
 import { useAttachments } from "../../../../store/attachments";
 import { renderToString } from "react-dom/server";
-import { AnimatePresence, motion } from "framer-motion";
 
 // Import Swiper React components
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -16,8 +15,7 @@ import "swiper/css/navigation";
 import { useConversationStore } from "../../../../store/conversationStore";
 import { downloadFromUrl } from "@lib/utils";
 import {
-  IImageAttachment,
-  IUserMedia,
+  IImageAttachment
 } from "../../../../interfaces/messageInterface";
 import Image from "next/image";
 import { IModal } from "@interfaces/modalInterface";
@@ -31,26 +29,17 @@ function ImageViewer() {
   const modal = useStore<IModal<IImageAttachment> | null>((s) => s.modal);
   const selectedAttachment = modal?.state;
 
-  const [userMedia, setUserMedia] = useState<IUserMedia>({});
   const [activeIndex, setActiveIndex] = useState(0);
   const paginationRef = useRef<HTMLDivElement>(null);
 
-  const userImages = userMedia["images"] || [];
+  const userImages = mediaStore.get(selectedConversation?.id!)?.images || [];
+  let initialSlideIdx = 0;
 
-  const getInitialSlideIdx = useCallback(() => {
-    let index = 0;
-    userImages.forEach(({ id }, i) => {
-      if (id === selectedAttachment?.id) return (index = i);
+  useMemo(() => {
+    userImages.forEach((img, i) => {
+      if (img.id === selectedAttachment?.id) initialSlideIdx = i;
     });
-    return index;
-  }, [selectedAttachment, userImages]);
-
-  const INITIAL_SLIDE = getInitialSlideIdx();
-
-  useEffect(() => {
-    const _userMedia = mediaStore.get(selectedConversation?.id!) || {};
-    setUserMedia(_userMedia);
-  }, [selectedConversation, mediaStore]);
+  }, [mediaStore, selectedAttachment, selectedConversation]);
 
   useEffect(() => {
     document
@@ -63,17 +52,17 @@ function ImageViewer() {
       el: ".swiper-pagination",
       clickable: true,
       renderBullet: function (index: number, className: string) {
-        let attachment = userImages[index]!;
-        let imageUrl = attachment?.url + "?tr=w-80,h-80"!;
+        let image = userImages[index]!;
+        let imageUrl = image?.url + "?tr=w-80,h-80"!;
         return renderToString(
-          attachment && (
+          image && (
             <div className={`${className} btn btn-square btn-ghost`}>
               <Image
                 width={80}
                 height={80}
                 className="w-full h-full object-cover"
                 src={imageUrl}
-                alt={attachment.name}
+                alt={image.name}
               />
             </div>
           )
@@ -84,7 +73,6 @@ function ImageViewer() {
 
   const handleClose = () => {
     setModal(null);
-    document?.querySelector<HTMLDialogElement>("#action-modal")?.close();
   };
 
   const handleDownload = () => {
@@ -92,33 +80,8 @@ function ImageViewer() {
     url && downloadFromUrl(url);
   };
 
-  const container = {
-    hidden: { opacity: 0, translateY: "-5px" },
-    visible: {
-      opacity: 1,
-      translateY: "0px",
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.2,
-      },
-    },
-  };
-
-  const item = {
-    hidden: { opacity: 0, translateY: "-5px" },
-    visible: { opacity: 1, translateY: "0px" },
-  };
-
   return (
-    // <AnimatePresence>
-    //   {selectedAttachment && (
-    //   )}
-    // </AnimatePresence>
     <div
-      // variants={container}
-      // initial="hidden"
-      // animate="visible"
-      // exit="hidden"
       className="fixed inset-0 flex flex-col gap-2 w-full max-w-full h-full max-h-full rounded-none bg-gradient-to-t to-base-300 from-base-200 overflow-hidden p-4 z-50"
     >
       {/* Header----------------- */}
@@ -179,7 +142,7 @@ function ImageViewer() {
 
       {/* Image viewer----------------- */}
       <Swiper
-        initialSlide={INITIAL_SLIDE}
+        initialSlide={initialSlideIdx}
         pagination={pagination}
         navigation={{ nextEl: ".nextEl", prevEl: ".prevEl" }}
         modules={[Pagination, Navigation]}
@@ -228,9 +191,11 @@ function ImageViewer() {
           </svg>
         </div>
       </Swiper>
-      
+
       {/* Pagination----------------- */}
-      {userImages.length > 1 && <div className="w-full h-[3px] bg-gradient-to-r from-transparent via-black to-transparent opacity-25 my-4"></div> }
+      {userImages.length > 1 && (
+        <div className="w-full h-[3px] bg-gradient-to-r from-transparent via-black to-transparent opacity-25 my-4"></div>
+      )}
       <div
         ref={paginationRef}
         className="swiper-pagination flex justify-center flex-row-reverse overflow-scroll no-scrollbar mt-4"

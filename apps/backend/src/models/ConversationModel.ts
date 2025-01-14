@@ -1,16 +1,13 @@
 import { Schema, model } from "mongoose";
-import { IUserConversation } from "../interfaces/conversationInterface";
-import { memberSchema } from "./schemas/memberSchema";
+import { IConversation, IUserConversation } from "../interfaces/conversationInterface";
 
 const schemaOptions = { toJSON: { virtuals: true } };
 
-memberSchema.index({id:1})
-
-const conversationSchema = new Schema<IUserConversation>(
+const conversationSchema = new Schema<IConversation>(
   {
     id: Schema.Types.ObjectId,
     host: String,
-    members: [memberSchema],
+    members: [Schema.Types.ObjectId],
     createdAt: Number,
     updatedAt: Number,
   },

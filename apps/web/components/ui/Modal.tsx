@@ -10,12 +10,12 @@ const Modal = () => {
   
   function handleClose() {
     setModal(null);
-    document?.querySelector<HTMLDialogElement>("#action-modal")?.close();
   }
 
   return (
     <dialog
       onClose={handleClose}
+      open={Boolean(modal?.open)}
       id="action-modal"
       className="modal outline-none"
     >

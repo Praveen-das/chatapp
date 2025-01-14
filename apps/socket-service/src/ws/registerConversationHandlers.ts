@@ -7,45 +7,87 @@ export default function registerConversationHandlers(
   io: Server,
   socket: ISocket
 ) {
-  socket.on("CLEAR_CONVERSATION", (req: IClearConversationRequest) => {
-    produceMessage(req, "CLEAR_CONVERSATION_FOR_USER");
-  });
-
-  socket.on("CLEAR_GROUP_CONVERSATION", (req: IClearConversationRequest) => {
-    produceMessage(req, "CLEAR_GROUP_CONVERSATION_FOR_USER");
+  socket.on("REGISTER_CONVERSATION", (conversation: INewConversation) => {
+    produceMessage({ conversation }, "CREATE_CONVERSATION");
   });
 
   socket.on(
-    "DELETE_CONVERSATION",
-    ({ conversation, ...rest }: IClearConversationRequest) => {
-      const members = conversation.members.map(({ id }) => id);
-      const req = { ...rest, conversationId: conversation.id };
+    "REGISTER_USER_CONVERSATION",
+    (conversations: IUserConversation[]) => {
+      const conversation = conversations.find(
+        (c) => c.userId !== socket.userId
+      );
 
-      io.to(members).emit("DELETE_CONVERSATION", req);
-
-      produceMessage(req, "CLEAR_CONVERSATION_FOR_USER");
+      io.to(conversation?.userId!).emit(
+        "CREATE_USER_CONVERSATION",
+        conversation
+      );
+      produceMessage(
+        { userConversations: conversations },
+        "CREATE_USER_CONVERSATION"
+      );
     }
   );
 
-  socket.on("ARCHIVE_CONVERSATION", async (conversationId: string) => {
-    await axiosClient.post("/archive/add", {
-      conversationId,
-      userId: socket.userId,
-    });
-    
-    socket.emit("UPDATE_CONVERSATION", conversationId, {
-      isArchived: true,
-    });
+  socket.on("CLEAR_CONVERSATION", (id: string) => {
+    const req = { id, updates: { deletedAt: Date.now() } };
+    produceMessage(req, "UPDATE_USER_CONVERSATION");
   });
 
-  socket.on("UNARCHIVE_CONVERSATION", async (conversationId: string) => {
-    await axiosClient.post("/archive/remove", {
-      conversationId,
-      userId: socket.userId,
-    });
-
-    socket.emit("UPDATE_CONVERSATION", conversationId, {
-      isArchived: false,
-    });
+  socket.on("CLEAR_GROUP_CONVERSATION", (id: string) => {
+    const req = { id, updates: { deletedAt: Date.now() } };
+    produceMessage(req, "UPDATE_GROUP_CONVERSATION");
   });
+
+  socket.on("DELETE_CONVERSATION", (id: string) => {
+    const req = {
+      id,
+      updates: { active: false, deletedAt: Date.now(), archived: false },
+    };
+
+    produceMessage(req, "UPDATE_USER_CONVERSATION");
+  });
+
+  socket.on("ACTIVATE_CONVERSATION", (id: string) => {
+    const req = { id, updates: { active: true } };
+
+    produceMessage(req, "UPDATE_USER_CONVERSATION");
+  });
+
+  socket.on("ARCHIVE_CONVERSATION", async (conversation: IConversation) => {
+    const id = conversation.id;
+    const req = { id, updates: { archived: true } };
+
+    conversation.host === "group"
+      ? produceMessage(req, "UPDATE_GROUP_CONVERSATION")
+      : produceMessage(req, "UPDATE_USER_CONVERSATION");
+
+    socket.emit("UPDATE_CONVERSATION", id, { archived: true });
+  });
+
+  socket.on("UNARCHIVE_CONVERSATION", async (conversation: IConversation) => {
+    const id = conversation.id;
+    const req = { id, updates: { archived: false } };
+
+    conversation.host === "group"
+      ? produceMessage(req, "UPDATE_GROUP_CONVERSATION")
+      : produceMessage(req, "UPDATE_USER_CONVERSATION");
+
+    socket.emit("UPDATE_CONVERSATION", id, { archived: false });
+  });
+
+  socket.on(
+    "REGISTER_STARRED_MESSAGES",
+    async (req: { conversationId: string; messageIds: string[] }) => {
+      produceMessage(req, "REGISTER_STARRED_MESSAGES");
+    }
+  );
+
+  socket.on(
+    "UNREGISTER_STARRED_MESSAGES",
+    async (req: { conversationId: string; messageIds: string[] }) => {
+      produceMessage(req, "UNREGISTER_STARRED_MESSAGES");
+    }
+  );
+  
 }

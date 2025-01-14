@@ -1,8 +1,7 @@
 "use client";
 import ChatWindow from "@components/ChatWindow/ChatWindow";
-import Tab from "@components/Dashboard/Components/Tab";
-import Dashboard from "@components/Dashboard/Dashboard";
-import Tabs from "@components/Dashboard/Tabs/Tabs";
+import { Tab, Tabs } from "@components/ui/Tab";
+import Dashboard from "@components/Dashboard";
 import { Profile } from "@components/Profiles/DisplayProfile";
 import useSelectedConversation from "@hooks/useSelectedConversation";
 import React from "react";

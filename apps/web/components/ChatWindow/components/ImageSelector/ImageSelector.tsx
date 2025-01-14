@@ -5,16 +5,19 @@ import InputButton from "../../../ui/InputButton";
 import Image from "next/image";
 import { useMessageStore } from "../../../../store/messageStore";
 import { getImages } from "@lib/utils";
-import useMessage from "../../../../hooks/useMessage";
 import useSocket from "../../../../context/SocketProvider";
 import { useConversationStore } from "../../../../store/conversationStore";
-import { IImageAttachment, IMessage } from "../../../../interfaces/messageInterface";
+import {
+  IImageAttachment,
+  IMessage,
+} from "../../../../interfaces/messageInterface";
 import ObjectID from "bson-objectid";
 import { uploadImage } from "@lib/imageKit";
 import { useStore } from "../../../../store/global";
 import useAuth from "@hooks/useAuth";
-import { generateConversation } from "@lib/conversation";
+import { generateConversation, handleGeneratingConversation } from "@lib/conversation";
 import { flip, shift, useFloating } from "@floating-ui/react";
+import { generateMessageTemplate } from "@lib/messages";
 
 function ImageSelector() {
   const { user } = useAuth();
@@ -27,8 +30,7 @@ function ImageSelector() {
   const setMessageStore = useMessageStore((s) => s.setMessageStore);
   const updateMessages = useMessageStore((s) => s.updateUserMessages);
 
-  const { generateMessageTemplate } = useMessage();
-  const { sendMessage } = useSocket();
+  const { sendMessage,sendRequestToRegisterConversation,sendRequestToRegisterUserConversation } = useSocket();
   const setUploadProgress = useStore((s) => s.setUploadProgress);
 
   const [open, setOpen] = useState(false);
@@ -76,8 +78,22 @@ function ImageSelector() {
       conversations.find(
         (c) =>
           c.members.find((m) => m.id === selectedUser?.id!) && c.host === "user"
-      ) ||
-      generateConversation(user!, selectedUser!);
+      );
+
+    if (!conversation) {
+      const { conversation: newConversation, userConversations } =
+        handleGeneratingConversation(user!, selectedUser!);
+
+      sendRequestToRegisterConversation(newConversation);
+      sendRequestToRegisterUserConversation(userConversations);
+
+      userConversations.forEach((c) => {
+        if (c.userId === user?.id) {
+          conversation = c;
+          setConversation(c);
+        }
+      });
+    }
 
     const conversationId = conversation?.id!;
     const userMedia: IImageAttachment[] = [];
@@ -97,8 +113,6 @@ function ImageSelector() {
 
     clearImages();
     setCaptions([]);
-
-    if (conversation.unsaved) setConversation(conversation);
 
     setSelectedConversation(conversationId);
     setMessageStore(conversationId, messages);
@@ -127,8 +141,8 @@ function ImageSelector() {
             message.attachment = { ...message.attachment, ...res };
             userMedia.push(message.attachment);
           }
-
-          updateMessages(conversationId, [message]);
+          
+          updateMessages(conversation?.id!, [message]);
         } catch (err) {
           console.error("Image upload failed", err);
         }
@@ -137,13 +151,11 @@ function ImageSelector() {
 
     const uploadPromises = messages.map(uploadImageAttachment);
     await Promise.allSettled(uploadPromises);
-
-    sendMessage(messages, conversation!);
-
+    
     const recentMessage = messages.at(-1);
-
-    updateConversation(conversationId, { recentMessage, unsaved: false });
     addToMediaStore(conversationId, "images", userMedia);
+    sendMessage(conversation!,messages);
+    updateConversation(conversationId, { recentMessage, updatedAt:recentMessage?.timestamp });
   };
 
   const removeImage = (index: number, e: MouseEvent<HTMLDivElement>) => {

@@ -16,7 +16,7 @@ async function createProducer() {
     return producer;
 }
 
-async function produceMessage(body: any, topic = "MESSAGES") {
+async function produceMessage(body: any, topic:string) {
     const producer = await createProducer();
 
     try {

@@ -1,28 +1,33 @@
 "use client";
 
 import { useStore } from "../../store/global";
-import Avatar from "../Dashboard/Components/Avatar";
-import useSelectedConversation from "../../hooks/useSelectedConversation";
-import { useTabs } from "../Dashboard/Tabs/Tabs";
-import Link from "next/link";
+import Avatar from "../ui/Avatar";
+import { useTabs } from "../ui/Tab/Tabs";
 import axiosClient from "../../lib/axiosClient";
 import { useConversationStore } from "../../store/conversationStore";
-import { useMessageStore } from "../../store/messageStore";
-import Modal from "../ui/Modal";
-import DisplayProfileWrapper from "./DisplayProfileWrapper";
 import { IGroupConversation } from "../../interfaces/conversationInterface";
-import { ArrowUturnRightIcon } from "@heroicons/react/24/solid";
+import {
+  ArrowUturnRightIcon,
+  ChevronRightIcon,
+} from "@heroicons/react/24/solid";
+import useAuth from "@hooks/useAuth";
+import { encrypt } from "@lib/e2e";
 
 function LinkManagement({
-  selectedConversation,
+  conversation,
 }: {
-  selectedConversation: IGroupConversation;
+  conversation: IGroupConversation;
 }) {
-  const updateGroupConversation = useConversationStore((s) => s.updateGroupConversation);
+  const { user } = useAuth();
+  const updateGroupConversation = useConversationStore(
+    (s) => s.updateGroupConversation
+  );
   const setModal = useStore((s) => s.setModal);
 
   const setProfileTab = useStore((s) => s.setProfileTab);
   const { initialTab } = useTabs();
+
+  const userIdAdmin = conversation.admins.includes(user?.id!);
 
   function handleSendingInvitationLink() {
     setModal({
@@ -30,91 +35,82 @@ function LinkManagement({
       state: [
         {
           id: "",
-          message: `http://localhost:3000/${selectedConversation.invitationId}`,
+          message: encrypt(
+            `http://localhost:3000/invite/${conversation.invitationId}`
+          ),
         },
       ],
+      open: true,
     });
-    (
-      document?.getElementById("action-modal") as HTMLDialogElement
-    )?.showModal();
   }
 
   function handleCopyingLink() {
     navigator.clipboard.writeText(
-      `http://localhost:3000/${selectedConversation.invitationId}`
+      `http://localhost:3000/invite/${conversation.invitationId}`
     );
   }
 
   function handleGeneratingInvitationLink() {
     axiosClient
       .patch<IGroupConversation>("/group/generateInvitationId", {
-        conversationId: selectedConversation.id,
+        conversationId: conversation.conversationId,
       })
       .then((res) => {
         const { id, invitationId } = res.data;
-        updateGroupConversation(id, { invitationId });
+        const conversationId = useConversationStore
+          .getState()
+          .conversations.find((c) => c.conversationId === id)?.id!;
+        updateGroupConversation(conversationId, { invitationId });
       })
       .catch((res) => console.log(res));
   }
 
   return (
-    <>
-      <Modal />
+    <div className='w-full h-full flex flex-col'>
       <div className="min-h-16 w-full flex items-center gap-4 px-4">
         <button
           onClick={() => setProfileTab(initialTab)}
           className={`btn btn-sm btn-ghost btn-circle`}
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-            className="size-5"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"
-            />
-          </svg>
+          <ChevronRightIcon className="size-5" />
         </button>
         <label htmlFor="contact info">Invite via link</label>
       </div>
-      {selectedConversation.invitationId ? (
-        <>
-          <div className="flex gap-6 text-sm flex-col overflow-y-scroll max-sm:py-4 py-6 no-scrollbar">
+      <div className="w-full h-full flex flex-col bg-gradient-to-t from-base-200 max-sm:mt-2 sm:mt-4">
+        {conversation.invitationId ? (
+          <div className="flex gap-6 text-sm flex-col overflow-y-scroll no-scrollbar">
             {/* profile */}
-            <div className="w-full flex max-sm:px-4 px-8 gap-4 items-center ">
+            <div className="w-full flex gap-4 items-center max-sm:px-4 px-8">
               <Avatar
-                url={selectedConversation.profilePicture}
+                url={conversation.profilePicture}
                 size="50px"
                 onlineIndication={false}
               />
               <div className="grid w-full">
-                {selectedConversation.displayName}
-                <p className="text-xs btn-link text-left">
-                  http://localhost:3000/{selectedConversation.invitationId}
+                {conversation.displayName}
+                <p className="text-xs btn-link text-left break-all">
+                  http://localhost:3000/invite/{conversation.invitationId}
                 </p>
               </div>
             </div>
             <div className="flex gap-1 flex-col w-full ">
-              <div className="w-full min-h-[2px] bg-black/20" />
+              <div className="max-sm:px-4 px-8">
+                <div className="w-full min-h-[2px] bg-black/20" />
+              </div>
               <div
                 tabIndex={0}
                 onClick={handleSendingInvitationLink}
-                className="hover:bg-[--hover-secondary] w-full flex items-center gap-4 max-sm:px-4 px-8 py-3 cursor-pointer"
+                className="hover:bg-[--hover-secondary] w-full flex items-center gap-4 py-3 cursor-pointer max-sm:px-4 px-8"
               >
                 <div className="flex items-center justify-center w-[40px] h-[40px] bg-gray-500 rounded-full">
-                <ArrowUturnRightIcon className="size-5" />
+                  <ArrowUturnRightIcon className="size-5" />
                 </div>
                 Send link
               </div>
               <div
                 onClick={handleCopyingLink}
                 tabIndex={0}
-                className="hover:bg-[--hover-secondary] w-full flex items-center gap-4 max-sm:px-4 px-8 py-3 cursor-pointer"
+                className="hover:bg-[--hover-secondary] w-full flex items-center gap-4 py-3 cursor-pointer max-sm:px-4 px-8"
               >
                 <div className="flex items-center justify-center w-[40px] h-[40px] bg-gray-500 rounded-full">
                   <svg
@@ -134,64 +130,66 @@ function LinkManagement({
                 </div>
                 Copy link
               </div>
-              <div
-                onClick={handleGeneratingInvitationLink}
-                tabIndex={0}
-                className="hover:bg-[--hover-secondary] w-full flex items-center gap-4 max-sm:px-4 px-8 py-3 cursor-pointer"
-              >
-                <div className="flex items-center justify-center w-[40px] h-[40px] bg-gray-500 rounded-full">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                    className="size-5"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
-                    />
-                  </svg>
+              {userIdAdmin && (
+                <div
+                  onClick={handleGeneratingInvitationLink}
+                  tabIndex={0}
+                  className="hover:bg-[--hover-secondary] w-full flex items-center gap-4 max-sm:px-4 px-8 py-3 cursor-pointer"
+                >
+                  <div className="flex items-center justify-center w-[40px] h-[40px] bg-gray-500 rounded-full">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                      className="size-5"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
+                      />
+                    </svg>
+                  </div>
+                  Reset link
                 </div>
-                Reset link
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="py-4 text-sm text-white/50 max-sm:px-4 px-8">
+              Create secure links to invite others to your group with just one
+              click. Share the link and build your community effortlessly!
+            </p>
+            <div
+              tabIndex={0}
+              onClick={handleGeneratingInvitationLink}
+              className="hover:bg-[--hover-secondary] w-full flex items-center gap-4 py-3 cursor-pointer max-sm:px-4 px-8"
+            >
+              <div className="flex items-center justify-center w-[40px] h-[40px] bg-gray-500 rounded-full">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                  className="size-5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244"
+                  />
+                </svg>
               </div>
+              Generate link
             </div>
-          </div>
-        </>
-      ) : (
-        <>
-          <p className="px-8 py-4 text-sm text-white/50">
-            Create secure links to invite others to your group with just one
-            click. Share the link and build your community effortlessly!
-          </p>
-          <div
-            tabIndex={0}
-            onClick={handleGeneratingInvitationLink}
-            className="hover:bg-[--hover-secondary] w-full flex items-center gap-4 px-8 py-3 cursor-pointer"
-          >
-            <div className="flex items-center justify-center w-[40px] h-[40px] bg-gray-500 rounded-full">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-                className="size-5"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244"
-                />
-              </svg>
-            </div>
-            Generate link
-          </div>
-        </>
-      )}
-    </>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 

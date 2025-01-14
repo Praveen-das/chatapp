@@ -5,6 +5,7 @@ import AuthContext from "../context/AuthContext";
 import { SockerProvider } from "../context/SocketProvider";
 import { ThemeProvider } from "next-themes";
 import { ThemeManager } from "../components/ThemeManager";
+import { ClerkProvider } from "@clerk/nextjs";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,19 +19,20 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }): JSX.Element {
-  
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <AuthContext>
-          <SockerProvider>
-            <ThemeProvider enableSystem>
-              <ThemeManager />
-              {children}
-            </ThemeProvider>
-          </SockerProvider>
-        </AuthContext>
-      </body>
-    </html>
+    // <ClerkProvider>
+      <html lang="en">
+        <body className={inter.className}>
+          <AuthContext>
+            <SockerProvider>
+              <ThemeProvider enableSystem>
+                <ThemeManager />
+                {children}
+              </ThemeProvider>
+            </SockerProvider>
+          </AuthContext>
+        </body>
+      </html>
+    // {/* </ClerkProvider> */}
   );
 }

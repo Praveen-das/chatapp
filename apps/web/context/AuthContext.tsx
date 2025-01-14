@@ -4,6 +4,7 @@ import React, { createContext, useEffect, useRef, useState } from "react";
 import { IUser } from "../interfaces/userInterface";
 import ObjectID from "bson-objectid";
 import axiosClient from "@lib/axiosClient";
+import axios from "axios";
 
 export type IContext = ReturnType<typeof useContextData>;
 
@@ -32,8 +33,8 @@ const useContextData = () => {
     let currentUser: IUser = _user && JSON.parse(_user);
 
     if (!_user) {
-      currentUser = await axiosClient.post("/user").then((res) => res.data);
-
+      currentUser = await axios.post("api/user").then((res) => res.data);
+      
       sessionStorage.setItem("user", JSON.stringify(currentUser));
     }
 

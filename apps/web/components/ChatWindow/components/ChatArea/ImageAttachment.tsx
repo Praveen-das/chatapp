@@ -13,11 +13,9 @@ declare module "csstype" {
 }
 
 const ImageAttachment = ({ attachment }: { attachment: IImageAttachment }) => {
-  const setSelectedAttachment = useAttachments(s=>s.setSelectedAttachment);
   const setModal = useStore(s=>s.setModal);
   const uploadProgress =
     useStore((s) => s.uploadProgress).get(attachment.fileId!) || 0;
-  const imageUrl = attachment.url;
   const isUploading = attachment.status === "uploading";
   const uploadingCompleted = uploadProgress === 100;
   const width = attachment.width!;
@@ -25,10 +23,7 @@ const ImageAttachment = ({ attachment }: { attachment: IImageAttachment }) => {
 
   const handleClick = () => {
     if (isUploading) return;
-    // document?.querySelector<HTMLDialogElement>("#my_modal_2")?.showModal();
-    // setSelectedAttachment(attachment);
-    setModal({activeModal:'imageViewer',state:attachment})
-    document?.querySelector<HTMLDialogElement>("#action-modal")?.showModal();
+    setModal({activeModal:'imageViewer',state:attachment,open:true})
   };
 
   const ASPECT_RATIO = width / height;
@@ -67,9 +62,9 @@ const ImageAttachment = ({ attachment }: { attachment: IImageAttachment }) => {
         <Image
           width={300}
           height={300}
-          src={attachment.url}
-          className="rounded-xl"
-          alt={attachment.name}
+          src={attachment.url!}
+          className="rounded-2xl"
+          alt={attachment.name!}
         />
       </div>
     </>

@@ -46,6 +46,16 @@ function validator(_: any, v: any) {
   return false;
 }
 
+const replyMessageSchema = new Schema({
+  message: String,
+  messageId: Schema.Types.ObjectId,
+  userId: Schema.Types.ObjectId,
+  attachment: {
+    type: Schema.Types.Mixed as unknown as IAttachment,
+    validate: { validator },
+  },
+})
+
 export const messageSchema = new Schema<IMessage>({
   id: Schema.Types.ObjectId,
   conversationId: Schema.Types.ObjectId,
@@ -58,15 +68,7 @@ export const messageSchema = new Schema<IMessage>({
     type: Schema.Types.Mixed as unknown as IAttachment,
     validate: { validator },
   },
-  reply: {
-    message: String,
-    username: String,
-    attachment: {
-      type: Schema.Types.Mixed as unknown as IAttachment,
-      validate: { validator },
-    },
-    offsetTop: Number,
-  },
+  reply: replyMessageSchema,
   readReceipt: [readReceiptSchema],
   deleted: {
     type: Boolean,

@@ -3,6 +3,7 @@ import { ISocket } from "../interfaces/socketInterfaces";
 import { getConversations } from "../services/getConversations";
 import produceMessage from "../kafka/kafka";
 import axiosClient from "../lib/axiosClient";
+import { Types } from "mongoose";
 
 export default async function registerUserHandlers(
   io: Server,
@@ -25,27 +26,57 @@ export default async function registerUserHandlers(
     "UPDATE_USER"
   );
 
-  socket.on("REQUEST:BLOCK_USER", (req: IBlocked) => {
-    let { id, user, blockedUser } = req;
-    let to = [user.id, blockedUser.id];
+  socket.on("UPDATE_USER_BLOCK_STATUS",
+    (conversation: IUserConversation, value: boolean, create: boolean) => {
+      if (create) {
+        const userConversations: any[] = [];
 
-    let body: IUBlockReq = {
-      id,
-      userId: user.id,
-      blockedId: blockedUser.id,
-    };
+        conversation.members.forEach((member) => {
+          const userConversation = {
+            id: new Types.ObjectId().toHexString(),
+            userId: member.id,
+            conversationId: conversation.id,
+            members: conversation.members,
+            host: "user",
+            active: true,
 
-    io.to(to).emit("RESPONSE:BLOCK_USER", req);
-    axiosClient.post("/user/block", body);
-  });
+            blocked: member.id === socket.userId,
+            blockedByUser: member.id !== socket.userId,
 
-  socket.on("REQUEST:UNBLOCK_USER", (req: IBlocked) => {
-    let { id, user, blockedUser } = req;
-    let to = [user.id, blockedUser.id];
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          };
 
-    io.to(to).emit("RESPONSE:UNBLOCK_USER", req);
-    axiosClient.delete(`/user/unblock/${id}`);
-  });
+          userConversations.push(userConversation);
+          io.to(member.id).emit("CREATE_USER_CONVERSATION", userConversation);
+        });
+
+        produceMessage({ userConversations }, "CREATE_USER_CONVERSATION");
+        produceMessage({ conversation }, "CREATE_CONVERSATION");
+        return;
+      }
+
+      const req: Partial<IUpdateBlockReq> = {
+        conversationId: conversation.conversationId,
+        value,
+      };
+
+      conversation.members.forEach(({ id }) => {
+        if (id === socket.userId) req["requestedUserId"] = id;
+        else req["userId"] = id;
+      });
+
+      io.to(req.userId!).emit("UPDATE_USER_BLOCK_STATUS", req.conversationId, {
+        blockedByUser: value,
+      });
+
+      socket.emit("UPDATE_USER_BLOCK_STATUS", req.conversationId, {
+        blocked: value,
+      });
+
+      produceMessage(req, "UPDATE_USER_BLOCK_STATUS");
+    }
+  );
 
   socket.on("updateUser", (req: IUserUpdateRequest) => {
     const body = {

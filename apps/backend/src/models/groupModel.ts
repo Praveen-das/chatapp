@@ -1,26 +1,22 @@
-import mongoose, { Schema, model } from "mongoose";
-import { memberSchema } from "./schemas/memberSchema";
+import { Schema, model } from "mongoose";
+import { IGroup } from "../interfaces/groupInterface";
 
 const schemaOptions = { toJSON: { virtuals: true } };
 
-const groupSchema = new Schema(
+const groupSchema = new Schema<IGroup>(
   {
     id: Schema.Types.ObjectId,
-    host: String,
-    members: [memberSchema],
-    desc: {
-      type: String,
-      default: "",
-    },
-    createdBy: Schema.Types.ObjectId,
-    createdAt: Number,
-    updatedAt: Number,
-    invitationId: Schema.Types.ObjectId,
-
     channelId: String,
+    invitationId: Schema.Types.ObjectId,
     displayName: String,
     profilePicture: String,
-    admins: [Schema.Types.ObjectId],
+    admins: [String],
+    host: String,
+    members: [Schema.Types.ObjectId],
+    desc: { type: String, default: "" },
+    createdBy: String,
+    createdAt: Number,
+    updatedAt: Number,
   },
   schemaOptions
 );

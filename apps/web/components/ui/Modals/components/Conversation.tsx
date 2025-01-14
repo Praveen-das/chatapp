@@ -1,4 +1,8 @@
-import { IUserConversation, IGroupConversation, IConversation } from "../../../../interfaces/conversationInterface";
+import {
+  IUserConversation,
+  IGroupConversation,
+  IConversation,
+} from "../../../../interfaces/conversationInterface";
 
 export function Conversation({
   conversation,
@@ -7,7 +11,10 @@ export function Conversation({
   conversation: IConversation;
   isSelected: boolean;
 }): React.JSX.Element {
-  const displayName = conversation.displayName;
+  const displayName =
+    conversation.host === "user"
+      ? conversation.members.find((m) => m.id !== conversation.userId)?.username
+      : conversation.displayName;
 
   return (
     <div className="max-sm:px-4 px-6 flex items-center hover:bg-black hover:bg-opacity-30 gap-4 w-full h-16 py-2 cursor-pointer">

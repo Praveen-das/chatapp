@@ -1,11 +1,12 @@
 "use client";
 import React, { Fragment, useEffect, useMemo, useState } from "react";
 import { useStore } from "../../../store/global";
-import Person from "../Components/Person";
+import Person from "../components/Person";
 import socket from "../../../lib/ws";
 import { useConversationStore } from "../../../store/conversationStore";
-import SearchUser from "../Components/SearchUser";
+import SearchUser from "../../ui/Searchbar";
 import { IUser } from "../../../interfaces/userInterface";
+import SecondaryHeader from "../components/Header";
 
 const ContactsList = () => {
   const setDashboardTab = useStore(s => s.setDashboardTab)
@@ -42,7 +43,8 @@ const ContactsList = () => {
   };
 
   return (
-    <>
+    <div className="flex flex-col max-sm:gap-2 sm:gap-4 h-full overflow-hidden">
+      <SecondaryHeader title="New Chat" mainTab="dashboard" />
       <SearchUser onChange={setQuery} />
       <div className='flex h-full w-full flex-col mt-4 gap-2 overflow-y-scroll no-scrollbar'>
         {(query ? queryResult : users).map((person) =>
@@ -53,7 +55,7 @@ const ContactsList = () => {
           </Fragment>
         )}
       </div>
-    </>
+    </div>
   );
 };
 

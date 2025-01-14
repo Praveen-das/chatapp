@@ -1,35 +1,51 @@
 import { IMessage } from "./messageInterface";
 import { IUser } from "./userInterface";
 
+export interface INewConversation {
+  id: string;
+  host: "user";
+  members: IUser[];
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface IConversationBase {
   id: string;
+  userId: string;
+  conversationId: string;
   displayName?: string;
-  profilePicture?: string;
   createdAt: number;
   updatedAt: number;
   messages?: IMessage[];
-
-  recentMessage?: IMessage;
-  unsaved?: boolean;
-  deletedUsers?: string[] | null;
-  isArchived?: boolean;
-  archived?: string[];
+  recentMessage?: IMessage | null;
+  active?: boolean;
+  archived?: boolean;
+  starred?: IMessage[];
 }
 
 export interface IUserConversation extends IConversationBase {
   host: "user";
   members: IUser[];
+
+  blocked?: boolean;
+  blockedByUser?: boolean;
 }
 
 export interface IGroupConversation extends IConversationBase {
+  host: "group";
+  members: IGroupMember[];
+
+  profilePicture: string;
   channelId?: string;
   invitationId?: string;
   desc?: string;
-  host: "group";
-  members: IGroupMember[];
   admins: string[];
-  createdBy?:string
+  createdBy?: string;
+  joinedAt: number;
 }
+
+// export interface IGroupConversation extends IConversationBase {
+// }
 
 export type IConversation = IUserConversation | IGroupConversation;
 

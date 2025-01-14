@@ -47,13 +47,6 @@ interface IMessageDeleteFlag {
   deleted: boolean;
 }
 
-interface IMessageReply {
-  username: string;
-  message: string;
-  offsetTop: number;
-  attachment?: IAttachment;
-}
-
 type IKeyVal = string | number | IStatus;
 
 interface IRes {
@@ -72,7 +65,9 @@ interface BulkOperation {
 interface IGroupCreationReq {
   id: string;
   displayName: string;
-  members: string[];
+  desc: string;
+  profilePicture: string;
+  members: {id:string}[];
   createdBy:string
   admins:string[]
 }

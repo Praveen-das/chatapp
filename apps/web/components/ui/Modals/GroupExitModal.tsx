@@ -5,26 +5,19 @@ import { useConversationStore } from "../../../store/conversationStore";
 import { useMessageStore } from "../../../store/messageStore";
 import { useStore } from "../../../store/global";
 import { IGroupConversation } from "../../../interfaces/conversationInterface";
-
-const closeModal = () => {
-    (document?.getElementById('action-modal') as HTMLDialogElement)?.close()
-}
+import { IModal } from "@interfaces/modalInterface";
 
 const GroupExitModal = () => {
     const setModal = useStore(s => s.setModal)
+    const modal = useStore<IModal<IGroupConversation>|null>(s => s.modal)
     const { leaveGroup } = useSocket()
-    const toggleProfile = useStore(s => s.toggleProfile)
-    const setSelectedConversation = useConversationStore(s => s.setSelectedConversation)
 
     const { user } = useAuth()
-    const selectedConversation = useConversationStore(s => s.selectedConversation) as IGroupConversation
+    const conversation = modal?.state!
 
     const handleExitingGroup = () => {
-        leaveGroup(selectedConversation, user!)
-        toggleProfile(false)
-        setSelectedConversation(null)
+        leaveGroup(conversation, user!)
         setModal(null);
-        closeModal()
     }
 
     return (

@@ -5,24 +5,26 @@ import useSelectedConversation from "../../../../hooks/useSelectedConversation";
 import { useConversationStore } from "../../../../store/conversationStore";
 import { useStore } from "../../../../store/global";
 import { useMessageStore } from "../../../../store/messageStore";
-import Avatar from "../../../Dashboard/Components/Avatar";
+import Avatar from "../../../ui/Avatar";
 import { getRelativeTime } from "@lib/utils";
 import useSelectedUser from "../../../../hooks/useSelectedUser";
 import ObjectId from "bson-objectid";
-import Menu from "@components/ui/Menu";
 import { ArrowLeftIcon, EllipsisVerticalIcon } from "@heroicons/react/24/solid";
 import { useAttachments } from "store/attachments";
-import { memo, MouseEvent } from "react";
+import { memo, MouseEvent, useEffect } from "react";
+import { useMenu } from "store/menu";
+import Menu from "../../../ui/Menu";
+import { generateConversation } from "@lib/conversation";
+import { IConversation } from "@interfaces/conversationInterface";
 
 function ChatHeader({ showMenu = true }) {
-  const { user: _user } = useAuth();
+  const { user: currentUser } = useAuth();
   const users = useStore((s) => s.users);
   const setModal = useStore((s) => s.setModal);
   const {
     sendRequestToClearUserConversation,
     sendRequestToClearGroupConversation,
-    blockedUsers,
-    // blockedByUsers,
+    deleteGroupConversation,
     sendUserBlockRequest,
     sendUserUnBlockRequest,
   } = useSocket();
@@ -32,6 +34,8 @@ function ChatHeader({ showMenu = true }) {
   const selectedChats = useMessageStore((s) => s.selectedChats);
   const setSelectedChats = useMessageStore((s) => s.setSelectedChats);
   const clearChat = useMessageStore((s) => s.clearChat);
+  const updateConversation = useConversationStore((s) => s.updateConversation);
+  const deleteConversation = useConversationStore((s) => s.deleteConversation);
 
   const setSelectedConversation = useConversationStore(
     (s) => s.setSelectedConversation
@@ -42,80 +46,55 @@ function ChatHeader({ showMenu = true }) {
   const toggleProfile = useStore((s) => s.toggleProfile);
   const profile = useStore((s) => s.profile);
   const setDeviceTab = useStore((s) => s.setDeviceTab);
-  const setDashboardTab = useStore(s => s.setDashboardTab)
+  const setMenu = useMenu((s) => s.setMenu);
 
   const conversationId = selectedConversation?.id!;
   const receiver =
-    users.find(
-      (s) => !s.self && selectedConversation?.members.find((m) => m.id === s.id)
-    ) || selectedUser;
+    selectedConversation?.members.find((m) => m.id !== currentUser?.id) ||
+    selectedUser;
 
-  const blockedUser = blockedUsers.find(
-    ({ blockedUser }) => blockedUser.id === receiver?.id!
-  );
-  const blockedByUser = blockedUsers.find(
-    ({ user }) => user.id === receiver?.id!
-  );
+  const isUserConversation = selectedConversation?.host === "user";
+
+  const blockedConversation =
+    isUserConversation && selectedConversation.blocked;
+  const blockedByUser =
+    isUserConversation && selectedConversation.blockedByUser;
+  const isOnline = receiver?.status === "online";
+  const isGroup = selectedConversation?.host === "group";
+  const isHidden = !receiver?.rules?.profilePicture.isVisible;
+  const isGroupMember =
+    !isUserConversation &&
+    selectedConversation?.members.some((m) => m.id === currentUser?.id);
+
+  const displayName = isGroup
+    ? selectedConversation?.displayName
+    : receiver?.username;
+  const lastSeen = getRelativeTime(receiver?.lastSeen!);
 
   const handleBlockingUser = () => {
-    const req = {
-      id: new ObjectId().toHexString(),
-      user: _user!,
-      blockedUser: receiver!,
-    };
-
-    sendUserBlockRequest(req);
+    if (selectedConversation && !isUserConversation) return;
+    let conversation =
+      selectedConversation || generateConversation(currentUser!, selectedUser!);
+    sendUserBlockRequest(conversation, !selectedConversation);
   };
 
   const handleUnblockingUser = () => {
-    if (blockedUser) sendUserUnBlockRequest(blockedUser);
+    isUserConversation && sendUserUnBlockRequest(selectedConversation);
   };
 
   const handleExitingGroup = () => {
-    setModal({ activeModal: "groupExitModal" });
-    (
-      document?.getElementById("action-modal") as HTMLDialogElement
-    )?.showModal();
+    setModal({ activeModal: "groupExitModal", state: selectedConversation,open:true });
   };
 
   const handleClearChat = () => {
     clearChat(conversationId);
+    updateConversation(conversationId, { recentMessage: null });
 
-    let req = {
-      conversationId,
-      userId: _user?.id!,
-      timeOfDeletion: Date.now(),
-    };
-
-    if (selectedConversation?.host === "group")
-      return sendRequestToClearGroupConversation(req);
-    sendRequestToClearUserConversation(req);
+    if (isGroup) return sendRequestToClearGroupConversation(conversationId);
+    sendRequestToClearUserConversation(conversationId);
   };
 
-  const options = [
-    !!selectedChats.length && {
-      label: "Clear Selection",
-      handler: () => setSelectedChats(null),
-    },
-    {
-      label: "Close chat",
-      handler: () => {
-        toggleProfile(false);
-        setSelectedConversation(null);
-        setSelectedUser(null);
-      },
-    },
-    { label: "Clear chat", handler: handleClearChat },
-    selectedConversation?.host === "group"
-      ? { label: "Exit group", handler: handleExitingGroup }
-      : receiver && {
-          label: blockedUser ? "Unblock" : "Block",
-          handler: blockedUser ? handleUnblockingUser : handleBlockingUser,
-        },
-  ];
-
   function openProfile() {
-    // setDeviceTab('userProfile')
     toggleProfile(!profile);
   }
 
@@ -125,18 +104,64 @@ function ChatHeader({ showMenu = true }) {
     else setDeviceTab("");
   }
 
-  const isOnline = receiver?.status === "online";
-  const isGroup = selectedConversation?.host === "group";
-  const isHidden = !receiver?.rules?.profilePicture.isVisible;
+  const handleOpeningMenu = (e: MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    setMenu({
+      data: selectedConversation,
+      reference: e.currentTarget,
+      id: "chatHeader",
+    });
+  };
 
-  const displayName = isGroup
-    ? selectedConversation?.displayName
-    : receiver?.username;
-  const lastSeen = getRelativeTime(receiver?.lastSeen!);
+  function handleClosingChat() {
+    toggleProfile(false);
+    setSelectedConversation(null);
+    setSelectedUser(null);
+  }
+
+  function handleDeletingGroupConversation() {
+    deleteGroupConversation(selectedConversation!);
+  }
 
   return (
     <>
       <div className="text-xs min-h-16 flex items-center max-sm:px-2 px-4 ">
+        <Menu id="chatHeader">
+          <>
+            <Menu.Item onClick={openProfile}>
+              {isGroup ? "Group info" : "Chat info"}
+            </Menu.Item>
+            {!!selectedChats.length && (
+              <Menu.Item onClick={() => setSelectedChats(null)}>
+                Clear Selection
+              </Menu.Item>
+            )}
+            <Menu.Item onClick={handleClosingChat}>Close chat</Menu.Item>
+            <Menu.Item onClick={handleClearChat}>Clear chat</Menu.Item>
+            {isGroup ? (
+              isGroupMember ? (
+                <Menu.Item onClick={handleExitingGroup}>Exit group</Menu.Item>
+              ) : (
+                <Menu.Item onClick={handleDeletingGroupConversation}>
+                  Delete group
+                </Menu.Item>
+              )
+            ) : (
+              receiver && (
+                <Menu.Item
+                  onClick={
+                    blockedConversation
+                      ? handleUnblockingUser
+                      : handleBlockingUser
+                  }
+                >
+                  {blockedConversation ? "Unblock" : "Block"}
+                </Menu.Item>
+              )
+            )}
+          </>
+        </Menu>
+
         <div
           onClick={openProfile}
           className="max-sm:gap-2 sm:gap-4 w-full flex items-center gap-4 cursor-pointer"
@@ -149,23 +174,23 @@ function ChatHeader({ showMenu = true }) {
           </span>
           <Avatar
             url={
-              selectedConversation?.host === "group"
+              isGroup
                 ? selectedConversation.profilePicture
                 : receiver?.profilePicture
             }
             profileHidden={!isGroup && isHidden}
-            size="45px"
+            size="40px"
             onlineIndication={false}
           />
           <div className="grid gap-1">
-            <label className="text-sm" htmlFor="username">
+            <label className="text-sm truncate" htmlFor="username">
               {displayName}
             </label>
             {!isGroup ? (
               receiver &&
               (isOnline || receiver.rules?.lastSeen.isVisible) &&
               !blockedByUser &&
-              !blockedUser && (
+              !blockedConversation && (
                 <label htmlFor="lastseen">
                   {isOnline ? "online" : lastSeen}
                 </label>
@@ -184,19 +209,17 @@ function ChatHeader({ showMenu = true }) {
         </div>
 
         {showMenu && (
-          <Menu
-            buttonIcon={
-              <span className="btn btn-circle btn-ghost btn-sm">
-                <EllipsisVerticalIcon className="size-6" />
-              </span>
-            }
-            menuItems={options}
-            placement="bottom-end"
-          />
+          <div
+            onClick={handleOpeningMenu}
+            tabIndex={0}
+            className="btn btn-circle btn-ghost btn-sm"
+          >
+            <EllipsisVerticalIcon className="size-6" />
+          </div>
         )}
       </div>
     </>
   );
 }
 
-export default memo(ChatHeader)
+export default memo(ChatHeader);

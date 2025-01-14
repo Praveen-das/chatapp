@@ -7,16 +7,15 @@ interface IUserAuth {
     getState: () => Partial<IContext>
 }
 
-let stateStore = {}
+let store = {}
 
 const useAuth: IUserAuth = () => {
     const state = useContext(Context);
     if (!state) throw new Error(`Context not found`);
-    stateStore = state
-    
+    store = state
     return state;
 };
 
-useAuth.getState = () => stateStore
+useAuth.getState =()=> store
 
 export default useAuth;

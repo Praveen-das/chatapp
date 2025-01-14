@@ -2,20 +2,19 @@ import { useMemo, useState } from "react";
 import useSocket from "../../../context/SocketProvider";
 import useAuth from "../../../hooks/useAuth";
 import { useStore } from "../../../store/global";
-import SearchUser from "../../Dashboard/Components/SearchUser";
+import SearchUser from "../Searchbar";
 import { User } from "./components/User";
 import { IUser } from "../../../interfaces/userInterface";
-import ObjectID from "bson-objectid";
-
-const closeModal = () => {
-  (document?.getElementById("action-modal") as HTMLDialogElement)?.close();
-};
+import { useConversationStore } from "store/conversationStore";
+import { IUserConversation } from "@interfaces/conversationInterface";
+import { generateConversation } from "@lib/conversation";
 
 export const AddBlockedContactModal = () => {
   const { user } = useAuth();
   const userList = useStore((s) => s.users);
   const setModal = useStore((s) => s.setModal);
-  const { sendUserBlockRequest, blockedUsers } = useSocket();
+  const { sendUserBlockRequest } = useSocket();
+  const conversations = useConversationStore((s) => s.conversations);
 
   const [query, setQuery] = useState("");
 
@@ -24,7 +23,12 @@ export const AddBlockedContactModal = () => {
       userList.filter(
         (u) =>
           u.id !== user?.id &&
-          !blockedUsers.some((bu) => bu.blockedUser.id === u.id)
+          !conversations.some(
+            (c) =>
+              c.host === "user" &&
+              c.blocked &&
+              c.members.some((m) => m.id === u.id)
+          )
       ),
     [userList]
   );
@@ -35,15 +39,19 @@ export const AddBlockedContactModal = () => {
   }, [query, users]);
 
   const handleSelectedUsers = (selectedUsers: IUser) => {
-    const req = {
-      id: new ObjectID().toHexString(),
-      user: user!,
-      blockedUser: selectedUsers,
-    };
+    const conversation = conversations.find(
+      (c) =>
+        c.host === "user" && c.members.some((m) => m.id === selectedUsers.id)
+    ) as IUserConversation;
 
-    sendUserBlockRequest(req);
+    if (!conversation) {
+      const newConversation = generateConversation(user!, selectedUsers);
+      sendUserBlockRequest(newConversation!,true);
+    }else{
+      sendUserBlockRequest(conversation!);
+    }
+
     setModal(null);
-    closeModal();
   };
 
   return (

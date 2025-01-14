@@ -1,74 +1,61 @@
 "use client";
-import React, { ChangeEvent, useEffect, useRef, useState } from "react";
+import { MouseEvent, useMemo, useState } from "react";
 import { useStore } from "../../../store/global";
 import useAuth from "../../../hooks/useAuth";
 import { useTheme } from "next-themes";
-import EmojiPicker from "../../ChatWindow/components/ChatInput/EmojiPicker";
-import { flip, shift, useFloating } from "@floating-ui/react";
-import GeneralSettings from "./GeneralSettings";
-import { createPortal } from "react-dom";
-import { AnimatePresence, motion } from "framer-motion";
-import motionconfig from "../../../config/config";
-import Avatar from "../Components/Avatar";
-import TextArea from "../../ui/TextArea";
-import { useTabs } from "./Tabs";
+import Avatar from "../../ui/Avatar";
 import useSocket from "../../../context/SocketProvider";
+import Menu from "@components/ui/Menu";
+import { useMenu } from "store/menu";
 import { uploadImage } from "@lib/imageKit";
+import { generateRelatedColors } from "@lib/theme";
+import { Check, Plus, Xmark } from "iconoir-react";
+import TextInput from "../../ui/TextInput";
+import Tags from "../../ui/TagInput";
+import Header from "../components/Header";
 
 const Settings = () => {
   const { user, updateUser } = useAuth();
+
+  const { theme } = useTheme();
   const { updateUserInfo } = useSocket();
   const setDashboardTab = useStore((s) => s.setDashboardTab);
-  const dashboardTab = useStore((s) => s.dashboardTab);
   const setModal = useStore((s) => s.setModal);
 
-  const [editUsername, toggleEditUsername] = useState(false);
-  const [editBio, toggleEditBio] = useState(false);
-  const [open, setOpen] = useState("");
+  const setMenu = useMenu((s) => s.setMenu);
+  const _menu = useMenu((s) => s.menu);
+
+  const [reference, setReference] = useState<HTMLDivElement | null>(null);
   const [loading, setLoading] = useState(false);
-  
-  const [username, setUsername] = useState("");
-  const [bio, setBio] = useState("");
 
-  const { refs, floatingStyles } = useFloating({
-    middleware: [flip(), shift()],
-    placement: "top-end",
-    strategy: "absolute",
-    transform: false,
-  });
-
-  function handleEditUsername() {
-    if (username && username !== user?.username) {
-      updateUser("username", username);
-      updateUserInfo({ userId: user?.id!, updates: { username } });
+  function handleEditUsername(text: string) {
+    if (text && text !== user?.username) {
+      updateUser("username", text);
+      updateUserInfo({ userId: user?.id!, updates: { username: text } });
     }
-
-    toggleEditUsername((s) => !s);
-    setOpen("");
   }
 
-  function handleEditBio() {
-    if (bio && bio !== user?.bio) {
-      updateUser("bio", bio);
-      updateUserInfo({ userId: user?.id!, updates: { bio } });
+  function handleEditBio(text: string) {
+    if (text !== user?.bio) {
+      updateUser("bio", text);
+      updateUserInfo({ userId: user?.id!, updates: { bio: text } });
     }
+  }
 
-    toggleEditBio((s) => !s);
-    setOpen("");
+  function handleAddingTag(tag: string) {
+    updateUser("tags", [tag, ...(user?.tags || [])]);
+  }
+
+  function handleRemovingTag(tag: string) {
+    updateUser(
+      "tags",
+      user?.tags.filter((tag) => tag !== tag)
+    );
   }
 
   const handleMenu = (menu: string) => {
     setDashboardTab(menu);
   };
-
-  function toggleEmojiPicker(value: string) {
-    setOpen((s) => (s !== value ? value : ""));
-  }
-
-  function handleEmojiInput(emoji: any) {
-    if (open === "username") setUsername((s) => s.concat(emoji.native));
-    else setBio((s) => s.concat(emoji.native));
-  }
 
   function handleDeletingProfilePicture() {
     const updateUser = useAuth.getState().updateUser!;
@@ -80,252 +67,104 @@ const Settings = () => {
       activeModal: "viewProfilePictureModal",
       state: {
         url: user?.profilePicture,
-        displayName: 'You',
+        displayName: "You",
       },
+      open: true,
     });
-    document.querySelector<HTMLDialogElement>("#action-modal")?.showModal();
   }
-  
-  function handleUpdatingProfilePicture(key:string,base64:string) {
+
+  const handleDropdown = (e: MouseEvent<HTMLDivElement>) => {
+    const container = reference?.getBoundingClientRect()!;
+
+    const x = e.clientX - container.left;
+    const y = e.clientY - container.top + 20;
+
+    setMenu({ id: "USER_PROFILE", position: { x, y }, reference, data: null });
+  };
+
+  const options = useMemo(() => {
+    return [
+      {
+        label: "View image",
+        handler: openViewProfilePictureModal,
+      },
+      {
+        label: "Change image",
+        handler: () => document.getElementById("user_avatar")?.click(),
+      },
+      {
+        label: "Delete image",
+        handler: handleDeletingProfilePicture,
+      },
+    ];
+  }, []);
+
+  function handleUpdatingProfilePicture(base64: string) {
     const updateUser = useAuth.getState().updateUser!;
     setLoading(true);
-    
-    uploadImage(base64, user?.id!,true).then((res) => {
-      updateUser(key, res.url);
+
+    uploadImage(base64, user?.id!, true).then((res) => {
+      updateUser("profilePicture", res.url);
       setLoading(false);
     });
   }
 
-  function openUploadProfilePictureModal(file: File) {
-    setModal({
-      activeModal: "uploadProfilePictureModal",
-      state: {
-        file,
-        callback: handleUpdatingProfilePicture,
-      },
-    });
-    document.querySelector<HTMLDialogElement>("#action-modal")?.showModal();
-  }
-
-  useEffect(() => {
-    return () => {
-      toggleEditUsername(false);
-      toggleEditBio(false);
-      setOpen("");
-    };
-  }, [dashboardTab]);
-
   return (
-    <>
+    <div className="flex flex-col h-full">
+      <Header title="Settings" mainTab="dashboard" />
       <div className="flex relative flex-col max-sm:gap-8 gap-10 text-sm w-full h-full py-4 overflow-y-scroll z-50 no-scrollbar">
-        <AnimatePresence>
-          {open && (
-            <div className="relative -mt-10 z-50">
-              <motion.div
-                variants={motionconfig.settings}
-                initial="hidden"
-                exit="hidden"
-                animate="visible"
-                className="w-5/6 h-56 bg-base-200 rounded-xl z-50 ml-5 mt-2"
-                ref={refs.setFloating}
-                style={{ ...floatingStyles }}
-              >
-                <EmojiPicker open={!!open} onEmojiSelect={handleEmojiInput} />
-              </motion.div>
-              <div
-                onClick={() => toggleEmojiPicker("")}
-                className="fixed inset-0 z-20 "
-              ></div>
-            </div>
-          )}
-        </AnimatePresence>
+        <div
+          ref={setReference}
+          className="absolute z-50"
+          style={{ top: _menu?.position?.y, left: _menu?.position?.x }}
+        >
+          <Menu id="USER_PROFILE">
+            {options.map(({ handler, label }) => (
+              <Menu.Item key={label} onClick={handler}>
+                {label}
+              </Menu.Item>
+            ))}
+          </Menu>
+        </div>
 
-        {/* Profile */}
-        <div className="flex flex-col z-10">
-          <Avatar
+        {/* Avatar */}
+        <Avatar
+          id="user_avatar"
+          size="180px"
+          url={user?.profilePicture}
+          onlineIndication={false}
           loading={loading}
-            size="180px"
-            url={user?.profilePicture}
-            menu={Boolean(user?.profilePicture)}
-            onlineIndication={false}
-            canChangeAvatar
-            onDelete={handleDeletingProfilePicture}
-            onChange={openUploadProfilePictureModal}
-            onPreview={openViewProfilePictureModal}
+          onClick={handleDropdown}
+          onChange={handleUpdatingProfilePicture}
+          enableOptions
+        />
+
+        <div className="flex flex-col max-sm:gap-8 gap-4 max-sm:px-0 px-4">
+          {/* username */}
+          <TextInput
+            label="Username"
+            placeholderText="Add your username"
+            text={user?.username!}
+            onSubmit={handleEditUsername}
           />
-        </div>
 
-        {/* username */}
-        <div className="grid relative max-sm:px-0 px-4">
-          <label className="text-sm text-primary" htmlFor="username">
-            Username
-          </label>
-          <label
-            className={`${editUsername ? "border-b-primary" : "border-b-transparent"} pl-0 bg-transparent border-b-2 rounded-none textarea relative flex items-center w-full gap-2 pr-16`}
-          >
-            {editUsername ? (
-              <>
-                <TextArea
-                  onChange={(e) => setUsername(e.target.value)}
-                  value={username}
-                  className="text-nowrap"
-                />
-                <div className="flex gap-1 items-center absolute right-0">
-                  <div
-                    onClick={() => toggleEmojiPicker("username")}
-                    ref={open === "username" ? refs.setReference : undefined}
-                    tabIndex={0}
-                    className="flex btn btn-circle btn-ghost btn-xs "
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="size-5"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z"
-                      />
-                    </svg>
-                  </div>
-                  <div
-                    onClick={handleEditUsername}
-                    tabIndex={0}
-                    className="btn btn-circle btn-ghost btn-xs "
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      className="size-5"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <label className="" htmlFor="">
-                  {user?.username}
-                </label>
-                <div
-                  onClick={handleEditUsername}
-                  tabIndex={0}
-                  className="absolute right-0 btn btn-circle btn-ghost btn-xs "
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                    className="size-4"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
-                    />
-                  </svg>
-                </div>
-              </>
-            )}
-          </label>
-        </div>
+          {/* bio */}
+          <TextInput
+            label="About"
+            autoRaw
+            placeholderText="Add your bio"
+            text={user?.bio!}
+            onSubmit={handleEditBio}
+            onDelete={handleEditBio}
+          />
 
-        {/* bio */}
-        <div className="grid relative max-sm:px-0 px-4">
-          <label className="text-sm text-primary" htmlFor="About">
-            About
-          </label>
-          <label
-            className={`${editBio ? "border-b-primary" : "border-b-transparent"} pl-0 bg-transparent border-b-2 rounded-none textarea relative flex justify-between w-full pr-16`}
-          >
-            {editBio ? (
-              <>
-                <TextArea
-                  onChange={(e) => setBio(e.target.value)}
-                  value={bio}
-                />
-                <div className="flex gap-1 items-center absolute right-0">
-                  <div
-                    onClick={() => toggleEmojiPicker("bio")}
-                    ref={open === "bio" ? refs.setReference : undefined}
-                    tabIndex={0}
-                    className="btn btn-circle btn-ghost btn-xs "
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="size-5"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z"
-                      />
-                    </svg>
-                  </div>
-                  <div
-                    onClick={handleEditBio}
-                    tabIndex={0}
-                    className="btn btn-circle btn-ghost btn-xs "
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="size-5"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="m4.5 12.75 6 6 9-13.5"
-                      />
-                    </svg>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="whitespace-pre-wrap">{user?.bio} </p>
-                <div
-                  onClick={handleEditBio}
-                  tabIndex={0}
-                  className="absolute right-0 btn btn-circle btn-ghost btn-xs"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                    className="size-4"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
-                    />
-                  </svg>
-                </div>
-              </>
-            )}
-          </label>
+          {/* tags */}
+          <Tags
+            tags={user?.tags || []}
+            canEdit
+            onSubmit={handleAddingTag}
+            onDelete={handleRemovingTag}
+          />
         </div>
 
         <div className="w-full flex flex-col">
@@ -435,7 +274,7 @@ const Settings = () => {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

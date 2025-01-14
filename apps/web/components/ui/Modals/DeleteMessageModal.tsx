@@ -8,10 +8,6 @@ import { IMessage } from "../../../interfaces/messageInterface";
 import { IGroupConversation } from "../../../interfaces/conversationInterface";
 import { IModal } from "@interfaces/modalInterface";
 
-const closeModal = () => {
-  (document?.getElementById("action-modal") as HTMLDialogElement)?.close();
-};
-
 export const DeleteMessageModal = () => {
   const setSelectedChats = useMessageStore((s) => s.setSelectedChats);
   const setModal = useStore((s) => s.setModal);
@@ -39,7 +35,7 @@ export const DeleteMessageModal = () => {
   );
 
   const handleMessageDelete = (deleteFor: { all?: true; userId?: string }) => {
-    const conversationId = selectedConversation?.id!;
+    const conversationId = selectedConversation?.conversationId!;
 
     if (deleteFor["all"]) {
       let messages = selectedChats.map((message) => ({
@@ -57,12 +53,8 @@ export const DeleteMessageModal = () => {
       deleteMessagesForUser({ conversationId, collection });
     }
 
-    // let req = { conversationId, to, messages };
-
-    // deleteMessageForAll(req);
     setSelectedChats(null);
     setModal(null);
-    closeModal();
   };
 
   return (

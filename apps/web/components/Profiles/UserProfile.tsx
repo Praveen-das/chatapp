@@ -1,19 +1,23 @@
 "use client";
 
 import { useStore } from "../../store/global";
-import moment from "moment";
-import Avatar from "../Dashboard/Components/Avatar";
+import Avatar from "../ui/Avatar";
 import { useConversationStore } from "../../store/conversationStore";
 import useAuth from "../../hooks/useAuth";
 import MediaSelection from "./MediaSelection";
-import { getRelativeTime } from "@lib/utils";
 import useSocket from "../../context/SocketProvider";
-import useSelectedConversation from "../../hooks/useSelectedConversation";
-import useSelectedUser from "../../hooks/useSelectedUser";
 import { useMessageStore } from "../../store/messageStore";
 import { IUser } from "../../interfaces/userInterface";
-import { IGroupConversation } from "../../interfaces/conversationInterface";
-import ObjectID from "bson-objectid";
+import {
+  IGroupConversation,
+  IUserConversation,
+} from "../../interfaces/conversationInterface";
+import StarredMessages from "./StarredMessages";
+import { ChevronRightIcon } from "@heroicons/react/24/solid";
+import NotificationToggle from "./NotificationToggle";
+import { useTheme } from "next-themes";
+import { generateRelatedColors } from "@lib/theme";
+import TagInput from "@components/ui/TagInput";
 
 function UserProfile({
   user,
@@ -22,21 +26,19 @@ function UserProfile({
   user: IUser;
   showChatOption?: boolean;
 }) {
-  const { user: currentUser } = useAuth();
   const {
     sendUserBlockRequest,
     sendUserUnBlockRequest,
-    blockedUsers,
     sendConversationDeleteRequest,
   } = useSocket();
 
   const setModal = useStore((s) => s.setModal);
   const setSelectedUser = useStore((s) => s.setSelectedUser);
   const conversations = useConversationStore((s) => s.conversations);
-  const deleteConversation = useConversationStore((s) => s.deleteConversation);
+  const updateConversation = useConversationStore((s) => s.updateConversation);
   const conversation = conversations.find(
     (c) => c.host === "user" && c.members.find((m) => m.id === user.id)
-  );
+  ) as IUserConversation;
   const setSelectedConversation = useConversationStore(
     (s) => s.setSelectedConversation
   );
@@ -45,25 +47,17 @@ function UserProfile({
   const setDeviceTab = useStore((s) => s.setDeviceTab);
   const clearChat = useMessageStore((s) => s.clearChat);
 
-  const isOnline = user?.status === "online";
-  const lastSeen = getRelativeTime(user?.lastSeen!);
-  const blockedUser = blockedUsers.find((u) => u.blockedUser.id === user?.id!);
+  const blockedConversation = conversation?.blocked;
 
   function closeProfile() {
     const selectedConversation =
       useConversationStore.getState().selectedConversation;
+      
     if (selectedConversation?.host === "group") setProfileTab("conversation");
-    else {
-      toggleProfile(false);
-    }
-    // setSelectedUser(null);
-  }
+    else toggleProfile(false);
 
-  const groupsInCommon = conversations.filter((c): c is IGroupConversation => {
-    const hasCurrentUser = c.members.some((m) => m.id === currentUser?.id);
-    const hasUser = c.members.some((m) => m.id === user?.id);
-    return hasCurrentUser && hasUser && c.host === "group";
-  });
+    setSelectedUser(null);
+  }
 
   function toggleChat() {
     setSelectedConversation(null);
@@ -74,15 +68,8 @@ function UserProfile({
     if (!conversation) return;
     let conversationId = conversation.id;
 
-    let req = {
-      conversation,
-      userId: currentUser?.id!,
-      deletedForUser: true,
-      timeOfDeletion: Date.now(),
-    };
-
-    sendConversationDeleteRequest(req);
-    deleteConversation(conversationId, currentUser?.id!);
+    sendConversationDeleteRequest(conversationId);
+    updateConversation(conversationId, { active: false, archived: false });
     clearChat(conversationId);
     toggleProfile(false);
     setSelectedConversation(null);
@@ -90,14 +77,8 @@ function UserProfile({
   };
 
   const handleBlockingUser = () => {
-    const req = {
-      id: new ObjectID().toHexString(),
-      user: currentUser!,
-      blockedUser: user!,
-    };
-
-    if (blockedUser) sendUserUnBlockRequest(blockedUser);
-    else sendUserBlockRequest(req);
+    if (blockedConversation) sendUserUnBlockRequest(conversation);
+    else sendUserBlockRequest(conversation);
   };
 
   function openViewProfilePictureModal() {
@@ -107,134 +88,92 @@ function UserProfile({
         url: user?.profilePicture,
         displayName: user?.username,
       },
+      open: true,
     });
-    document.querySelector<HTMLDialogElement>("#action-modal")?.showModal();
   }
 
   return (
-    <>
+    <div className='w-full h-full flex flex-col'>
       {/* Header */}
       <div className="min-h-16 w-full flex items-center max-sm:gap-2 gap-4 max-sm:px-2 px-4">
         <button
           onClick={closeProfile}
           className={`btn btn-sm btn-ghost btn-circle`}
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-            className="size-5"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"
-            />
-          </svg>
+          <ChevronRightIcon className="size-5" />
         </button>
-        <label htmlFor="contact info">Contact info</label>
+        <label htmlFor="contact info">Chat info</label>
       </div>
+
       {/* Profile details */}
-      <div className="flex h-full gap-6 text-sm flex-col overflow-y-scroll max-sm:py-3 py-6 no-scrollbar">
+      <div className="flex h-full gap-8 max-sm:pt-2 pt-4 bg-gradient-to-t from-base-200 text-sm flex-col overflow-y-scroll max-sm:pb-3 pb-10 no-scrollbar">
         {/* profile */}
-        <div className="w-full flex flex-col gap-2 items-center ">
+        <div className="flex gap-8 items-center max-sm:px-4 px-8">
           <Avatar
             url={user.profilePicture}
             profileHidden={!user?.rules?.profilePicture.isVisible}
-            size="160px"
+            size="70px"
             onlineIndication={false}
             onClick={openViewProfilePictureModal}
           />
-          <label className="text-lg mt-6 text-base-content" htmlFor="">
-            {user?.username}
-          </label>
-          {(isOnline || user?.rules?.lastSeen.isVisible) && (
-            <label className="text-sm text-base-content/50" htmlFor="">
-              {isOnline ? "Online" : lastSeen}
+          <div className="flex flex-col gap-2">
+            <label className="text-base text-base-content" htmlFor="">
+              {user?.username}
             </label>
-          )}
-          {showChatOption && (
-            <div className="flex flex-col items-center gap-2 text-xs">
-              <div
-                onClick={toggleChat}
-                tabIndex={0}
-                className="btn btn-circle btn-primary text-white mt-4"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  className="size-6"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M4.848 2.771A49.144 49.144 0 0 1 12 2.25c2.43 0 4.817.178 7.152.52 1.978.292 3.348 2.024 3.348 3.97v6.02c0 1.946-1.37 3.678-3.348 3.97a48.901 48.901 0 0 1-3.476.383.39.39 0 0 0-.297.17l-2.755 4.133a.75.75 0 0 1-1.248 0l-2.755-4.133a.39.39 0 0 0-.297-.17 48.9 48.9 0 0 1-3.476-.384c-1.978-.29-3.348-2.024-3.348-3.97V6.741c0-1.946 1.37-3.68 3.348-3.97ZM6.75 8.25a.75.75 0 0 1 .75-.75h9a.75.75 0 0 1 0 1.5h-9a.75.75 0 0 1-.75-.75Zm.75 2.25a.75.75 0 0 0 0 1.5H12a.75.75 0 0 0 0-1.5H7.5Z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              Chat
-            </div>
-          )}
+            <div className="-ml-1">{user?.phonenumber}</div>
+          </div>
         </div>
-        <div className="w-full min-h-[2px] bg-black/20" />
 
         {/* about */}
-        {user?.rules?.bio.isVisible && (
+        {user.bio && user?.rules?.bio.isVisible && (
           <div className="w-full flex flex-col max-sm:px-4 px-8">
-            <label className="text-sm text-primary" htmlFor="">
-              About
-            </label>
-            <p className="leading-7">
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Maxime
-              est exercitationem laboriosam ipsum doloribus blanditiis, alias
-            </p>
+            <p className="leading-7">{user.bio}</p>
           </div>
         )}
 
-        {/* Media */}
-        <MediaSelection conversationId={conversation?.id!} />
-        {/* <div className="w-full min-h-[2px] bg-black/20 -mt-6" /> */}
-
-        {/* Common groups */}
-        {!!groupsInCommon.length && (
-          <div className="w-full flex flex-col">
-            <label className="text-sm text-primary mb-2 px-8" htmlFor="">
-              Group in common
-            </label>
-            <div className="flex flex-col w-full ">
-              {groupsInCommon.map((group) => (
-                <Group key={group.id} group={group} />
-              ))}
-            </div>
+        {/* Tags */}
+        {!!user.tags.length && (
+          <div className="max-sm:px-4 px-8">
+            <TagInput showLabel={false} tags={user.tags} />
           </div>
         )}
+
+        <div className="space-y-1 divide-y-2 divide-base-300 max-sm:mt-2 sm:mt-4 max-sm:px-4 px-8 [&>div]:h-16">
+          <NotificationToggle id={user.id} />
+          <StarredMessages />
+          <MediaSelection conversationId={conversation?.id!} />
+        </div>
 
         {/* Actions */}
         <div className="flex flex-col gap-2 mt-auto max-sm:px-4 px-8">
-          {conversation?.host === "user" &&
-            !conversation.deletedUsers?.includes(user.id) && (
-              <div
-                onClick={handleDeletingConversation}
-                tabIndex={0}
-                className="btn btn-block btn-outline btn-error"
-              >
-                Delete chat
-              </div>
-            )}
+          {showChatOption && (
+            <div
+              onClick={toggleChat}
+              tabIndex={0}
+              className="btn btn-block bg-base-100"
+            >
+              Chat
+            </div>
+          )}
           <div
             onClick={handleBlockingUser}
             tabIndex={0}
-            className="btn btn-block btn-outline btn-error"
+            className="btn btn-block bg-base-100"
           >
-            {blockedUser ? "Unblock" : "Block"} {user?.username}
+            {blockedConversation ? "Unblock" : "Block"} {user?.username}
           </div>
+          {conversation?.host === "user" && conversation.active && (
+            <div
+              onClick={handleDeletingConversation}
+              tabIndex={0}
+              className="btn btn-block bg-base-100"
+            >
+              Delete chat
+            </div>
+          )}
         </div>
-        {/* <div className="w-full min-h-[2px] bg-black/20" /> */}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -250,7 +189,7 @@ function Group({ group }: { group: IGroupConversation }) {
   return (
     <div
       onClick={handleSelectedGroup}
-      className="hover:bg-[--hover-secondary] w-full flex items-center gap-4 px-8 py-3 cursor-pointer"
+      className="hover:bg-[--hover-secondary] w-full flex items-center gap-4 max-sm:px-4 px-8 py-3 cursor-pointer"
     >
       <Avatar url={group.profilePicture} onlineIndication={false} size="40px" />
       <div className="flex flex-col justify-center pointer-events-none">

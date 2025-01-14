@@ -2,13 +2,6 @@ interface SocketProviderProps {
   children?: React.ReactNode;
 }
 
-interface IMessageReply {
-  username: string;
-  message: string;
-  offsetTop: number;
-  attachment: IAttachment | null;
-}
-
 interface IUrlMetadata {
   title: string;
   description: string;
@@ -32,5 +25,11 @@ interface IUserRules {
 interface IUserNotificationPref {
   chatNotification: boolean;
   groupNotification: boolean;
+}
+
+interface IUpdateBlockReq {
+  conversationId: Types.ObjectId;
+  userId: Types.ObjectId;
+  value: boolean;
 }
 

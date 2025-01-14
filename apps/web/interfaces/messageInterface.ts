@@ -8,9 +8,10 @@ export interface IMessage {
   message: string;
   user?: IUser;
 
-  attachment: IAttachment | null;
+  attachment?: IAttachment | null;
   reply?: IMessageReply;
   readReceipt: IReadReceipt[];
+  readReceiptStatus?: string;
   deleted: boolean;
   timestamp: number;
 }
@@ -24,11 +25,21 @@ export type IMessages = Map<string, IMessage[]>;
 
 export type IUpdatesCollection = Partial<IMessage>;
 
+export type IReadReceiptUpdatesCollection = {
+  id:string
+  readReceipt:IReadReceipt[]
+};
+
 export type IUpdates = Map<string, IUpdatesCollection[]>;
 
-interface IReadReceipt {
+export interface IReadReceipt {
   userId: string;
   status: number;
+}
+
+export interface IUserMedia {
+  images?: IImageAttachment[];
+  link?: IUrlAttachment[];
 }
 
 export interface IImagePayload {
@@ -48,28 +59,30 @@ export type IImageAttachment = IImagePayload & {
   id: string;
   type: "images";
   sender?: string;
-  status?: "uploading"|"success";
-  
+  status?: "uploading" | "success";
 };
-
-export type IAttachment = IImageAttachment | IUrlAttachment;
-
-export interface IUserMedia {
-  images?: IImageAttachment[];
-  link?: IUrlAttachment[];
-}
 
 export interface IUrlAttachment {
   id: string;
   type: "link";
   host: string;
   url: string;
-  metadata: IUrlMetadata | null;
+  metadata?: IUrlMetadata;
 }
+
+export interface IMessageReply {
+  messageId: string;
+  userId: string;
+  message: string;
+  attachment?: IAttachment | null;
+}
+
+export type IAttachment = IImageAttachment | IUrlAttachment;
 
 export type IMediaStore = Map<string, IUserMedia>;
 
 export interface IUnreadMessageMeta {
   from: string;
   id: string;
+  message: string;
 }

@@ -7,28 +7,26 @@ export default function registerMessageHandlers(io: Server, socket: ISocket) {
     "message",
     async ({
       messages,
-      conversation,
+      conversationId,
+      to,
     }: {
       messages: IMessage[];
-      conversation: IConversation;
+      conversationId: string;
+      to: string[] | string;
     }) => {
-      let receiver =
-        conversation.host === "group"
-          ? conversation.channelId
-          : conversation.members?.find((m) => m.id !== socket.userId)?.id;
+      !!to.length &&
+        io.to(to).except(socket.userId!).emit("message receive", {
+          messages,
+          conversationId,
+        });
 
-      if (conversation.host === "user")
-        produceMessage({ messages, conversation });
-      else produceMessage({ messages });
-      
-      io.to(receiver!)
-        .except(socket.userId!)
-        .emit("message receive", { messages, conversation });
+      produceMessage({ messages }, "MESSAGES");
     }
   );
 
   socket.on("change readReceipt", async (_updates: IUpdates) => {
     const updates = new Map(_updates);
+    
     if (!updates.size) return;
 
     updates.forEach((values, { to, conversationId }) => {
@@ -45,7 +43,7 @@ export default function registerMessageHandlers(io: Server, socket: ISocket) {
       const receivers = conversation.members.map((m) => m.id);
 
       io.to(receivers).emit("request:delete_message", {
-        conversationId: conversation.id,
+        conversationId: conversation.conversationId,
         messages,
       });
 

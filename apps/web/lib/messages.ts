@@ -1,19 +1,93 @@
+import useAuth from "@hooks/useAuth";
 import {
+  IConversation,
+  INewConversation,
+} from "@interfaces/conversationInterface";
+import {
+  IAttachment,
   IImageAttachment,
   IMessage,
+  IReadReceipt,
+  IReadReceiptUpdatesCollection,
   IUnreadMessageMeta,
   IUpdatesCollection,
   IUrlAttachment,
 } from "@interfaces/messageInterface";
+import ObjectID from "bson-objectid";
 import { IMessageReadReceipt } from "enums/enums";
+import { useMessageStore } from "store/messageStore";
+import { encrypt } from "./e2e";
+
+const createMessageTemplate = (
+  conversation: IConversation | INewConversation,
+  messageData: {
+    message: string;
+    attachment?: IAttachment | null;
+    replyRequest?: IMessage["reply"] | null;
+  }
+): IMessage => {
+  const user = useAuth.getState().user;
+
+  const host = conversation.host;
+  const conversationId =
+    (conversation as IConversation).conversationId || conversation?.id;
+  const from = user?.id;
+  const to =
+    host === "group"
+      ? conversation?.channelId!
+      : conversation?.members.find((m) => m.id !== user?.id)?.id!;
+
+  const readReceipt = conversation.members
+    .filter((member) => member.id !== user?.id)
+    .map((member) => ({
+      userId: member.id,
+      status: IMessageReadReceipt.sent,
+    }));
+
+  return {
+    id: new ObjectID().toHexString(),
+    from,
+    to,
+    conversationId,
+    message: messageData.message,
+    attachment: messageData.attachment,
+    reply: messageData.replyRequest!,
+    timestamp: Date.now(),
+    readReceipt,
+    deleted: false,
+    user: conversation.host === "group" ? user! : undefined,
+  };
+};
+
+export const generateMessageTemplate = (
+  conversation: IConversation | INewConversation,
+  message: string,
+  attachment?: IAttachment
+) => {
+  const replyRequest = useMessageStore.getState().replyRequest;
+  const encryptedMessage = encrypt(message);
+
+  return createMessageTemplate(conversation, {
+    message: encryptedMessage,
+    attachment,
+    replyRequest,
+  });
+};
+
+export const regenerateMessageTemplate = (
+  conversation: IConversation | INewConversation,
+  { message, attachment }: IMessage
+) => {
+  return createMessageTemplate(conversation, { message, attachment });
+};
 
 export function processMessagesForUser(
   userId: string,
   status: IMessageReadReceipt,
-  messages: IMessage[]=[],
+  messages: IMessage[] = []
 ) {
   const updates: { key: any; value: any }[] = [];
-  const unreadMessages: IUnreadMessageMeta[] = [];
+  const unreadMessages: IMessage[] = [];
   const imageAttachments: IImageAttachment[] = [];
   const urlAttachments: IUrlAttachment[] = [];
 
@@ -44,7 +118,7 @@ export function processMessagesForUser(
     message.readReceipt.forEach((readReceipt) => {
       if (readReceipt.userId === userId) {
         if (readReceipt?.status === IMessageReadReceipt.sent) {
-          const update: IUpdatesCollection = {
+          const update:IReadReceiptUpdatesCollection = {
             id: message.id,
             readReceipt: [{ userId, status }],
           };
@@ -58,13 +132,11 @@ export function processMessagesForUser(
         }
 
         if (readReceipt?.status < IMessageReadReceipt.seen) {
-          unreadMessages.push({ id: message.id, from: message.from! });
+          unreadMessages.push(message);
         }
       }
     });
   }
-
-  // const imageAttachments = await Promise.all(imageAttachmentPromises);
 
   return {
     updates,

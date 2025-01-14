@@ -1,25 +1,27 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useSocket from "../../../context/SocketProvider";
-import { generateConversation } from "@lib/conversation";
-import useMessage from "../../../hooks/useMessage";
+import {
+  generateConversation,
+  generateUserConversations,
+} from "@lib/conversation";
 import { useConversationStore } from "../../../store/conversationStore";
 import { useMessageStore } from "../../../store/messageStore";
-import SearchUser from "../../Dashboard/Components/SearchUser";
+import SearchUser from "../Searchbar";
 import { useStore } from "../../../store/global";
 import { User } from "./components/User";
 import { Conversation } from "./components/Conversation";
 import useAuth from "../../../hooks/useAuth";
-import { IConversation } from "../../../interfaces/conversationInterface";
+import {
+  IConversation,
+  IUserConversation,
+} from "../../../interfaces/conversationInterface";
 import { IMessage } from "../../../interfaces/messageInterface";
 import { IUser } from "../../../interfaces/userInterface";
 import { IModal } from "@interfaces/modalInterface";
-
-const closeModal = () => {
-  (document?.getElementById("action-modal") as HTMLDialogElement)?.close();
-};
+import { regenerateMessageTemplate } from "@lib/messages";
 
 export const ForwardMessageModal = ({ title }: { title: string }) => {
   const { user } = useAuth();
@@ -27,8 +29,11 @@ export const ForwardMessageModal = ({ title }: { title: string }) => {
   const setConversation = useConversationStore((s) => s.setConversation);
   const updateConversation = useConversationStore((s) => s.updateConversation);
 
-  const { sendMessage } = useSocket();
-  const { regenerateMessageTemplate } = useMessage();
+  const {
+    sendMessage,
+    sendRequestToRegisterConversation,
+    sendRequestToRegisterUserConversation,
+  } = useSocket();
   const conversations = useConversationStore((s) => s.conversations);
   const _users = useStore((s) => s.users);
   const modal = useStore<IModal<IMessage[]> | null>((s) => s.modal);
@@ -67,42 +72,47 @@ export const ForwardMessageModal = ({ title }: { title: string }) => {
   const handleSelectedConversation = (conversation: IConversation) => {
     setSelectedConversations((s) =>
       s.includes(conversation)
-        ? s.filter((u) => u.id !== conversation.id)
+        ? s.filter((u) => u.id !== conversation.conversationId)
         : [conversation, ...s]
     );
   };
 
   const handleMessageForward = () => {
-    selectedConversations.forEach((conversation) => {
-      let messages = selectedChats.map((message) => {
-        let newMessage = regenerateMessageTemplate(conversation, message);
-        return newMessage;
-      });
-
-      sendMessage(messages, conversation);
-      setMessageStore(conversation.id, messages);
-      updateConversation(conversation.id, { recentMessage: messages.at(-1) });
-    });
+    const userConversationsForCurrentUser: IUserConversation[] = [];
 
     selectedUsers.forEach((selectedUser) => {
       let conversation = generateConversation(user!, selectedUser);
+      let userConversations = generateUserConversations(conversation);
 
-      let messages = selectedChats.map((message) => {
-        let newMessage = regenerateMessageTemplate(conversation, message);
-        return newMessage;
+      userConversations.forEach((c) => {
+        if (c.userId === user?.id) {
+          setConversation(c);
+          userConversationsForCurrentUser.push(c);
+        }
       });
 
-      conversation.recentMessage = messages.at(-1)
-
-      sendMessage(messages, conversation);
-      delete conversation.unsaved;
-      setConversation(conversation);
-      setMessageStore(conversation.id, messages);
+      sendRequestToRegisterConversation(conversation);
+      sendRequestToRegisterUserConversation(userConversations);
     });
+
+    [...selectedConversations, ...userConversationsForCurrentUser].forEach(
+      (conversation) => {
+        let messages = selectedChats.map((message) => {
+          let newMessage = regenerateMessageTemplate(conversation, message);
+          return newMessage;
+        });
+
+        sendMessage(conversation, messages);
+        setMessageStore(conversation.id, messages);
+        updateConversation(conversation.id, {
+          recentMessage: messages.at(-1),
+        });
+      }
+    );
 
     setSelectedUsers([]);
     setSelectedConversations([]);
-    closeModal();
+    useStore.getState().setModal(null);
   };
 
   const container = {
@@ -161,7 +171,9 @@ export const ForwardMessageModal = ({ title }: { title: string }) => {
             </div>
           )
         )}
-        <span className="flex w-full max-sm:px-4 pl-6 pt-2 pb-1 text-sm">All Contacts</span>
+        <span className="flex w-full max-sm:px-4 pl-6 pt-2 pb-1 text-sm">
+          All Contacts
+        </span>
         {(query ? usersQueryResult : users).map((person) => (
           <div key={person.id} onClick={() => handleSelectedUsers(person)}>
             <User isSelected={selectedUsers.includes(person)} person={person} />

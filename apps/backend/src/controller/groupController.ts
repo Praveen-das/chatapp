@@ -16,6 +16,7 @@ import {
   updateGroup,
   updateGroupMemberRole,
 } from "../services/groupServices";
+import { IUserConversation } from "../interfaces/conversationInterface";
 
 const _fetchGroups = async (req: Request, res: Response) => {
   const group = await fetchGroups();
@@ -23,34 +24,19 @@ const _fetchGroups = async (req: Request, res: Response) => {
   res.json(group);
 };
 
-const _createGroup = async (
-  req: Request<any, any, IGroupCreationReq>,
-  res: Response
-) => {
-  const data = req.body;
+const _createGroup = async (req: string, reset: () => void) => {
+  const { group }: { group: IGroup } = JSON.parse(req);
 
-  const members = data.members.map((userId) => ({
-    id: new Types.ObjectId(userId),
-    timeOfJoining: Date.now(),
-  }));
-
-  const admins = data.admins.map((userId) => new Types.ObjectId(userId));
+  const members = group.members.map((m) => new Types.ObjectId(m.id));
 
   const groupModel: IGroup = {
-    ...data,
-    id: new Types.ObjectId(data.id),
-    channelId: new Types.ObjectId(),
-    createdBy:new Types.ObjectId(data.createdBy),
-    host: "group",
-    admins,
+    ...group,
+    id: new Types.ObjectId(group.id),
+    createdBy: new Types.ObjectId(group.createdBy),
     members,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
   };
 
-  const group = await createGroup(groupModel);
-
-  res.json(group);
+  createGroup(groupModel);
 };
 
 const _generateGroupInvitationId = async (req: Request, res: Response) => {
@@ -77,20 +63,32 @@ const _deleteGroup = async (req: Request, res: Response) => {
   res.json(group);
 };
 
-const _addMembersToGroup = async (req: Request, res: Response) => {
-  const { conversationId, members } = req.body;
+const _addMembersToGroup = async (req: string, reset: () => void) => {
+  try {
+    const parsed: { conversationId: string; members: string[] } =
+      JSON.parse(req);
 
-  const group = await addMembersToGroup(conversationId, members);
+    const conversationId = new Types.ObjectId(parsed.conversationId);
+    const members = parsed.members.map((id) => new Types.ObjectId(id));
 
-  res.json(group);
+    await addMembersToGroup(conversationId, members);
+  } catch (error) {
+    console.log(error);
+    reset();
+  }
 };
 
-const _removeMemberFromGroup = async (req: Request, res: Response) => {
-  const { conversationId, userId } = req.body;
+const _removeMemberFromGroup = async (req: string, reset: () => void) => {
+  try {
+    const parsed: { userId: string; conversationId: string } = JSON.parse(req);
+    const userId = new Types.ObjectId(parsed.userId);
+    const conversationId = new Types.ObjectId(parsed.conversationId);
 
-  const group = await removeMemberFromGroup(conversationId, userId);
-
-  res.json(group);
+    const group = await removeMemberFromGroup(conversationId, userId);
+  } catch (error) {
+    console.log(error)
+    reset()
+  }
 };
 
 const _updateGroupMemberRole = async (req: Request, res: Response) => {

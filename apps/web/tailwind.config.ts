@@ -1,23 +1,18 @@
 /** @type {import('tailwindcss').Config} */
-// import primary from "config/themes";
+import COLORS from "./config/themes";
+import { generateTheme } from "./lib/theme";
 import themes from "daisyui/src/theming/themes";
-
-const primary ={ 
-  purple:"#8139f9",
-  blue:"#5d55f6",
-  orange:"#f9941f",
-};
 
 const darkmode = {
   ...themes["dim"],
   secondary: "#ffffff",
-  "base-100": "hsl(223deg 15% 30%)",
-  "base-200": "hsl(223deg 15% 21.2%)",
-  "base-300": "hsl(223 17% 13% / 1)",
+  "base-100": "hsl(228deg 4.76% 20.59%)",
+  "base-200": "hsl(220deg 4.62% 12.75%)",
+  "base-300": "hsl(0deg 0.02% 8.61%)",
   "--100-primary": "hsl(0deg 0.01% 19.84%)",
   "--hover-primary": "hsl(0 0 0% / 0.20)",
   "--hover-secondary": "hsl(0 0 0% / 0.20)",
-  "--modal": "hsl(223 17% 13% / 1)",
+  "--modal": "hsl(0deg 0.02% 8.61%)",
   "--bc": "1 0 0",
 };
 
@@ -31,13 +26,7 @@ const lightmode = {
   "--modal": "oklch(var(--b3))",
 };
 
-const lightmode_1 = { ...lightmode, primary: primary.purple };
-const lightmode_2 = { ...lightmode, primary: primary.blue };
-const lightmode_3 = { ...lightmode, primary: primary.orange };
-
-const darkmode_1 = { ...darkmode, primary: primary.purple };
-const darkmode_2 = { ...darkmode, primary: primary.blue };
-const darkmode_3 = { ...darkmode, primary: primary.orange };
+const DARK_THEME = `dark-${Object.values(COLORS)[0]?.replace("#", "")}`;
 
 export default {
   content: [
@@ -51,23 +40,13 @@ export default {
   plugins: [require("daisyui")],
   daisyui: {
     themes: [
-      { "light-8139f9": lightmode_1 },
-      { "light-5d55f6": lightmode_2 },
-      { "light-f9941f": lightmode_3 },
+      ...generateTheme("light", lightmode),
+      ...generateTheme("dark", darkmode),
 
-      { "dark-8139f9": darkmode_1 },
-      { "dark-5d55f6": darkmode_2 },
-      { "dark-f9941f": darkmode_3 },
-
-      { "LIGHT-8139f9": lightmode_1 },
-      { "LIGHT-5d55f6": lightmode_2 },
-      { "LIGHT-f9941f": lightmode_3 },
-
-      { "DARK-8139f9": darkmode_1 },
-      { "DARK-5d55f6": darkmode_2 },
-      { "DARK-f9941f": darkmode_3 },
+      ...generateTheme("LIGHT", lightmode),
+      ...generateTheme("DARK", darkmode),
     ],
-    darkTheme: "dark-8139f9",
+    darkTheme: DARK_THEME,
     base: true,
     styled: true,
     utils: true,

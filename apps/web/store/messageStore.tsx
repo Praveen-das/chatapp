@@ -6,7 +6,9 @@ import { useStore } from "./global";
 import { useConversationStore } from "./conversationStore";
 import {
   IMessage,
+  IMessageReply,
   IMessages,
+  IReadReceiptUpdatesCollection,
   IUnreadMessageMeta,
   IUpdatesCollection,
 } from "../interfaces/messageInterface";
@@ -40,17 +42,14 @@ interface IMessageStore {
     collection: IDeleteForUserRequest["collection"]
   ) => void;
 
-  unreadMessages: Map<string, IUnreadMessageMeta[]>;
-  getUnreadMessages: (userId: string) => IUnreadMessageMeta[];
-  setUnreadMessages: (
-    userId: string,
-    message: IUnreadMessageMeta[] | null
-  ) => void;
+  unreadMessages: Map<string, IMessage[]>;
+  getUnreadMessages: (userId: string) => IMessage[];
+  setUnreadMessages: (userId: string, message: IMessage[] | null) => void;
   clearUnreadMessages: (userId?: string) => void;
 
   updateReadReceipt: (
     conversationId: string,
-    readReceipts: IUpdatesCollection[]
+    readReceipts: IReadReceiptUpdatesCollection[]
   ) => void;
 
   replyRequest: IMessageReply | null;
@@ -74,7 +73,9 @@ export const useMessageStore = create(
           : set({ selectedChats: [] }),
       messageHistory: new Map(),
       setMessageHistory: (messageHistory: Map<string, IMessage[]>) =>
-        set({ messageHistory }),
+        set((s) => ({
+          messageHistory: new Map([...s.messageHistory, ...messageHistory]),
+        })),
       updateUserMessageHistory: (conversationId, updatesCollection) => {
         const messageStore = get().messageStore;
         const userMessages = messageStore.get(conversationId) || [];
@@ -103,7 +104,9 @@ export const useMessageStore = create(
         const unreadMessages = get().unreadMessages;
 
         if (!messages?.length) {
-          set({ unreadMessages: new Map(unreadMessages).set(conversationId, []) });
+          set({
+            unreadMessages: new Map(unreadMessages).set(conversationId, []),
+          });
           return null;
         }
 
@@ -161,6 +164,7 @@ export const useMessageStore = create(
 
         const getMessages = (store: IMessages) =>
           store.get(conversationId) || [];
+
         const userMessages = getMessages(messageStore);
         const userMessagesHistory = getMessages(messageHistory);
 
@@ -168,15 +172,14 @@ export const useMessageStore = create(
           messages.map((message) => {
             const update = updatesCollection.find(
               ({ id }) => id === message.id
-            );
+            )?.readReceipt!;
 
-            if (!update || !update.readReceipt?.length) return message;
+            if (!update) return message;
 
-            const updatedReadReceipts = message.readReceipt.map((s) => {
-              const receiptUpdate = update.readReceipt?.find(
-                (r) => r.userId === s.userId
-              );
-              return receiptUpdate ? { ...s, status: receiptUpdate.status } : s;
+            const updatedReadReceipts = message.readReceipt.map((receipt) => {
+              return receipt.userId === update?.[0]?.userId
+                ? { ...receipt, status: update?.[0]?.status }
+                : receipt;
             });
 
             return { ...message, readReceipt: updatedReadReceipts };
@@ -242,6 +245,11 @@ export const useMessageStore = create(
 
         if (messages && messages?.length !== updatedMessages.length) {
           messageStore.set(conversationId, updatedMessages);
+          const recentMessage = updatedMessages.at(-1);
+          useConversationStore.getState().updateConversation(conversationId, {
+            recentMessage,
+            updatedAt: recentMessage?.timestamp,
+          });
           set({ messageStore: new Map(messageStore) });
         } else {
           const history =
@@ -250,6 +258,10 @@ export const useMessageStore = create(
               ?.filter(
                 ({ id }) => !updatesCollection.some((s) => s.messageId === id)
               ) || [];
+
+          useConversationStore.getState().updateConversation(conversationId, {
+            recentMessage: history.at(-1),
+          });
           messageHistory.set(conversationId, history);
           set({ messageHistory: new Map(messageHistory) });
         }
@@ -265,17 +277,16 @@ export const useMessagesByConversation = () => {
   const selectedConversation = useConversationStore(
     (s) => s.selectedConversation
   );
+  const conversationId = selectedConversation?.id!;
 
   const [messageHistory, setMessageHistory] = useState<IMessage[]>(
-    useMessageStore.getState().messageHistory.get(selectedConversation?.id!) ||
-      []
+    useMessageStore.getState().messageHistory.get(conversationId!) || []
   );
   const [messages, setMessages] = useState<IMessage[]>(
-    useMessageStore.getState().messageStore.get(selectedConversation?.id!) || []
+    useMessageStore.getState().messageStore.get(conversationId!) || []
   );
-  const [unreadMessages, setUnreadMessages] = useState<IUnreadMessageMeta[]>(
-    useMessageStore.getState().unreadMessages.get(selectedConversation?.id!) ||
-      []
+  const [unreadMessages, setUnreadMessages] = useState<IMessage[]>(
+    useMessageStore.getState().unreadMessages.get(conversationId!) || []
   );
 
   const isInitital = useRef(true);
@@ -283,8 +294,6 @@ export const useMessagesByConversation = () => {
   const isInitital2 = useRef(true);
 
   useEffect(() => {
-    const conversationId = selectedConversation?.id!;
-
     const unsubscribe = useMessageStore.subscribe(
       (state) => state.messageHistory.get(conversationId)?.slice() || [],
       (newValue) => {

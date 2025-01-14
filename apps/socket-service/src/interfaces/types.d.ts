@@ -128,42 +128,61 @@ type IUsers = IUser[];
 
 type IHost = "user" | "group";
 
-interface IUserConversation {
+interface INewConversation {
   id: string;
   host: "user";
   members: IUser[];
   createdAt: number;
   updatedAt: number;
-  messages?: IMessage[];
-  recentMessage?: IMessage;
-  unsaved?: boolean;
-  deletedUsers?:string[]
 }
 
-interface IGroupConversation {
+interface IConversationBase {
   id: string;
-  channelId: string;
-  invitationId?: string;
   displayName?: string;
-  desc?: string;
-  host: "group";
-  members: IGroupMember[];
-  createdBy: string;
-  admins: string[];
-  messages?: IMessage[];
   createdAt: number;
   updatedAt: number;
+  messages?: IMessage[];
   recentMessage?: IMessage;
+  active?: boolean;
+  archived?: boolean;
+  conversationId: string;
+}
+
+interface IUserConversation extends IConversationBase {
+  userId: string;
+  host: "user";
+  members: IUser[];
+  
+  blocked?: boolean;
+  blockedByUser?: boolean;
+}
+
+interface IGroupConversation extends IConversationBase {
+  _id?:string
+  userId: string;
+  conversationId: string;
+  channelId: string;
+  invitationId?: string;
+  members: IUser[];
+  joinedAt: number
+  host: "group";
+}
+
+interface IGroup {
+  id: string,
+  channelId: string,
+  invitationId?: string,
+  displayName:string,
+  profilePicture: string,
+  admins: string[],
+  host: "group",
+  members: IUser[],
+  createdBy: string,
+  createdAt: number,
+  updatedAt: number,
 }
 
 type IConversation = IUserConversation | IGroupConversation 
-
-interface IGroupCreationReq {
-  displayName: string;
-  members: string[];
-  createdBy:string
-  admins:string[]
-}
 
 interface IBlocked {
   id: string;
@@ -187,4 +206,11 @@ interface IUserUpdateRequest {
 interface IUserRuleChangeRequest {
   userId: string;
   rules: IUserRules;
+}
+
+interface IUpdateBlockReq {
+  conversationId: string;
+  userId: string;
+  requestedUserId: string;
+  value: boolean;
 }

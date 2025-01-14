@@ -1,13 +1,9 @@
 "use client";
 
 // import Menu from "@components/ui/Menu";
-import { flip, shift, useFloating } from "@floating-ui/react";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
-import { AnimatePresence, motion } from "framer-motion";
-import React, { useMemo, useState } from "react";
-import motionconfig from "../../config/config";
+import { MouseEvent, useMemo, useState } from "react";
 import useSocket from "../../context/SocketProvider";
-import useSelectedConversation from "../../hooks/useSelectedConversation";
 import {
   IGroupConversation,
   IGroupMember,
@@ -15,39 +11,33 @@ import {
 import { IUser } from "../../interfaces/userInterface";
 import { useConversationStore } from "../../store/conversationStore";
 import { useStore } from "../../store/global";
-import EmojiPicker from "../ChatWindow/components/ChatInput/EmojiPicker";
-import Avatar from "../Dashboard/Components/Avatar";
+import Avatar from "../ui/Avatar";
 import AdminTag from "../ui/AdminTag";
-import TextArea from "../ui/TextArea";
 import MediaSelection from "./MediaSelection";
-import Menu from "@components/ui/Menu";
 import { uploadImage } from "@lib/imageKit";
-import modals from "@components/ui/modals";
 import { IModalKey } from "@interfaces/modalInterface";
+import { useMenu } from "store/menu";
+import Menu from "@components/ui/Menu";
+import { ChevronRightIcon } from "@heroicons/react/24/solid";
+import NotificationToggle from "./NotificationToggle";
+import StarredMessages from "./StarredMessages";
+import TextInput from "@components/ui/TextInput";
+import TagInput from "@components/ui/TagInput";
+import useAuth from "@hooks/useAuth";
 
 function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
-  const { sendGroupInfoUpdateRequest } = useSocket();
+  const { user } = useAuth();
+  const {
+    removeMemberFromGroup,
+    makeAdmin,
+    removeFromAdmin,
+    sendGroupInfoUpdateRequest,
+  } = useSocket();
+
   const toggleProfile = useStore((s) => s.toggleProfile);
   const setModal = useStore((s) => s.setModal);
   const setProfileTab = useStore((s) => s.setProfileTab);
   const setSelectedGroup = useStore((s) => s.setSelectedGroup);
-  const [loading, setLoading] = useState(false);
-
-  const [open, setOpen] = useState("");
-  const [editGroupName, toggleEditUsername] = useState(false);
-  const [editDescription, toggleEditDescription] = useState(false);
-
-  const [displayName, setDisplayName] = useState(
-    conversation.displayName || ""
-  );
-  const [description, setDescription] = useState(conversation.desc || "");
-
-  const { refs, floatingStyles } = useFloating({
-    middleware: [flip(), shift()],
-    placement: "top-end",
-    strategy: "absolute",
-    transform: false,
-  });
 
   function closeProfile() {
     const selectedConversation =
@@ -61,6 +51,8 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
     () => sortGroupMembers([...conversation.members]),
     [conversation]
   );
+  const userIsAdmin = conversation.admins.includes(user?.id!);
+  const totalMembers = conversation.members.length;
 
   function sortGroupMembers(members: IGroupMember[]) {
     if (!members) return [];
@@ -71,326 +63,100 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
     });
   }
 
-  function handleEditGroupName() {
+  function handleEditGroupName(displayName: string) {
     if (displayName && displayName !== conversation?.displayName)
       sendGroupInfoUpdateRequest(conversation, { displayName: displayName });
-    toggleEditUsername((s) => !s);
-    setDisplayName("");
-    setOpen("");
   }
 
-  function handleEditGroupDescription() {
+  function handleEditGroupDescription(description: string) {
     if (description && description !== conversation?.desc)
       sendGroupInfoUpdateRequest(conversation, { desc: description });
-
-    toggleEditDescription((s) => !s);
-    setDescription("");
-    setOpen("");
-  }
-
-  function toggleEmojiPicker(value: string) {
-    setOpen((s) => (s !== value ? value : ""));
   }
 
   function toggleModal(activeModal: IModalKey) {
-    setModal({ activeModal });
-    (
-      document?.getElementById("action-modal") as HTMLDialogElement
-    )?.showModal();
+    setModal({ activeModal, open: true });
   }
 
   function handleExitingGroup() {
-    setModal({ activeModal: "groupExitModal" });
-    (
-      document?.getElementById("action-modal") as HTMLDialogElement
-    )?.showModal();
-  }
-
-  const handleEmoji = (emoji: any) => {
-    open === "displayName"
-      ? setDisplayName((s) => s.concat(emoji.native))
-      : setDescription((s) => s.concat(emoji.native));
-  };
-
-  function handleDeletingProfilePicture() {
-    sendGroupInfoUpdateRequest(conversation, { profilePicture: "" });
-  }
-
-  function handleUpdatingProfilePicture(file: File) {
-    function callback(key: string, base64: string) {
-      setLoading(true);
-      uploadImage(base64, conversation.id, true).then((res) => {
-        sendGroupInfoUpdateRequest(conversation, { [key]: res.url });
-        setLoading(false);
-      });
-    }
-
     setModal({
-      activeModal: "uploadProfilePictureModal",
-      state: { file, callback },
+      activeModal: "groupExitModal",
+      state: conversation,
+      open: true,
     });
-    document.querySelector<HTMLDialogElement>("#action-modal")?.showModal();
   }
 
-  function openViewProfilePictureModal() {
-    setModal({
-      activeModal: "viewProfilePictureModal",
-      state: {
-        url: conversation.profilePicture,
-        displayName: conversation.displayName,
-      },
-    });
-    document.querySelector<HTMLDialogElement>("#action-modal")?.showModal();
+  function handleAdmin(userId: string, action: string) {
+    if (action === "add") makeAdmin(conversation.conversationId, userId);
+    else removeFromAdmin(conversation.conversationId, userId);
+  }
+
+  function handleRemovingMember(user: IGroupMember) {
+    removeMemberFromGroup(conversation, user);
   }
 
   return (
-    <>
-      <AnimatePresence>
-        {open && (
-          <div className="relative z-50">
-            <motion.div
-              variants={motionconfig.settings}
-              initial="hidden"
-              exit="hidden"
-              animate="visible"
-              className="w-5/6 h-56 bg-base-200 rounded-xl z-50 ml-5 mt-2"
-              ref={refs.setFloating}
-              style={{ ...floatingStyles }}
-            >
-              <EmojiPicker open={!!open} onEmojiSelect={handleEmoji} />
-            </motion.div>
-            <div
-              onClick={() => setOpen("")}
-              className="fixed inset-0 z-20 "
-            ></div>
-          </div>
-        )}
-      </AnimatePresence>
-
+    <div className='w-full h-full flex flex-col'>
       {/* Header */}
       <div className="min-h-16 w-full flex items-center max-sm:gap-2 gap-4 max-sm:px-2 px-4">
         <button
           onClick={closeProfile}
           className={`btn btn-sm btn-ghost btn-circle`}
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-            className="size-5"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"
-            />
-          </svg>
+          <ChevronRightIcon className="size-5" />
         </button>
         <label htmlFor="contact info">Group info</label>
       </div>
 
       {/* Profile details */}
-      <div className="flex h-full gap-6 text-sm flex-col overflow-y-scroll max-sm:py-3 py-6 no-scrollbar">
+      <div className="flex h-full gap-8 max-sm:pt-2 pt-4 bg-gradient-to-t from-base-200 text-sm flex-col overflow-y-scroll max-sm:pb-3 pb-10 no-scrollbar">
         {/* profile */}
-        <div className="w-full flex flex-col gap-2 items-center ">
-          <Avatar
-            loading={loading}
-            size="160px"
-            url={conversation.profilePicture}
-            menu={Boolean(conversation.profilePicture)}
-            onlineIndication={false}
-            canChangeAvatar
-            onDelete={handleDeletingProfilePicture}
-            onChange={handleUpdatingProfilePicture}
-            onPreview={openViewProfilePictureModal}
+
+        <div className="flex gap-8 items-center max-sm:px-4 px-8">
+          <AvatarWrapper
+            conversation={conversation}
+            userIsAdmin={userIsAdmin}
           />
-          <div className="w-full max-sm:px-4 px-8">
-            <label
-              className={`${editGroupName ? "border-b-primary pl-0  pr-14" : "border-b-transparent"} bg-transparent border-b-2 rounded-none textarea relative flex justify-center items-center w-full gap-2`}
-            >
-              {editGroupName ? (
-                <>
-                  <TextArea
-                    className="text-nowrap"
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    value={displayName}
-                  />
-                  <div className="flex gap-1 items-center absolute right-0">
-                    <div
-                      onClick={() => toggleEmojiPicker("displayName")}
-                      ref={
-                        open === "displayName" ? refs.setReference : undefined
-                      }
-                      tabIndex={0}
-                      className="flex btn btn-circle btn-ghost btn-xs "
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={1.5}
-                        stroke="currentColor"
-                        className="size-5"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z"
-                        />
-                      </svg>
-                    </div>
-                    <div
-                      onClick={handleEditGroupName}
-                      tabIndex={0}
-                      className="btn btn-circle btn-ghost btn-xs "
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        className="size-5"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="relative">
-                  <label className="mx-2" htmlFor="">
-                    {conversation?.displayName}
-                  </label>
-                  <div
-                    onClick={handleEditGroupName}
-                    tabIndex={0}
-                    className="absolute btn btn-circle btn-ghost btn-xs "
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="size-4"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
-                      />
-                    </svg>
-                  </div>
-                </div>
-              )}
-            </label>
+
+          <div className="grid">
+            <TextInput
+              text={conversation?.displayName!}
+              className="text-base"
+              placeholderText="Add group description"
+              onSubmit={handleEditGroupName}
+              canEdit={userIsAdmin}
+              // onDelete={handleEditBio}
+            />
+            <div>{`Group - ${totalMembers} members`}</div>
           </div>
         </div>
 
-        <div className="w-full min-h-[2px] bg-black/20" />
+        <div className="flex flex-col gap-4">
+          <div className="max-sm:px-4 px-8">
+            <TextInput
+              autoRaw
+              placeholderText="Add group description"
+              text={conversation?.desc!}
+              onSubmit={handleEditGroupDescription}
+              canEdit={userIsAdmin}
+              // onDelete={handleEditBio}
+            />
+          </div>
 
-        <div className="grid relative max-sm:px-4 px-8">
-          {conversation.desc && (
-            <label className="text-sm text-primary" htmlFor="About">
-              Description
-            </label>
-          )}
-          <label
-            className={`${editDescription ? "border-b-primary" : "border-b-transparent"} pl-0 bg-transparent border-b-2 rounded-none textarea relative flex justify-between w-full pr-12`}
-          >
-            {editDescription ? (
-              <>
-                <TextArea
-                  onChange={(e) => setDescription(e.target.value)}
-                  value={description}
-                />
-                <div className="flex gap-1 items-center absolute right-0">
-                  <div
-                    onClick={() => toggleEmojiPicker("desc")}
-                    ref={open === "desc" ? refs.setReference : undefined}
-                    tabIndex={0}
-                    className="btn btn-circle btn-ghost btn-xs "
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="size-5"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z"
-                      />
-                    </svg>
-                  </div>
-                  <div
-                    onClick={handleEditGroupDescription}
-                    tabIndex={0}
-                    className="btn btn-circle btn-ghost btn-xs "
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="size-5"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="m4.5 12.75 6 6 9-13.5"
-                      />
-                    </svg>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                {conversation.desc ? (
-                  <p className="leading-7 whitespace-pre-wrap">
-                    {conversation.desc}
-                  </p>
-                ) : (
-                  <p className="leading-7 whitespace-pre-wrap text-primary">
-                    Add group description
-                  </p>
-                )}
-                <div
-                  onClick={handleEditGroupDescription}
-                  tabIndex={0}
-                  className="absolute right-0 btn btn-circle btn-ghost btn-xs"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                    className="size-4"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
-                    />
-                  </svg>
-                </div>
-              </>
-            )}
-          </label>
+          <div className="max-sm:px-4 px-8">
+            <TagInput
+              tags={["asdads", "qweqwe", "zxczxc"]}
+              showLabel={false}
+              canEdit={userIsAdmin}
+            />
+          </div>
         </div>
 
         {/* Media */}
-        <MediaSelection conversationId={conversation.id} />
+        <div className="space-y-1 divide-y-2 divide-base-300 max-sm:mt-2 sm:mt-4 max-sm:px-4 px-8 [&>div]:h-16">
+          <NotificationToggle id={conversation.id} />
+          <StarredMessages />
+          <MediaSelection conversationId={conversation?.id!} />
+        </div>
 
         {/* conversation members */}
         <div className="w-full flex flex-col">
@@ -398,32 +164,37 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
             <label className="text-sm text-primary mb-2 " htmlFor="">
               Group members
             </label>
-            {conversation?.members.length}
+            {totalMembers}
           </div>
           <div className="flex gap-1 flex-col w-full ">
-            <div
-              tabIndex={0}
-              onClick={() => toggleModal("addGroupMembersModal")}
-              className="hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-8 py-3 cursor-pointer"
-            >
-              <div className="flex items-center justify-center w-[40px] h-[40px] bg-gray-500 rounded-full">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={1.5}
-                  stroke="currentColor"
-                  className="size-5"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z"
-                  />
-                </svg>
+            {userIsAdmin && (
+              <div
+                tabIndex={0}
+                onClick={() => toggleModal("addGroupMembersModal")}
+                className="hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-8 py-3 cursor-pointer"
+              >
+                <div className="flex items-center justify-center w-[40px] h-[40px] bg-gray-500 rounded-full">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1.5}
+                    stroke="currentColor"
+                    className="size-5"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z"
+                    />
+                  </svg>
+                </div>
+                Add Member
               </div>
-              Add Member
-            </div>
+            )}
+
+            {/* {conversation.invitationId && (
+            )} */}
             <div
               onClick={() => setProfileTab("inviteLink")}
               tabIndex={0}
@@ -447,9 +218,36 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
               </div>
               Invite via link
             </div>
-            {members.map(
-              (member, i) => i < 5 && <Member key={member.id} member={member} />
-            )}
+
+            <Menu<IGroupMember> id="groupProfile">
+              {(member) => (
+                <>
+                  <Menu.Item
+                    onClick={() =>
+                      handleAdmin(member.id!, member.isAdmin ? "remove" : "add")
+                    }
+                  >
+                    {member.isAdmin ? "Remove Admin" : "Make Admin"}
+                  </Menu.Item>
+                  <Menu.Item onClick={() => handleRemovingMember(member)}>
+                    Remove
+                  </Menu.Item>
+                </>
+              )}
+            </Menu>
+
+            <div>
+              {members.map(
+                (member, i) =>
+                  i < 5 && (
+                    <Member
+                      showOptions={userIsAdmin}
+                      key={member.id}
+                      member={member}
+                    />
+                  )
+              )}
+            </div>
             <div
               onClick={() => toggleModal("allMembers")}
               tabIndex={0}
@@ -477,44 +275,25 @@ function GroupProfile({ conversation }: { conversation: IGroupConversation }) {
           {"Created By " + conversation.createdBy}
         </label>
       </div>
-    </>
+    </div>
   );
 }
 
-function Member({ member }: { member: IGroupMember }) {
-  const { removeMemberFromGroup, makeAdmin, removeFromAdmin } =
-    useSocket();
+function Member({
+  member,
+  showOptions = false,
+}: {
+  member: IGroupMember;
+  showOptions?: boolean;
+}) {
   const setSelectedUser = useStore((s) => s.setSelectedUser);
-  const selectedConversation = useSelectedConversation() as IGroupConversation;
   const setProfileTab = useStore((s) => s.setProfileTab);
-
-  function handleRemovingMember(user: IGroupMember) {
-    removeMemberFromGroup(selectedConversation, user);
-  }
-
-  function handleAdmin(userId: string, action: string) {
-    if (action === "add") makeAdmin(selectedConversation.id, userId);
-    else removeFromAdmin(selectedConversation.id, userId);
-  }
+  const setMenu = useMenu((s) => s.setMenu);
 
   function handleSelectedUser() {
     setSelectedUser(member as IUser);
     setProfileTab("user");
   }
-
-  const options = useMemo(() => {
-    return [
-      {
-        label: member.isAdmin ? "Remove Admin" : "Make Admin",
-        handler: () =>
-          handleAdmin(member.id!, member.isAdmin ? "remove" : "add"),
-      },
-      {
-        label: "Remove",
-        handler: () => handleRemovingMember(member),
-      },
-    ];
-  }, [member]);
 
   return (
     <div
@@ -539,19 +318,119 @@ function Member({ member }: { member: IGroupMember }) {
           <label className="text-sm" htmlFor="">
             zxczx, zxczxczxc, zxczxc
           </label>
-          <Menu
-            buttonIcon={
-              <span className="group-hover:opacity-100 btn btn-circle btn-xs btn-ghost outline-none duration-300 rounded-full opacity-0 -mb-4">
-                <ChevronDownIcon className="size-5" />
-              </span>
-            }
-            menuItems={options}
-            placement={self ? "bottom-end" : "bottom-start"}
-            dense
-          />
+          {showOptions && (
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenu({
+                  reference: e.currentTarget,
+                  data: member,
+                  id: "groupProfile",
+                });
+              }}
+              tabIndex={0}
+              className="group-hover:opacity-100 btn btn-circle btn-xs btn-ghost outline-none duration-300 rounded-full opacity-0 "
+            >
+              <ChevronDownIcon className="size-5" />
+            </span>
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+function AvatarWrapper({
+  conversation,
+  userIsAdmin,
+}: {
+  conversation: IGroupConversation;
+  userIsAdmin: boolean;
+}) {
+  const { sendGroupInfoUpdateRequest } = useSocket();
+  const setMenu = useMenu((s) => s.setMenu);
+  const menu = useMenu((s) => s.menu);
+  const setModal = useStore((s) => s.setModal);
+
+  const [loading, setLoading] = useState(false);
+  const [reference, setReference] = useState<HTMLDivElement | null>(null);
+
+  const handleDropdown = (e: MouseEvent<HTMLDivElement>) => {
+    const container = reference?.getBoundingClientRect()!;
+
+    const x = e.clientX - container.left;
+    const y = e.clientY;
+
+    setMenu({ id: "GROUP_PROFILE", position: { x, y }, reference, data: null });
+  };
+
+  function handleUpdatingProfilePicture(base64: string) {
+    setLoading(true);
+    uploadImage(base64, conversation.conversationId, true).then((res) => {
+      sendGroupInfoUpdateRequest(conversation, { profilePicture: res.url });
+      setLoading(false);
+    });
+  }
+
+  const options = useMemo(() => {
+    return [
+      {
+        label: "View image",
+        handler: openViewProfilePictureModal,
+      },
+      {
+        label: "Change image",
+        handler: () => document.getElementById("group_avatar")?.click(),
+      },
+      {
+        label: "Delete image",
+        handler: handleDeletingProfilePicture,
+      },
+    ];
+  }, []);
+
+  function handleDeletingProfilePicture() {
+    sendGroupInfoUpdateRequest(conversation, { profilePicture: "" });
+  }
+
+  function openViewProfilePictureModal() {
+    setModal({
+      activeModal: "viewProfilePictureModal",
+      state: {
+        url: conversation.profilePicture,
+        displayName: conversation.displayName,
+      },
+      open: true,
+    });
+  }
+
+  return (
+    <>
+      <div
+        ref={setReference}
+        className="absolute z-50"
+        style={{ top: menu?.position?.y, left: menu?.position?.x }}
+      >
+        <Menu id="GROUP_PROFILE">
+          {options.map(({ handler, label }) => (
+            <Menu.Item key={label} onClick={handler}>
+              {label}
+            </Menu.Item>
+          ))}
+        </Menu>
+      </div>
+
+      <Avatar
+        id="group_avatar"
+        size="70px"
+        url={conversation.profilePicture}
+        onlineIndication={false}
+        loading={loading}
+        onClick={handleDropdown}
+        onChange={handleUpdatingProfilePicture}
+        enableOptions={userIsAdmin}
+      />
+    </>
   );
 }
 

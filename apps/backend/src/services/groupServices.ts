@@ -5,6 +5,8 @@ import {
   IDeleteConversationRequest,
   IMember,
 } from "../interfaces/conversationInterface";
+import UserConversation from "../models/UserConversation";
+import GroupConversation from "../models/GroupConversation";
 
 // createGroup
 async function createGroup(data: IGroup) {
@@ -70,30 +72,16 @@ async function fetchGroupById(groupId: string) {
       {
         $match: { invitationId: id },
       },
-      // {
-      //     $lookup: {
-      //         from: "messages",
-      //         let: { id: "$id" },
-      //         pipeline: [
-      //             {
-      //                 $match: {
-      //                     $expr: { $eq: ["$conversationId", "$$id"] }
-      //                 },
-      //             },
-      //         ],
-      //         as: "messages"
-      //     }
-      // },
       {
         $lookup: {
           from: "users",
-          localField: "members.id",
+          localField: "members",
           foreignField: "id",
           as: "members",
         },
       },
     ]);
-    
+
     return groups;
   } catch (error) {
     console.log("fetchGroupsByUserId--->", error);
@@ -103,58 +91,72 @@ async function fetchGroupById(groupId: string) {
 async function fetchGroupsByUserId(id: string) {
   try {
     const userId = new Types.ObjectId(id);
-    const groups = await Group.aggregate([
+    const groups = await GroupConversation.aggregate([
       {
-        $match: {
-          "members.id": userId,
+        $match: { userId },
+      },
+      {
+        $lookup: {
+          from: "groups",
+          localField: "conversationId",
+          foreignField: "id",
+          as: "conversation",
         },
       },
-
+      {
+        $unwind: {
+          path: "$conversation",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
       {
         $addFields: {
-          userStatus: {
-            $arrayElemAt: [
-              {
-                $filter: {
-                  input: "$members",
-                  as: "member",
-                  cond: {
-                    $eq: ["$$member.id", userId],
-                  },
-                },
-              },
-              0,
-            ],
-          },
+          members: "$conversation.members",
+          displayName: "$conversation.displayName",
+          channelId: "$conversation.channelId",
+          invitationId: "$conversation.invitationId",
+          profilePicture: "$conversation.profilePicture",
+          admins: "$conversation.admins",
+          host: "$conversation.host",
+          desc: "$conversation.desc",
         },
       },
-
+      {
+        $lookup: {
+          from: "users",
+          localField: "members",
+          foreignField: "id",
+          as: "members",
+        },
+      },
       {
         $lookup: {
           from: "messages",
           let: {
-            timeOfJoining: "$userStatus.timeOfJoining",
-            timeOfDeletion: "$userStatus.timeOfDeletion",
-            conversationId: "$id",
+            deletedAt: "$deletedAt",
+            joinedAt: "$joinedAt",
+            conversationId: "$conversationId",
           },
           pipeline: [
+            // Match messages based on conversationId and timestamps in one step
             {
               $match: {
                 $expr: {
                   $and: [
-                    { $eq: ["$conversationId", "$$conversationId"] },
-                    { $gte: ["$timestamp", "$$timeOfJoining"] },
                     {
-                      $or: [
-                        { $gt: ["$timestamp", "$$timeOfDeletion"] },
-                        { $eq: ["$$timeOfDeletion", null] },
-                      ],
+                      $eq: ["$conversationId", "$$conversationId"],
+                    },
+                    {
+                      $gt: ["$timestamp", "$$deletedAt"],
+                    },
+                    {
+                      $gte: ["$timestamp", "$$joinedAt"],
                     },
                   ],
                 },
               },
             },
-
+            // Perform the messageDeleted lookup for only the matched messages
             {
               $lookup: {
                 from: "messagedeleteflags",
@@ -167,8 +169,12 @@ async function fetchGroupsByUserId(id: string) {
                     $match: {
                       $expr: {
                         $and: [
-                          { $eq: ["$messageId", "$$messageId"] },
-                          { $eq: ["$userId", "$$userId"] },
+                          {
+                            $eq: ["$messageId", "$$messageId"],
+                          },
+                          {
+                            $eq: ["$userId", "$$userId"],
+                          },
                         ],
                       },
                     },
@@ -187,75 +193,26 @@ async function fetchGroupsByUserId(id: string) {
             // Filter out deleted messages
             {
               $match: {
-                $expr: { $ne: ["$messageDeleted.deleted", true] },
-              },
-            },
-
-            {
-              $lookup: {
-                from: "users",
-                localField: "from",
-                foreignField: "id",
-                as: "user",
-              },
-            },
-            {
-              $unwind: {
-                path: "$user",
-                preserveNullAndEmptyArrays: true,
+                $expr: {
+                  $ne: ["$messageDeleted.deleted", true],
+                },
               },
             },
           ],
           as: "messages",
         },
       },
-
       {
-        $lookup: {
-          from: "users",
-          localField: "members.id",
-          foreignField: "id",
-          as: "members",
-        },
+        $lookup:{
+          from:'messages',
+          localField:'starred',
+          foreignField:'id',
+          as:'starred'
+        }
       },
-      
-      {
-        $lookup: {
-          from: "archives",
-          let: { conversationId: "$id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    {
-                      $eq: ["$conversationId", "$$conversationId"],
-                    },
-                    { $eq: ["$userId", userId] },
-                  ],
-                },
-              },
-            },
-          ],
-          as: "isArchived",
-        },
-      },
-
-      {
-        $addFields: {
-          isArchived: {
-            $cond: {
-              if: { $gt: [{ $size: "$isArchived" }, 0] },
-              then: true,
-              else: false,
-            },
-          },
-        },
-      },
-
       {
         $project: {
-          userStatus: 0,
+          conversation: 0,
         },
       },
     ]);
@@ -321,13 +278,11 @@ async function updateGroupMemberRole(
   }
 }
 
-async function addMembersToGroup(_conversationId: string, _members: IMember[]) {
+async function addMembersToGroup(
+  conversationId: Types.ObjectId,
+  members: Types.ObjectId[]
+) {
   try {
-    const conversationId = new Types.ObjectId(_conversationId);
-    const members = _members.map((m) => ({
-      ...m,
-      id: new Types.ObjectId(m.id),
-    }));
     const updatedGroup = await Group.findOneAndUpdate(
       { id: conversationId },
       {
@@ -372,31 +327,18 @@ async function addMembersToGroup(_conversationId: string, _members: IMember[]) {
 }
 
 // removeMemberFromGroup
-async function removeMemberFromGroup(_conversationId: string, _userId: string) {
+async function removeMemberFromGroup(
+  conversationId: Types.ObjectId,
+  userId: Types.ObjectId
+) {
   try {
-    const userId = new Types.ObjectId(_userId);
-    const conversationId = new Types.ObjectId(_conversationId);
-    const updatedGroup = await Group.findOneAndUpdate(
+    const res = await Group.findOneAndUpdate(
       { id: conversationId },
       {
-        $pull: { members: { id: userId }, admins: userId },
+        $pull: { members: userId, admins: userId },
       },
       { new: true }
     );
-
-    return await Group.aggregate([
-      {
-        $match: { id: conversationId },
-      },
-      {
-        $lookup: {
-          from: "users",
-          localField: "members.id",
-          foreignField: "id",
-          as: "members",
-        },
-      },
-    ]);
   } catch (error) {
     console.error("Error adding user to group:", error);
     throw error;

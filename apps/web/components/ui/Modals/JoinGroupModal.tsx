@@ -1,35 +1,74 @@
 import moment from "moment";
 import useSocket from "../../../context/SocketProvider";
 import useAuth from "../../../hooks/useAuth";
-import Avatar from "../../Dashboard/Components/Avatar";
+import Avatar from "../Avatar";
 import { useStore } from "../../../store/global";
 import { IGroupConversation } from "../../../interfaces/conversationInterface";
 import { IModal } from "@interfaces/modalInterface";
-
-const closeModal = () => {
-  document?.querySelector<HTMLDialogElement>("#action-modal")?.close();
-};
+import { useConversationStore } from "store/conversationStore";
+import { useEffect, useState } from "react";
+import axiosClient from "@lib/axiosClient";
 
 export const JoinGroupModal = () => {
-  const { sendGroupjoinRequest } = useSocket();
   const { user } = useAuth();
-  const modal = useStore<IModal<IGroupConversation> | null>((s) => s.modal);
-
-  const group = modal?.state;
-
-  function handleClose() {
-    closeModal();
-  }
+  const { sendGroupjoinRequest } = useSocket();
+  const setModal = useStore(s=>s.setModal)
+  const { invitationId } = useStore<IModal<{ invitationId: string }> | null>(
+    (s) => s.modal
+  )?.state!;
+  const conversations = useConversationStore((s) => s.conversations);
+  const setSelectedConversation = useConversationStore(
+    (s) => s.setSelectedConversation
+  );
+  const [group, setGroup] = useState<IGroupConversation | null>(null);
+  const [loading, setLoading] = useState(false);
 
   function handleJoiningGroup() {
     if (!group) return;
-    sendGroupjoinRequest(group!, user!);
-    handleClose();
+    sendGroupjoinRequest(
+      group!,
+      user!,
+      conversations.some((c) => c.id === group.id)
+    );
+    setModal(null)
   }
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      await axiosClient<IGroupConversation[]>(`/group/fetch/${invitationId}`)
+        .then((res) => {
+          setLoading(false);
+          const conversation = res.data[0]!;
+
+          if (conversation) {
+            if (conversation.members.find((m) => m.id === user?.id)) {
+              const conversationId = useConversationStore
+                .getState()
+                .conversations.find(
+                  (c) => c.conversationId === conversation.id
+                )?.id!;
+
+              setSelectedConversation(conversationId);
+              setModal(null);
+            } else {
+              setGroup(conversation as IGroupConversation);
+            }
+          } else {
+          }
+        })
+        .catch((res) => {
+          setLoading(false);
+          console.log(res);
+        });
+    })();
+  }, [invitationId, user]);
 
   return (
     <div className="modal-box p-8 relative flex gap-2 items-center flex-col max-w-[450px] bg-[--modal]">
-      {!group ? (
+      {loading ? (
+        <span className="loading loading-spinner loading-lg"></span>
+      ) : !group ? (
         <label htmlFor="">Group doesn't exist.</label>
       ) : (
         <>
@@ -48,14 +87,14 @@ export const JoinGroupModal = () => {
           <div className="avatar-group -space-x-4 rtl:space-x-reverse">
             {group.members.map((member, i) =>
               i > 4 ? null : (
-                <div className="avatar border-base-300">
-                    <div>
-                        <Avatar
-                          size="38px"
-                          url={member.profilePicture}
-                          onlineIndication={false}
-                        />
-                    </div>
+                <div key={member.id} className="avatar border-base-300">
+                  <div>
+                    <Avatar
+                      size="38px"
+                      url={member.profilePicture}
+                      onlineIndication={false}
+                    />
+                  </div>
                 </div>
               )
             )}
@@ -69,7 +108,7 @@ export const JoinGroupModal = () => {
           </div>
           <div className="grid grid-cols-2 gap-2 mt-6">
             <div
-              onClick={handleClose}
+              onClick={()=>setModal(null)}
               className="btn  btn-outline h-10 min-h-10 rounded-full"
             >
               Cancel

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAttachments } from "../../store/attachments";
 import { useStore } from "../../store/global";
-import { useTabs } from "../Dashboard/Tabs/Tabs";
+import { useTabs } from "../ui/Tab/Tabs";
 import Link from "next/link";
 import LinkPreview from "../ui/LinkPreview";
 import { parseUrl } from "@lib/utils";
@@ -31,7 +31,7 @@ function UserMedia({ conversation }: { conversation: IConversation }) {
   const [tab, setTab] = useState(mediaList[0]);
 
   return (
-    <>
+    <div className='w-full h-full flex flex-col'>
       <div className="min-h-16 w-full flex items-center gap-4 px-4">
         <button
           onClick={() => setProfileTab(initialTab)}
@@ -67,9 +67,11 @@ function UserMedia({ conversation }: { conversation: IConversation }) {
             </a>
           ))}
       </div>
-      {tab === "images" && <ImagePreviews media={media[tab]!} />}
-      {tab === "link" && <Links links={media[tab]!} />}
-    </>
+      <div className="w-full h-full bg-gradient-to-t from-base-200">
+        {tab === "images" && <ImagePreviews media={media[tab]!} />}
+        {tab === "link" && <Links links={media[tab]!} />}
+      </div>
+    </div>
   );
 }
 

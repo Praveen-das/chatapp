@@ -39,6 +39,7 @@ export const userSchema = new Schema({
         enum: ['online', 'offline'],
         default: 'online',
     },
+    tags:[String],
     lastSeen: Number,
     createdAt: Number,
     updatedAt: Number,

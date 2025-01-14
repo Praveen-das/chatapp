@@ -15,37 +15,15 @@ interface IReq {
 
 const _saveUserMessage = async (req: string, reset: () => void) => {
   try {
-    const { messages, conversation }: IReq = JSON.parse(req);
+    const { messages }: IReq = JSON.parse(req);
     
-    if (conversation?.unsaved) {
-      delete conversation.unsaved;
-
-      let _conversation = {
-        ...conversation,
-        id: new Types.ObjectId(conversation.id),
-      };
-
-      const _messages = messages.map((message) => ({
-        ...message,
-        id: new Types.ObjectId(message.id),
-        conversationId: _conversation.id,
-        from: new Types.ObjectId(message.from),
-        to: new Types.ObjectId(message.to),
-      }));
-
-      await Promise.all([
-        conversationServices.createConversation(_conversation),
-        messageServices.saveUserMessage(_messages),
-      ]);
-
-      return;
-    }
     
-    if (!!conversation?.deletedUsers?.length) {
-      console.log('reset conversation');
+    
+    // if (!!conversation?.deletedUsers?.length) {
+    //   console.log('reset conversation');
       
-      await conversationServices.unsetConversationDeletion(conversation.id);
-    }
+    //   await conversationServices.unsetConversationDeletion(conversation.id);
+    // }
 
     const _messages = messages.map((message) => {
       let newMessage ={

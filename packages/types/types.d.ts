@@ -5,7 +5,6 @@ interface SocketProviderProps {
 interface IMessageReply {
   username: string;
   message: string;
-  offsetTop: number;
   attachment: IAttachment | null;
 }
 

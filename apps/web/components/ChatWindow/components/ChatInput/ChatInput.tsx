@@ -10,160 +10,140 @@ import EmojiPicker from "./EmojiPicker";
 import { parseUrl } from "@lib/utils";
 import { useAttachments } from "../../../../store/attachments";
 import InputButton from "../../../ui/InputButton";
-import useMessage from "@hooks/useMessage";
 import { useConversationStore } from "../../../../store/conversationStore";
 import useSelectedConversation from "@hooks/useSelectedConversation";
 import LinkPreview from "../../../ui/LinkPreview";
-import MediaQuery from "react-responsive";
-
-// import { IUrlAttachment } from "@interfaces/messageInterface";
-import ObjectID from "bson-objectid";
 import { getUrlMetadata } from "@lib/fetchers";
-import { generateConversation } from "@lib/conversation";
 import { getImages } from "@lib/utils";
-import { IUrlAttachment } from "@interfaces/messageInterface";
+import { SendSolid } from "iconoir-react";
+import {
+  ArrowUturnRightIcon,
+  ChatBubbleLeftRightIcon,
+  ChevronLeftIcon,
+  DocumentTextIcon,
+  PaperAirplaneIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/solid";
 import socket from "@lib/ws";
-import { ArrowUturnRightIcon } from "@heroicons/react/24/solid";
+import { handleGeneratingConversation } from "@lib/conversation";
+import { IMessage, IUrlAttachment } from "@interfaces/messageInterface";
+import ObjectID from "bson-objectid";
+import { generateMessageTemplate } from "@lib/messages";
+import { ChartBarIcon } from "@heroicons/react/16/solid";
+import ImageAttachmentPreview from "./ImageAttachmentPreview";
+import UrlAttachmentPreview from "./UrlAttachmentPreview";
+import { decrypt, encrypt } from "@lib/e2e";
+import { ai, getMessagesSummary, getSmartReply } from "@lib/openAI";
+import { SparklesIcon } from "@heroicons/react/24/outline";
+// import fetchSmartReplies from "../../../../lib/openAI";
 
 function ChatInput() {
   const { user } = useAuth();
-  const selectedConversation = useConversationStore(
-    (s) => s.selectedConversation
-  );
-  const selectedUser = useStore((s) => s.selectedUser);
-  const selectedChats = useMessageStore((s) => s.selectedChats);
-  const { blockedUsers } = useSocket();
+  const selectedConversation = useSelectedConversation();
 
-  const receiver =
-    (selectedConversation?.host === "user" &&
-      selectedConversation?.members.find((m) => m.id !== user?.id!)) ||
-    selectedUser;
-  const isBlockedUser = blockedUsers.some(
-    (u) => u.blockedUser.id === receiver?.id
-  );
+  const isBlockedConversation =
+    selectedConversation?.host === "user" && selectedConversation.blocked;
+
+  const isGroup = selectedConversation?.host === "group";
+  const isMember = selectedConversation?.members.some((m) => m.id === user?.id);
 
   return (
-    <div className="flex flex-col w-full mx-auto bg-base-200 shadow-lg sm:rounded-2xl">
-      {
-        isBlockedUser ? (
-          <BlockedUserNotification username={selectedConversation?.id!} />
+    <div className="flex flex-col w-full mx-auto shadow-lg bg-base-200 sm:rounded-2xl">
+      {isBlockedConversation ? (
+        <BlockedUserNotification
+          username={selectedConversation?.conversationId!}
+        />
+      ) : isGroup ? (
+        isMember ? (
+          <InputWrapper />
         ) : (
-          <>
-            <div className="max-sm:hidden">{!!selectedChats.length ? <SelectedMessagesActions /> : <Input />}</div>
-            <div className="sm:hidden"><Input /></div>
-          </>
+          <UnavailableConversation />
         )
-      }
+      ) : (
+        <InputWrapper />
+      )}
     </div>
   );
 }
 
-function SelectedMessagesActions() {
+function InputWrapper() {
   const selectedChats = useMessageStore((s) => s.selectedChats);
-  const setSelectedChats = useMessageStore((s) => s.setSelectedChats);
-  const setModal = useStore((s) => s.setModal);
-
-  const handleDeletingChat = () => {
-    setModal({ activeModal: "deleteMessageModal", state: selectedChats });
-    (
-      document?.getElementById("action-modal") as HTMLDialogElement
-    )?.showModal();
-  };
-
-  const handleForwadingChat = () => {
-    setModal({ activeModal: "forwardMessageModal", state: selectedChats });
-    document?.querySelector<HTMLDialogElement>("#action-modal")?.showModal();
-  };
-
   return (
-    <div className="flex justify-between items-center gap-4 w-full h-[60px] mx-auto p-4  ">
-      <div className="flex items-center gap-2">
-        <button
-          className="btn btn-circle btn-sm btn-ghost"
-          onClick={() => setSelectedChats(null)}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            className="w-6 h-6"
-          >
-            <path
-              fillRule="evenodd"
-              d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 1 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </button>
-        <label htmlFor="">{selectedChats.length} Selected</label>
+    <>
+      <div className="max-sm:hidden">
+        {!!selectedChats.length ? <SelectedMessagesActions /> : <Input />}
       </div>
-      <div className="flex items-center gap-4">
-        <button
-          className="btn btn-circle btn-sm btn-ghost"
-          onClick={handleDeletingChat}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            className="size-5"
-          >
-            <path
-              fillRule="evenodd"
-              d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </button>
-        <button
-          className="btn btn-circle btn-sm btn-ghost"
-          onClick={handleForwadingChat}
-        >
-          <ArrowUturnRightIcon className="size-5" />
-        </button>
+      <div className="sm:hidden duration-300">
+        <Input />
       </div>
-    </div>
+    </>
   );
 }
 
 function Input(): React.ReactNode {
-  const setMessageStore = useMessageStore((s) => s.setMessageStore);
-  const setReplyRequest = useMessageStore((s) => s.setReplyRequest);
-  const clearUnreadMessages = useMessageStore((s) => s.clearUnreadMessages);
-  const conversations = useConversationStore((s) => s.conversations);
-  const setConversation = useConversationStore((s) => s.setConversation);
-  const updateConversation = useConversationStore((s) => s.updateConversation);
-  const selectedConversation = useSelectedConversation();
-  const setSelectedConversation = useConversationStore(
-    (s) => s.setSelectedConversation
-  );
-  const setSelectedUser = useStore((s) => s.setSelectedUser);
-  const selectedUser = useStore((s) => s.selectedUser);
-  const addToMediaStore = useAttachments((s) => s.addToMediaStore);
-
-  const { sendMessage } = useSocket();
   const { user } = useAuth();
-  const { generateMessageTemplate } = useMessage();
+  const setReplyRequest = useMessageStore((s) => s.setReplyRequest);
+  const replyRequest = useMessageStore((s) => s.replyRequest);
+  const selectedConversation =
+    useConversationStore.getState().selectedConversation;
 
+  const {
+    sendMessage,
+    sendRequestToRegisterConversation,
+    sendRequestToRegisterUserConversation,
+  } = useSocket();
   const [messageString, setMessageString] = useState("");
   const [open, setOpen] = useState(false);
-  const [metadata, setMetadata] = useState<IUrlMetadata | null>(null);
+  const [metadata, setMetadata] = useState<IUrlMetadata | undefined>(undefined);
+
+  const sender = selectedConversation?.members.find(
+    (m) => m.id === replyRequest?.userId
+  );
+  const receiver = sender?.id === user?.id ? "You" : sender?.username!;
 
   const handleMessaging = () => {
     if (!messageString) return;
 
-    let conversation =
-      selectedConversation ||
-      conversations.find(
-        (c) =>
-          c.members.find((m) => m.id === selectedUser?.id!) && c.host === "user"
-      ) ||
-      generateConversation(user!, selectedUser!);
+    // fetchSmartReplies(messageString);
 
-    const conversationId = conversation?.id;
+    const user = useAuth.getState().user;
+    const selectedConversation =
+      useConversationStore.getState().selectedConversation;
+    const conversations = useConversationStore.getState().conversations;
+    const setConversation = useConversationStore.getState().setConversation;
+    const selectedUser = useStore.getState().selectedUser;
+    const setSelectedUser = useStore.getState().setSelectedUser;
+    const setMessageStore = useMessageStore.getState().setMessageStore;
+    const addToMediaStore = useAttachments.getState().addToMediaStore;
+    const setSelectedConversation =
+      useConversationStore.getState().setSelectedConversation;
+    const updateConversation =
+      useConversationStore.getState().updateConversation;
+
+    let conversation = conversations.find(
+      (c) =>
+        c.id === selectedConversation?.id ||
+        (c.members.find((m) => m.id === selectedUser?.id!) && c.host === "user")
+    );
+
+    if (!conversation) {
+      const { conversation: newConversation, userConversations } =
+        handleGeneratingConversation(user!, selectedUser!);
+
+      sendRequestToRegisterConversation(newConversation);
+      sendRequestToRegisterUserConversation(userConversations);
+
+      userConversations.forEach((c) => {
+        if (c.userId === user?.id) {
+          conversation = c;
+          setConversation(c);
+        }
+      });
+    }
 
     const url = parseUrl(messageString);
-    const attachment: IUrlAttachment | null = url
+
+    const attachment: IUrlAttachment | undefined = url
       ? {
           metadata,
           type: "link",
@@ -171,38 +151,31 @@ function Input(): React.ReactNode {
           url: messageString,
           host: url.host,
         }
-      : null;
+      : undefined;
+
+    if (attachment)
+      addToMediaStore(conversation?.id!, attachment.type, [attachment]);
 
     const message = generateMessageTemplate(
-      conversation,
+      conversation!,
       messageString,
       attachment
     );
+    
+    setMessageStore(conversation?.id!, [message]);
 
-    sendMessage([message], conversation);
+    updateConversation(conversation?.id!, {
+      recentMessage: message,
+      updatedAt: message.timestamp,
+    });
 
-    if (conversation.unsaved) {
-      delete conversation.unsaved;
-      conversation.recentMessage = message;
-      setConversation(conversation);
-    } else {
-      updateConversation(conversationId, {
-        recentMessage: message,
-        deletedUsers: null,
-      });
-    }
+    sendMessage(conversation!, [message]);
 
-    setMessageStore(conversationId, [message]);
-
-    if (!selectedConversation) socket.selectedConversation = conversation;
-    if (attachment)
-      addToMediaStore(conversationId, attachment.type, [attachment]);
-
-    clearUnreadMessages(selectedConversation?.id);
-    setSelectedConversation(conversationId);
-
-    setMetadata(null);
+    socket.selectedConversation = conversation;
+    setSelectedConversation(conversation?.id!);
     setSelectedUser(null);
+    setMessageString("");
+    setMetadata(undefined);
     setReplyRequest(null);
     setOpen(false);
   };
@@ -211,28 +184,75 @@ function Input(): React.ReactNode {
     setMessageString((s) => s.concat(emoji.native));
   };
 
-  useEffect(() => {
-    const isUrl = parseUrl(messageString);
+  const textareaRef = useRef<HTMLDivElement | null>(null);
 
+  useEffect(() => {
+    if (textareaRef.current) textareaRef.current.innerText = messageString;
+
+    const isUrl = parseUrl(messageString);
     (async () => {
       if (isUrl) {
         try {
           const response = await getUrlMetadata(messageString);
           setMetadata({ ...response });
         } catch (error: any) {
-          setMetadata(null);
+          setMetadata(undefined);
         }
       }
     })();
   }, [messageString]);
 
+  const replyMessage = replyRequest?.message
+    ? decrypt(replyRequest.message)
+    : null;
+
+  function handleInput(e: ChangeEvent<HTMLTextAreaElement>) {
+    if (e.target.scrollHeight < 75) {
+      e.target.style.height = "auto";
+      e.target.style.height = e.target.scrollHeight + "px";
+    }
+    setMessageString(e.target.value);
+  }
+
   return (
     <div>
+      {replyRequest && (
+        <div className="flex justify-center items-center p-2 pr-4 gap-4 w-full rounded-2xl ">
+          <div className="w-full h-full flex justify-between bg-base-300 rounded-xl ">
+            {replyRequest.attachment ? (
+              replyRequest.attachment.type === "images" ? (
+                <ImageAttachmentPreview
+                  url={replyRequest.attachment.url}
+                  receiver={receiver}
+                  text={replyMessage}
+                />
+              ) : (
+                replyRequest.attachment.type === "link" && (
+                  <UrlAttachmentPreview
+                    metadata={replyRequest.attachment.metadata}
+                    receiver={receiver}
+                    text={replyMessage}
+                  />
+                )
+              )
+            ) : (
+              <div className={`w-full h-full text-sm grid p-2 py-4 gap-1`}>
+                <span className="text-xs text-primary">{receiver}</span>
+                {replyMessage}
+              </div>
+            )}
+          </div>
+          <button onClick={() => setReplyRequest(null)}>
+            <XMarkIcon className="size-6" />
+          </button>
+        </div>
+      )}
+
       {metadata && (
         <div className="flex items-center p-2">
           <LinkPreview metadata={metadata} link={messageString} />
           <div
-            onClick={() => setMetadata(null)}
+            onClick={() => setMetadata(undefined)}
             tabIndex={0}
             className="btn btn-circle btn-sm btn-ghost ml-4 mr-2"
           >
@@ -253,8 +273,12 @@ function Input(): React.ReactNode {
           </div>
         </div>
       )}
+
       <EmojiPicker open={open} onEmojiSelect={handleEmoji} />
-      <div className="flex items-center gap-1 w-full h-[60px] mx-auto p-4">
+      <div className="flex items-center gap-1 w-full mx-auto p-4">
+        {/* <AI_Features /> */}
+        <AttachmentPicker />
+
         <div
           onClick={() => setOpen((s) => !s)}
           className="btn btn-circle btn-ghost btn-sm"
@@ -274,27 +298,75 @@ function Input(): React.ReactNode {
             />
           </svg>
         </div>
-        <AttachmentPicker />
+
         <textarea
+          rows={1}
           value={messageString}
-          onChange={(e) => setMessageString(e.target.value)}
-          className="w-full h-full bg-transparent outline-none border-none ml-3 overflow-hidden resize-none"
+          onChange={handleInput}
+          className="w-full bg-transparent outline-none border-none ml-3 overflow-hidden resize-none"
         />
-        <button
+        {/* {messageString ? (
+          
+        ) : (
+        )} */}
+        {/* <div
+          onClick={handleSummarizingConversation}
+          className="btn btn-ghost btn-xs btn-outline mr-1"
+        >
+          Generate
+        </div> */}
+        <div
           className="btn btn-circle btn-sm btn-ghost"
           onClick={handleMessaging}
+          tabIndex={0}
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            className="w-6 h-6"
-          >
-            <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
-          </svg>
-        </button>
+          <SendSolid className="size-6" />
+        </div>
       </div>
     </div>
+  );
+}
+
+function AI_Features() {
+  const popoverRef = useRef<HTMLInputElement>(null);
+
+  function handleSmartReply() {
+    ai().getSmartReply().then((response) => {
+      console.log(response);
+    });
+  }
+
+  function handleFetchingSummary() {
+    ai().getMessagesSummary().then((response) => {
+      console.log(response);
+    });
+  }
+
+  return (
+    <>
+      <Popover as="div" className="relative inline-block text-left ml-auto">
+        <Popover.Button className="btn btn-sm btn-circle btn-ghost outline-none">
+          Ai
+        </Popover.Button>
+        <Popover.Panel
+          ref={popoverRef}
+          className="grid absolute bottom-10 -left-1/2 z-10 whitespace-nowrap rounded-md bg-base-200 shadow-lg ring-1 ring-black ring-opacity-5 overflow-hidden"
+        >
+          <div className="btn btn-ghost" onClick={handleSmartReply}>
+            <div className="flex gap-4 items-center">
+              <ChatBubbleLeftRightIcon className="size-5" />
+              Smart Reply
+            </div>
+          </div>
+          <div className="btn btn-ghost" onClick={handleFetchingSummary}>
+            <div className="flex gap-4 items-center">
+              <DocumentTextIcon className="size-5" />
+              Summarize
+            </div>
+          </div>
+        </Popover.Panel>
+      </Popover>
+    </>
   );
 }
 
@@ -365,13 +437,86 @@ function AttachmentPicker() {
   );
 }
 
+function SelectedMessagesActions() {
+  const selectedChats = useMessageStore((s) => s.selectedChats);
+  const setSelectedChats = useMessageStore((s) => s.setSelectedChats);
+  const setModal = useStore((s) => s.setModal);
+
+  const handleDeletingChat = () => {
+    setModal({ activeModal: "deleteMessageModal", state: selectedChats,open:true});
+  };
+
+  const handleForwadingChat = () => {
+    setModal({ activeModal: "forwardMessageModal", state: selectedChats,open:true });
+  };
+
+  return (
+    <div className="flex justify-between items-center gap-4 w-full mx-auto p-4  ">
+      <div className="flex items-center gap-2">
+        <button
+          className="btn btn-circle btn-sm btn-ghost"
+          onClick={() => setSelectedChats(null)}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            className="w-6 h-6"
+          >
+            <path
+              fillRule="evenodd"
+              d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 1 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </button>
+        <label htmlFor="">{selectedChats.length} Selected</label>
+      </div>
+      <div className="flex items-center gap-2">
+        <div
+          className="btn btn-circle btn-sm btn-ghost"
+          tabIndex={0}
+          onClick={handleDeletingChat}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            className="size-5"
+          >
+            <path
+              fillRule="evenodd"
+              d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </div>
+        <div
+          className="btn btn-circle btn-sm btn-ghost"
+          tabIndex={0}
+          onClick={handleDeletingChat}
+        >
+          <DocumentTextIcon className="size-5" />
+        </div>
+        <div
+          className="btn btn-circle btn-sm btn-ghost"
+          onClick={handleForwadingChat}
+          tabIndex={0}
+        >
+          <ArrowUturnRightIcon className="size-5" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function BlockedUserNotification({
   username,
 }: {
   username: string;
 }): React.ReactNode {
   return (
-    <div className="flex justify-center items-center gap-4 w-full h-[60px] mx-auto p-4  ">
+    <div className="flex justify-center items-center gap-4 w-full h-[64px] mx-auto p-4  ">
       <label className="text-sm text-center" htmlFor="">
         Can't send message to blocked user {username}
       </label>
@@ -379,4 +524,14 @@ function BlockedUserNotification({
   );
 }
 
-export default memo(ChatInput)
+function UnavailableConversation(): React.ReactNode {
+  return (
+    <div className="flex justify-center items-center gap-4 w-full h-[64px] mx-auto p-4  ">
+      <label className="text-sm text-center" htmlFor="">
+        You are not a member of this group
+      </label>
+    </div>
+  );
+}
+
+export default memo(ChatInput);
