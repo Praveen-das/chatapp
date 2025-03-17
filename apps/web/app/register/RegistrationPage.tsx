@@ -13,6 +13,8 @@ import { createUser } from "@actions/auth";
 import { useRouter } from "next/navigation";
 import { saveSession } from "@actions/session";
 import { verifyOtpAndGetUser } from "@actions/otp";
+import { createUserToken } from "@actions/jwt";
+import axiosClient from "@lib/axiosClient";
 
 type IPhoneNUmber = {
   value: string;
@@ -29,13 +31,10 @@ const initialPhoneNumber = {
 };
 
 export default function RegistrationPage() {
-  const [tab, setTab] = useState<"phone_number" | "otp" | "profile_info">(
-    "phone_number"
-  );
+  const [tab, setTab] = useState<"phone_number" | "otp" | "profile_info">("phone_number");
   const [username, setUsername] = useState("");
   const [profilePicture, setProfilePicture] = useState("");
-  const [phonenumber, setPhonenumber] =
-    useState<IPhoneNUmber>(initialPhoneNumber);
+  const [phonenumber, setPhonenumber] = useState<IPhoneNUmber>(initialPhoneNumber);
   const [loading, setLoading] = useState(false);
   const [otp, setOtp] = useState<string>();
   const router = useRouter();
@@ -62,16 +61,32 @@ export default function RegistrationPage() {
 
     if (!phonenumber.value) throw "phonenumber not provided";
 
-    console.log({phonenumber:phonenumber.value})
+    console.log({ phonenumber: phonenumber.value });
 
-    const res = await verifyOtpAndGetUser(phonenumber.value);
-    
-    if (res) {
-      return router.replace("/");
-    } else {
-      setTab("profile_info");
+    try {
+      const token = await createUserToken({ phonenumber: phonenumber.value });
+      const res = await axiosClient.get(`/db/user`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.data) {
+        console.log(res.data);
+        await saveSession(res.data)
+        router.replace("/");
+      } else {
+        setTab("profile_info");
+      }
+      setLoading(false);
+    } catch (error) {
+      console.log("fetchUser--------->", error);
+      return null;
     }
-    setLoading(false);
+
+    // const res = await verifyOtpAndGetUser(phonenumber.value);
+
+    // if (res) {
+    //   return router.replace("/");
+    // } else {
+    //   setTab("profile_info");
+    // }
+    // setLoading(false);
   }
 
   async function handleCreatingUser() {
@@ -120,16 +135,10 @@ export default function RegistrationPage() {
               buttonClass="!bg-transparent [&>.selected-flag:hover]:!bg-transparent [&>.open]:!bg-transparent !border-none"
               country={"in"}
               value={phonenumber?.value}
-              onChange={(value, data: CountryData, _, fomattedValue) =>
-                setPhonenumber({ value, data, fomattedValue })
-              }
+              onChange={(value, data: CountryData, _, fomattedValue) => setPhonenumber({ value, data, fomattedValue })}
             />
           </div>
-          <button
-            disabled={!phonenumber}
-            onClick={submitPhoneNumber}
-            className="btn btn-primary mt-6"
-          >
+          <button disabled={!phonenumber} onClick={submitPhoneNumber} className="btn btn-primary mt-6">
             Submit
           </button>
         </div>
@@ -142,19 +151,13 @@ export default function RegistrationPage() {
         <h1 className="relative text-4xl font-bold whitespace-nowrap">
           {phonenumber?.fomattedValue}
           <div className="absolute right-0 bottom-0 translate-x-full ">
-            <div
-              onClick={() => setTab("phone_number")}
-              tabIndex={0}
-              className="btn btn-circle btn-sm btn-ghost"
-            >
+            <div onClick={() => setTab("phone_number")} tabIndex={0} className="btn btn-circle btn-sm btn-ghost">
               <EditPencil width={25} height={25} />
             </div>
           </div>
         </h1>
         <div className="flex flex-col items-center gap-8">
-          <p className="text-center">
-            Check your phone for the verification code
-          </p>
+          <p className="text-center">Check your phone for the verification code</p>
           <OtpInput
             containerStyle={{ gap: "8px" }}
             inputStyle={{ width: "40px", height: "40px", fontSize: "16px" }}
@@ -164,18 +167,11 @@ export default function RegistrationPage() {
             numInputs={4}
             renderSeparator={<span>-</span>}
             renderInput={(props) => (
-              <input
-                {...props}
-                className="!border-[1px] !border-base-100 rounded-xl !bg-transparent"
-              />
+              <input {...props} className="!border-[1px] !border-base-100 rounded-xl !bg-transparent" />
             )}
           />
 
-          <button
-            disabled={loading}
-            onClick={handleOTPVerification}
-            className="btn btn-block btn-primary mt-6"
-          >
+          <button disabled={loading} onClick={handleOTPVerification} className="btn btn-block btn-primary mt-6">
             {loading ? "Loading..." : "Submit"}
           </button>
         </div>
@@ -186,9 +182,7 @@ export default function RegistrationPage() {
     <div className="flex flex-col items-center gap-8 max-w-xs">
       <h1 className="text-4xl font-bold">Profile info</h1>
       <div className="flex flex-col items-center gap-6">
-        <p className="text-center">
-          Please provide your name and an optional profile photo
-        </p>
+        <p className="text-center">Please provide your name and an optional profile photo</p>
         <div className="flex justify-center mt-4">
           <Avatar
             url={profilePicture}
@@ -199,10 +193,7 @@ export default function RegistrationPage() {
           />
         </div>
         <Input value={username} onChange={setUsername} />
-        <div
-          onClick={handleCreatingUser}
-          className="btn btn-block btn-primary mt-6"
-        >
+        <div onClick={handleCreatingUser} className="btn btn-block btn-primary mt-6">
           Submit
         </div>
       </div>
