@@ -61,32 +61,14 @@ export default function RegistrationPage() {
 
     if (!phonenumber.value) throw "phonenumber not provided";
 
-    console.log({ phonenumber: phonenumber.value });
+    const res = await verifyOtpAndGetUser(phonenumber.value);
 
-    try {
-      const token = await createUserToken({ phonenumber: phonenumber.value });
-      const res = await axiosClient.get(`/db/user`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.data) {
-        console.log(res.data);
-        await saveSession(res.data)
-        router.replace("/");
-      } else {
-        setTab("profile_info");
-      }
-      setLoading(false);
-    } catch (error) {
-      console.log("fetchUser--------->", error);
-      return null;
+    if (res) {
+      return router.replace("/");
+    } else {
+      setTab("profile_info");
     }
-
-    // const res = await verifyOtpAndGetUser(phonenumber.value);
-
-    // if (res) {
-    //   return router.replace("/");
-    // } else {
-    //   setTab("profile_info");
-    // }
-    // setLoading(false);
+    setLoading(false);
   }
 
   async function handleCreatingUser() {
