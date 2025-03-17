@@ -58,7 +58,7 @@ try {
     let user = null;
     const phoneNumber = payload.phonenumber as string
     const userId = new Types.ObjectId(payload.userId as string);
-    
+    console.log({phoneNumber})
     if (userId) user = await userServices.getUserById(userId);
     if (phoneNumber) user = await userServices.getUserByPhoneNumber(phoneNumber);
     res.json(user);

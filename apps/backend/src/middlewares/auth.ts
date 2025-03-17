@@ -9,6 +9,7 @@ export async function verifyAuth(
   next: NextFunction
 ) {
   try {
+    console.log({method:req.method,path:req.path})
     if (ALLOWED_METHODS.includes(req.method) && req.path === "/user") return next();
 
     const header = req.headers.authorization;

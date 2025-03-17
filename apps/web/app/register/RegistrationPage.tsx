@@ -62,6 +62,8 @@ export default function RegistrationPage() {
 
     if (!phonenumber.value) throw "phonenumber not provided";
 
+    console.log({phonenumber:phonenumber.value})
+
     const res = await verifyOtpAndGetUser(phonenumber.value);
     
     if (res) {
