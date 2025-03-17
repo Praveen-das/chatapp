@@ -29,7 +29,7 @@ export async function fetchUser(phonenumber: string): Promise<IUser | null> {
     const res = await axiosClient.get(`/db/user`, { headers: { Authorization: `Bearer ${token}` } });
     return res.data;
   } catch (error) {
-    console.log("fetchUser-------->", error);
+    console.log("fetchUser--------->", error);
     return null;
   }
 }
