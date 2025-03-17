@@ -5,7 +5,6 @@ import { useMessageStore } from "../../../store/messageStore";
 import { useStore } from "../../../store/global";
 import useSelectedConversation from "../../../hooks/useSelectedConversation";
 import { IMessage } from "../../../interfaces/messageInterface";
-import { IGroupConversation } from "../../../interfaces/conversationInterface";
 import { IModal } from "@interfaces/modalInterface";
 import { XCircleIcon } from "@heroicons/react/24/solid";
 import { useConversationStore } from "store/conversationStore";
@@ -15,11 +14,11 @@ export const DeleteMessageModal = () => {
   const conversationId = useConversationStore((s) => s.selectedConversation)?.id!;
   const selectedConversation = useSelectedConversation(conversationId);
 
+  if (!selectedConversation) return null;
+
   const setSelectedChats = useMessageStore((s) => s.setSelectedChats);
   const setModal = useStore((s) => s.setModal);
   const { deleteMessageForAll, deleteMessagesForUser } = useSocket();
-
-  if (!selectedConversation) return null;
 
   const modal = useStore<IModal<IMessage[]> | null>((s) => s.modal);
   const selectedChats = modal?.state || [];

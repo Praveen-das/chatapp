@@ -17,10 +17,10 @@ export const AddGroupMembersModal = () => {
 
   const { user } = useAuth();
   const conversationId = useConversationStore((s) => s.selectedConversation)?.id;
+  const selectedConversation = useSelectedConversation<IGroupConversation>(conversationId!);
 
-  if (!conversationId) return null;
+  if (!selectedConversation) return null;
 
-  const selectedConversation = useSelectedConversation<IGroupConversation>(conversationId);
   const members = selectedConversation.members;
   const users = useStore((s) => s.users).filter((u) => u.id !== user?.id && !members?.find((m) => m.id === u.id));
   const [selectedUsers, setSelectedUsers] = useState<IUser[]>([]);
