@@ -59,284 +59,6 @@ async function fetchAllConversations() {
   return res;
 }
 
-// [
-//   {
-//     $match: {
-//       "members.id": userId,
-//     },
-//   },
-
-//   {
-//     $addFields: {
-//       deletedUsers: {
-//         $let: {
-//           vars: {
-//             matchedMember: {
-//               $filter: {
-//                 input: "$members",
-//                 as: "member",
-//                 cond: {
-//                   $eq: ["$$member.deletedForUser", true],
-//                 },
-//               },
-//             },
-//           },
-//           in: "$$matchedMember.id",
-//         },
-//       },
-//     },
-//   },
-
-//   {
-//     $lookup: {
-//       from: "messages",
-//       localField: "id",
-//       foreignField: "conversationId",
-//       let: {
-//         timeOfJoining: "$userStatus.timeOfJoining",
-//         timeOfDeletion: "$userStatus.timeOfDeletion",
-//       },
-//       pipeline: [
-//         {
-//           $lookup: {
-//             from: "messagedeleteflags",
-//             let: { messageId: "$id", userId },
-//             pipeline: [
-//               {
-//                 $match: {
-//                   $expr: {
-//                     $and: [
-//                       {
-//                         $eq: ["$messageId", "$$messageId"],
-//                       },
-//                       {
-//                         $eq: ["$userId", "$$userId"],
-//                       },
-//                     ],
-//                   },
-//                 },
-//               },
-//             ],
-//             as: "messageDeleted",
-//           },
-//         },
-//         {
-//           $unwind: {
-//             path: "$messageDeleted",
-//             preserveNullAndEmptyArrays: true,
-//           },
-//         },
-//         {
-//           $match: {
-//             $or: [
-//               {
-//                 to: { $exists: true },
-//               },
-//               {
-//                 from: userId,
-//               },
-//             ],
-//             $expr: {
-//               $and: [
-//                 {
-//                   $ne: ["$messageDeleted.deleted", true],
-//                 },
-//                 {
-//                   $gte: ["$timestamp", "$$timeOfJoining"],
-//                 },
-//                 {
-//                   $gt: ["$timestamp", "$$timeOfDeletion"],
-//                 },
-//               ],
-//             },
-//           },
-//         },
-//       ],
-//       as: "messages",
-//     },
-//   },
-
-//   {
-//     $lookup: {
-//       from: "users",
-//       localField: "members.id",
-//       foreignField: "id",
-//       as: "members",
-//     },
-//   },
-// ]
-
-// async function getUserConversation(userIdString: string) {
-//   try {
-//     const userId = new Types.ObjectId(userIdString);
-
-//     const res = await Conversations.aggregate([
-//       {
-//         $match: {
-//           "members.id": userId,
-//         },
-//       },
-//       {
-//         $addFields: {
-//           userStatus: {
-//             $arrayElemAt: [
-//               {
-//                 $filter: {
-//                   input: "$members",
-//                   as: "member",
-//                   cond: {
-//                     $eq: ["$$member.id", userId],
-//                   },
-//                 },
-//               },
-//               0,
-//             ],
-//           },
-//           deletedUsers: {
-//             $let: {
-//               vars: {
-//                 matchedMember: {
-//                   $filter: {
-//                     input: "$members",
-//                     as: "member",
-//                     cond: {
-//                       $eq: ["$$member.deletedForUser", true],
-//                     },
-//                   },
-//                 },
-//               },
-//               in: "$$matchedMember.id",
-//             },
-//           },
-//         },
-//       },
-//       {
-//         $lookup: {
-//           from: "messages",
-//           let: {
-//             timeOfDeletion: "$userStatus.timeOfDeletion",
-//             conversationId: "$id",
-//           },
-//           pipeline: [
-//             // Match messages based on conversationId and timestamps in one step
-//             {
-//               $match: {
-//                 $expr: {
-//                   $and: [
-//                     { $eq: ["$conversationId", "$$conversationId"] },
-//                     {
-//                       $or: [
-//                         { $gt: ["$timestamp", "$$timeOfDeletion"] },
-//                         { $eq: ["$$timeOfDeletion", null] },
-//                       ],
-//                     },
-//                     {
-//                       $or: [
-//                         { $ne: [{ $ifNull: ["$to", null] }, null] },
-//                         { $eq: ["$from", userId] },
-//                       ],
-//                     },
-//                   ],
-//                 },
-//               },
-//             },
-//             // Perform the messageDeleted lookup for only the matched messages
-//             {
-//               $lookup: {
-//                 from: "messagedeleteflags",
-//                 let: {
-//                   messageId: "$id",
-//                   userId,
-//                 },
-//                 pipeline: [
-//                   {
-//                     $match: {
-//                       $expr: {
-//                         $and: [
-//                           { $eq: ["$messageId", "$$messageId"] },
-//                           { $eq: ["$userId", "$$userId"] },
-//                         ],
-//                       },
-//                     },
-//                   },
-//                 ],
-//                 as: "messageDeleted",
-//               },
-//             },
-//             // Unwind messageDeleted with preservation
-//             {
-//               $unwind: {
-//                 path: "$messageDeleted",
-//                 preserveNullAndEmptyArrays: true,
-//               },
-//             },
-//             // Filter out deleted messages
-//             {
-//               $match: {
-//                 $expr: { $ne: ["$messageDeleted.deleted", true] },
-//               },
-//             },
-//           ],
-//           as: "messages",
-//         },
-//       },
-
-//       {
-//         $lookup: {
-//           from: "users",
-//           localField: "members.id",
-//           foreignField: "id",
-//           as: "members",
-//         },
-//       },
-
-//       {
-//         $lookup: {
-//           from: "archives",
-//           let: { conversationId: "$id" },
-//           pipeline: [
-//             {
-//               $match: {
-//                 $expr: {
-//                   $and: [
-//                     {
-//                       $eq: ["$conversationId", "$$conversationId"],
-//                     },
-//                     { $eq: ["$userId", userId] },
-//                   ],
-//                 },
-//               },
-//             },
-//           ],
-//           as: "isArchived",
-//         },
-//       },
-
-//       {
-//         $addFields: {
-//           isArchived: {
-//             $cond: {
-//               if: { $gt: [{ $size: "$isArchived" }, 0] },
-//               then: true,
-//               else: false,
-//             },
-//           },
-//         },
-//       },
-
-//       {
-//         $project: {
-//           userStatus: 0,
-//         },
-//       },
-//     ]);
-
-//     return res;
-//   } catch (error) {
-//     console.log("getUserConversation-------->", error);
-//   }
-// }
-
 async function getUserConversation(userIdString: string) {
   try {
     const userId = new Types.ObjectId(userIdString);
@@ -376,6 +98,7 @@ async function getUserConversation(userIdString: string) {
         },
       },
 
+      // messages
       {
         $lookup: {
           from: "messages",
@@ -384,7 +107,6 @@ async function getUserConversation(userIdString: string) {
             conversationId: "$conversationId",
           },
           pipeline: [
-            // Match messages based on conversationId and timestamps in one step
             {
               $match: {
                 $expr: {
@@ -414,6 +136,13 @@ async function getUserConversation(userIdString: string) {
                 },
               },
             },
+
+            { $sort: { timestamp: -1 } },
+            {
+              $limit:10,
+            },
+            { $sort: { timestamp: 1 } },
+
             // Perform the messageDeleted lookup for only the matched messages
             {
               $lookup: {
@@ -460,6 +189,8 @@ async function getUserConversation(userIdString: string) {
           as: "messages",
         },
       },
+      
+      // starred messages
       {
         $lookup:{
           from:'messages',
@@ -629,7 +360,7 @@ async function registerStarredMessages(id: Types.ObjectId,messageIds:Types.Objec
       );
     }
   } catch (error) {
-    console.log("removeFromArchive------->", error);
+    console.log("registerStarredMessages------->", error);
   }
 }
 
@@ -647,7 +378,7 @@ async function unregisterStarredMessages(id: Types.ObjectId,messageId:Types.Obje
       );
     }
   } catch (error) {
-    console.log("removeFromArchive------->", error);
+    console.log("unregisterStarredMessages------->", error);
   }
 }
 

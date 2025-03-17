@@ -8,15 +8,16 @@ router
 
     .patch('/generateInvitationId', groupController._generateGroupInvitationId)
 
-    .patch('/update', groupController._updateGroup)
+    // .patch('/update', groupController._updateGroup)
 
     .delete('/delete/:id', groupController._deleteGroup)
 
+    .post('/create', groupController._createGroup)
     // .post('/add', groupController._addMembersToGroup)
 
-    .patch('/admins/add', groupController._makeUserAdmin)
+    // .patch('/admins/add', groupController._makeUserAdmin)
 
-    .patch('/admins/remove', groupController._removeUserAdmin)
+    // .patch('/admins/remove', groupController._removeUserAdmin)
 
     // .patch('/remove', groupController._removeMemberFromGroup)
 

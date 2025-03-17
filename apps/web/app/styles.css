@@ -48,6 +48,10 @@
     min-height: unset;
     /* max-height: 800px; */
   }
+
+  input[type='number']::-webkit-inner-spin-button {
+    display: none;
+  }
 }
 
 :root {

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { Types } from "mongoose";
 import { IGroup } from "../interfaces/groupInterface";
 import {
+  addGroupTag,
   addMembersToGroup,
   clearGroupConversation,
   createGroup,
@@ -11,12 +12,12 @@ import {
   fetchGroupsByUserId,
   generateGroupInvitationId,
   makeUserAdmin,
+  removeGroupTag,
   removeMemberFromGroup,
   removeUserAdmin,
   updateGroup,
   updateGroupMemberRole,
 } from "../services/groupServices";
-import { IUserConversation } from "../interfaces/conversationInterface";
 
 const _fetchGroups = async (req: Request, res: Response) => {
   const group = await fetchGroups();
@@ -24,19 +25,26 @@ const _fetchGroups = async (req: Request, res: Response) => {
   res.json(group);
 };
 
-const _createGroup = async (req: string, reset: () => void) => {
-  const { group }: { group: IGroup } = JSON.parse(req);
+const _createGroup = async (req: Request, res: Response) => {
+  console.log(req.body)
+  try {
+    const group:IGroup = req.body;
 
-  const members = group.members.map((m) => new Types.ObjectId(m.id));
+    const members = group.members.map((m) => new Types.ObjectId(m.id));
+  
+    const groupModel: IGroup = {
+      ...group,
+      id: new Types.ObjectId(group.id),
+      createdBy: new Types.ObjectId(group.createdBy),
+      members,
+    };
 
-  const groupModel: IGroup = {
-    ...group,
-    id: new Types.ObjectId(group.id),
-    createdBy: new Types.ObjectId(group.createdBy),
-    members,
-  };
-
-  createGroup(groupModel);
+    const newGroup = await createGroup(groupModel);
+    res.json(newGroup)
+  } catch (error) {
+    res.send(null)
+    console.log('CREATE_GROUP error--->', error);
+  }
 };
 
 const _generateGroupInvitationId = async (req: Request, res: Response) => {
@@ -47,12 +55,19 @@ const _generateGroupInvitationId = async (req: Request, res: Response) => {
   res.json(group);
 };
 
-const _updateGroup = async (req: Request, res: Response) => {
-  const { groupId, updates } = req.body;
+const _updateGroup = async (req: string, reset: () => void) => {
+  try {
+    const parsed: { groupId: string; updates: Partial<IGroup> } =
+      JSON.parse(req);
 
-  const group = await updateGroup(groupId, updates);
+    const conversationId = new Types.ObjectId(parsed.groupId);
+    const updates = parsed.updates;
 
-  res.json(group);
+    await updateGroup(conversationId, updates);
+  } catch (error) {
+    console.log(error);
+    reset();
+  }
 };
 
 const _deleteGroup = async (req: Request, res: Response) => {
@@ -86,8 +101,8 @@ const _removeMemberFromGroup = async (req: string, reset: () => void) => {
 
     const group = await removeMemberFromGroup(conversationId, userId);
   } catch (error) {
-    console.log(error)
-    reset()
+    console.log(error);
+    reset();
   }
 };
 
@@ -115,20 +130,33 @@ const _fetchGroupsByUserId = async (req: Request, res: Response) => {
   res.json(groups);
 };
 
-const _makeUserAdmin = async (req: Request, res: Response) => {
-  const { conversationId, userId } = req.body;
+const _makeUserAdmin = async (req: string, reset: () => void) => {
+  try {
+    const parsed: any = JSON.parse(req);
 
-  const groups = await makeUserAdmin(conversationId, userId);
+    const conversationId = new Types.ObjectId(parsed.conversationId as string)
+    const userId = new Types.ObjectId(parsed.userId as string)
 
-  res.json(groups);
+    const groups = await makeUserAdmin(conversationId, userId);
+  } catch (error) {
+    console.log("_makeUserAdmin error--->", error);
+    reset();
+  }
+
 };
 
-const _removeUserAdmin = async (req: Request, res: Response) => {
-  const { conversationId, userId } = req.body;
-
-  const groups = await removeUserAdmin(conversationId, userId);
-
-  res.json(groups);
+const _removeUserAdmin = async (req: string, reset: () => void) => {
+  try {
+    const parsed: any = JSON.parse(req);
+    
+    const conversationId = new Types.ObjectId(parsed.conversationId as string)
+    const userId = new Types.ObjectId(parsed.userId as string)
+    
+    const groups = await removeUserAdmin(conversationId, userId);
+  } catch (error) {
+    console.log("_removeUserAdmin error--->", error);
+    reset();
+  }
 };
 
 const _clearGroupConversation = async (req: string, reset: () => void) => {
@@ -148,6 +176,38 @@ const _clearGroupConversation = async (req: string, reset: () => void) => {
   }
 };
 
+const _addTag = async (req: string, reset: () => void) => {
+  try {
+    const parsed: any = JSON.parse(req);
+
+    const update = {
+      ...parsed,
+      id: new Types.ObjectId(parsed.id as string),
+    };
+
+    await addGroupTag(update);
+  } catch (error) {
+    console.log("ADD_TAG error--->", error);
+    reset();
+  }
+};
+
+const _removeTag = async (req: string, reset: () => void) => {
+  try {
+    const parsed: any = JSON.parse(req);
+
+    const update = {
+      ...parsed,
+      id: new Types.ObjectId(parsed.id as string),
+    };
+
+    removeGroupTag(update);
+  } catch (error) {
+    console.log("REMOVE_TAG error--->", error);
+    reset();
+  }
+};
+
 export default {
   _fetchGroups,
   _generateGroupInvitationId,
@@ -162,4 +222,6 @@ export default {
   _makeUserAdmin,
   _removeUserAdmin,
   _clearGroupConversation,
+  _addTag,
+  _removeTag,
 };

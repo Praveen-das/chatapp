@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 export interface IMenu<T = any, K = any> {
   id: string | number;
-  data: T;
+  data?: T;
   reference?: K;
   position?: {x:number,y:number};
 }

@@ -1,8 +1,5 @@
 import useAuth from "@hooks/useAuth";
-import {
-  IConversation,
-  INewConversation,
-} from "@interfaces/conversationInterface";
+import { IConversation, INewConversation } from "@interfaces/conversationInterface";
 import {
   IAttachment,
   IImageAttachment,
@@ -17,6 +14,9 @@ import ObjectID from "bson-objectid";
 import { IMessageReadReceipt } from "enums/enums";
 import { useMessageStore } from "store/messageStore";
 import { encrypt } from "./e2e";
+import { IUser } from "@interfaces/userInterface";
+import { useStore } from "store/global";
+import { getReceiver } from "./conversation";
 
 const createMessageTemplate = (
   conversation: IConversation | INewConversation,
@@ -29,13 +29,9 @@ const createMessageTemplate = (
   const user = useAuth.getState().user;
 
   const host = conversation.host;
-  const conversationId =
-    (conversation as IConversation).conversationId || conversation?.id;
+  const conversationId = (conversation as IConversation).conversationId || conversation?.id;
   const from = user?.id;
-  const to =
-    host === "group"
-      ? conversation?.channelId!
-      : conversation?.members.find((m) => m.id !== user?.id)?.id!;
+  const to = host === "group" ? conversation?.channelId! : getReceiver(conversation as IConversation)?.id!;
 
   const readReceipt = conversation.members
     .filter((member) => member.id !== user?.id)
@@ -65,7 +61,7 @@ export const generateMessageTemplate = (
   attachment?: IAttachment
 ) => {
   const replyRequest = useMessageStore.getState().replyRequest;
-  const encryptedMessage = encrypt(message);
+  const encryptedMessage = message ? encrypt(message) : message;
 
   return createMessageTemplate(conversation, {
     message: encryptedMessage,
@@ -81,15 +77,14 @@ export const regenerateMessageTemplate = (
   return createMessageTemplate(conversation, { message, attachment });
 };
 
-export function processMessagesForUser(
-  userId: string,
-  status: IMessageReadReceipt,
-  messages: IMessage[] = []
-) {
+export function processMessagesForUser(user: IUser, status: IMessageReadReceipt, messages: IMessage[] = []) {
+  const users = useStore.getState().users;
   const updates: { key: any; value: any }[] = [];
   const unreadMessages: IMessage[] = [];
   const imageAttachments: IImageAttachment[] = [];
   const urlAttachments: IUrlAttachment[] = [];
+  const placeholders: IMessage[] = [];
+  const newMessages: IMessage[] = [];
 
   if (!messages || messages.length === 0) {
     return {
@@ -102,6 +97,13 @@ export function processMessagesForUser(
   }
 
   for (let message of messages) {
+    message.user = users.find((u) => u.id === message.from);
+
+    if (message.isPlaceholder) {
+      message.isPlaceholder = false;
+      placeholders.push(message);
+    } else newMessages.push(message);
+
     if (message.attachment) {
       let attachment = message.attachment;
 
@@ -110,17 +112,15 @@ export function processMessagesForUser(
         imageAttachments.push(attachment);
       }
 
-      if (attachment.type === "link") {
-        urlAttachments.push(attachment);
-      }
+      if (attachment.type === "link") urlAttachments.push(attachment);
     }
 
     message.readReceipt.forEach((readReceipt) => {
-      if (readReceipt.userId === userId) {
+      if (readReceipt.userId === user.id) {
         if (readReceipt?.status === IMessageReadReceipt.sent) {
-          const update:IReadReceiptUpdatesCollection = {
+          const update: IReadReceiptUpdatesCollection = {
             id: message.id,
-            readReceipt: [{ userId, status }],
+            readReceipt: [{ userId: user.id, status }],
           };
 
           let key = {
@@ -143,6 +143,7 @@ export function processMessagesForUser(
     unreadMessages,
     imageAttachments,
     urlAttachments,
-    messages,
+    messages: newMessages,
+    placeholders,
   };
 }

@@ -1,10 +1,24 @@
 "use client";
 
-import React, { createContext, useEffect, useRef, useState } from "react";
+import React, {
+  createContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { IUser } from "../interfaces/userInterface";
-import ObjectID from "bson-objectid";
 import axiosClient from "@lib/axiosClient";
-import axios from "axios";
+import { useRouter } from "next/navigation";
+import { verifyAccessToken } from "@actions/jwt";
+import {
+  refreshToken as _refreshToken,
+  getRefreshToken,
+  saveSession,
+  updateSession,
+} from "@actions/session";
+import { ISession } from "@interfaces/sessionInterface";
+import useAxios from "@hooks/useAxios";
 
 export type IContext = ReturnType<typeof useContextData>;
 
@@ -12,14 +26,27 @@ export const Context = createContext<IContext | null>(null);
 
 const useContextData = () => {
   const [user, setUser] = useState<IUser | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [session, setSession] = useState<ISession | null>(null);
   const userRef = useRef<IUser | null>(null);
+  const router = useRouter();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     (async () => {
-      const _user = await getUser();
+      try {
+        await refreshToken();
 
-      userRef.current = _user;
-      setUser(_user);
+        const token = (await getRefreshToken())!;
+        const session = (await verifyAccessToken(token))!;
+        const user = session.data.userData;
+
+        userRef.current = user;
+        setUser(user);
+        setSession(session);
+      } catch (error) {
+        console.log({ "auth context error": error });
+        return null;
+      }
     })();
 
     return () => {
@@ -27,30 +54,36 @@ const useContextData = () => {
     };
   }, []);
 
-  const getUser = async () => {
-    const _user: string | null = sessionStorage.getItem("user");
-
-    let currentUser: IUser = _user && JSON.parse(_user);
-
-    if (!_user) {
-      currentUser = await axios.post("api/user").then((res) => res.data);
-      
-      sessionStorage.setItem("user", JSON.stringify(currentUser));
-    }
-
-    return currentUser;
+  const refreshToken = async () => {
+    const session = await _refreshToken();
+    if (!session) return router.push("/register");
+    const access_token = session.access_token;
+    setAccessToken(access_token);
+    return access_token;
   };
 
-  const updateUser = async(key: string, value: any) => {
-    const updatedUser = await axiosClient.put(`/user/${userRef.current?.id}`,{[key]:value}).then((res) => res.data);
-    
-    setUser({...updatedUser});
-    sessionStorage.setItem("user", JSON.stringify(updatedUser));
+  const updateUser = async (key: string, value: any) => {
+    try {
+      const updatedUser = await axiosClient
+        .put(`/db/user/${userRef.current?.id}`, { [key]: value })
+        .then((res) => res.data);
+
+      const access_token = await updateSession(updatedUser);
+      setAccessToken(access_token!);
+      setUser(s=>({ ...updatedUser}));
+    } catch (error) {
+      console.log(error);
+    }
   };
 
   return {
     user,
+    setUser,
     updateUser,
+    session,
+    accessToken,
+    setAccessToken,
+    refreshToken,
   };
 };
 
@@ -60,5 +93,5 @@ export default function AuthContext({
   children: React.ReactNode;
 }) {
   const value = useContextData();
-  return <Context.Provider value={value}>{value.user && children}</Context.Provider>;
+  return <Context.Provider value={value}>{children}</Context.Provider>;
 }

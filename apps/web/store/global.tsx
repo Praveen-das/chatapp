@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { IUser } from "../interfaces/userInterface";
 import { IGroupConversation } from "../interfaces/conversationInterface";
-import modals from "@components/ui/modals";
+import modals from "@features/ui/modals";
 import { IModal } from "@interfaces/modalInterface";
 
 interface IGlobalStore {
@@ -9,17 +9,13 @@ interface IGlobalStore {
   setUsers: (users: IUser[]) => void;
   addNewUser: (user: IUser) => void;
   updateUserRule: (userId: string, rule: IUserRules) => void;
-  updateUserStatus: (
-    userId: string,
-    status: "online" | "offline",
-    lastSeen?: number
-  ) => void;
+  updateUserStatus: (userId: string, status: "online" | "offline", lastSeen?: number) => void;
 
   selectedUser: IUser | null;
   setSelectedUser: (user: IUser | null) => void;
-
-  selectedGroup: IGroupConversation | null;
-  setSelectedGroup: (group: IGroupConversation | null) => void;
+  
+  fetchedUser: IUser | null;
+  setFetchedUserUser: (user: IUser | null) => void;
 
   selectedGroupMembers: IUser[];
   setSelectedGroupMembers: (id: IUser | null) => void;
@@ -30,8 +26,13 @@ interface IGlobalStore {
   profile: boolean;
   toggleProfile: (value: boolean) => void;
 
-  profileTab: string;
-  setProfileTab: (value: string) => void;
+  profileTab: {
+    push: (value: string) => void;
+    back: () => void;
+    getTab: () => string;
+    clearHistory: ()=>void;
+    history: string[];
+  };
 
   deviceTab: string;
   setDeviceTab: (value: string) => void;
@@ -41,9 +42,6 @@ interface IGlobalStore {
 
   uploadProgress: Map<string, number>;
   setUploadProgress: (fileId: string, progress: number) => void;
-
-  replyMessageId: string;
-  setReplyMessageId: (id: string) => void;
 }
 
 export const useStore = create<IGlobalStore>((set, get) => {
@@ -62,16 +60,12 @@ export const useStore = create<IGlobalStore>((set, get) => {
       set({ users: [...users] });
     },
     updateUserRule: (userId, rule) => {
-      const newUsers = get().users.map((u) =>
-        u.id === userId ? { ...u, rules: { ...u.rules, ...rule } } : u
-      );
+      const newUsers = get().users.map((u) => (u.id === userId ? { ...u, rules: { ...u.rules, ...rule } } : u));
       set({ users: newUsers });
     },
     updateUserStatus: (userId, status, lastSeen) => {
       const newUsers = get().users.map((u) =>
-        u.id === userId
-          ? { ...u, status, lastSeen: lastSeen ? lastSeen : u.lastSeen }
-          : u
+        u.id === userId ? { ...u, status, lastSeen: lastSeen ? lastSeen : u.lastSeen } : u
       );
       set({ users: newUsers });
     },
@@ -79,8 +73,8 @@ export const useStore = create<IGlobalStore>((set, get) => {
     selectedUser: null,
     setSelectedUser: (selectedUser) => set({ selectedUser }),
 
-    selectedGroup: null,
-    setSelectedGroup: (group) => set({ selectedGroup: group }),
+    fetchedUser:  null,
+    setFetchedUserUser: (fetchedUser) => set({ fetchedUser }),
 
     selectedGroupMembers: [],
     setSelectedGroupMembers: (user) => {
@@ -89,9 +83,7 @@ export const useStore = create<IGlobalStore>((set, get) => {
       if (!user) return set({ selectedGroupMembers: [] });
 
       if (_selectedGroupMembers.some((m) => m.id === user?.id)) {
-        const selectedGroupMembers = _selectedGroupMembers.filter(
-          (m) => m.id !== user?.id
-        );
+        const selectedGroupMembers = _selectedGroupMembers.filter((m) => m.id !== user?.id);
         return set({ selectedGroupMembers });
       }
 
@@ -104,8 +96,26 @@ export const useStore = create<IGlobalStore>((set, get) => {
     profile: false,
     toggleProfile: (value) => set((s) => ({ profile: value })),
 
-    profileTab: "",
-    setProfileTab: (value) => set({ profileTab: value }),
+    profileTab: {
+      push: (value) =>
+        set((s) => {
+          get().toggleProfile(true);
+          return { profileTab: { ...s.profileTab, history: [...s.profileTab.history, value] } };
+        }),
+      back: () => {
+        const history = get().profileTab.history;
+        const toggleProfile = get().toggleProfile;
+
+        history.pop();
+
+        if (!!history.length) toggleProfile(true);
+        else toggleProfile(false);
+        set((s) => ({ profileTab: { ...s.profileTab, history } }));
+      },
+      getTab: () => get().profileTab.history.at(-1)!,
+      clearHistory:()=> set((s) => ({ profileTab: { ...s.profileTab, history:[] } })),
+      history: [],
+    },
 
     deviceTab: "",
     setDeviceTab: (value) => set({ deviceTab: value }),
@@ -118,7 +128,5 @@ export const useStore = create<IGlobalStore>((set, get) => {
       set((s) => ({
         uploadProgress: new Map(s.uploadProgress).set(fileId, progress),
       })),
-    replyMessageId: "",
-    setReplyMessageId: (replyMessageId: string) => set({ replyMessageId }),
   };
 });

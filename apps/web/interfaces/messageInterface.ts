@@ -14,6 +14,7 @@ export interface IMessage {
   readReceiptStatus?: string;
   deleted: boolean;
   timestamp: number;
+  isPlaceholder?: boolean;
 }
 
 export interface IDeleteResponse {

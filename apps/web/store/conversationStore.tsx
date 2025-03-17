@@ -27,6 +27,8 @@ interface IMessageStore {
 
   addMembers: (conversationId: string, users: IGroupMember[]) => void;
   removeMember: (conversationId: string, userId: string) => void;
+  addGroupTag: (conversationId: string, tag: string) => void;
+  removeGroupTag: (conversationId: string, tag: string) => void;
 
   selectedConversation: IConversation | null;
   setSelectedConversation: (conversationId: string | null) => void;
@@ -46,15 +48,38 @@ interface IMessageStore {
 const store = create(
   subscribeWithSelector<IMessageStore>((set, get) => {
     return {
+      addGroupTag: (conversationId, tag) => {
+        const conversations = get().conversations.map((c) => {
+          if (c.id === conversationId && c.host === "group") {
+            return { ...c, tags: [tag,...c.tags] };
+          }
+          return c;
+        });
+        set({ conversations });
+      },
+      removeGroupTag: (conversationId, tag) => {
+        const conversations = get().conversations.map((c) => {
+          if (c.id === conversationId && c.host === "group") {
+            return { ...c, tags: c.tags.filter((t) => t !== tag) };
+          }
+          return c;
+        });
+        set({ conversations });
+      },
       updateUserStatus: (userId, status, lastSeen) => {
         const conversations = get().conversations.map((c) => {
           if (c.host === "user")
-            return {...c,members:c.members.map(
-              (m) => m.id === userId ? { ...m, status,lastSeen:lastSeen||m.lastSeen } : m
-            )};
+            return {
+              ...c,
+              members: c.members.map((m) =>
+                m.id === userId
+                  ? { ...m, status, lastSeen: lastSeen || m.lastSeen }
+                  : m
+              ),
+            };
           return c;
         });
-        set({conversations})
+        set({ conversations });
       },
       updateConversationRule: (userId, rule) => {
         const conversations = get().conversations.map((c) => {

@@ -1,9 +1,10 @@
 import { Kafka } from "kafkajs";
 import kafkaMessageService from "../controller/kafkaMessageController";
+import { topics } from "../config/kafkaTopics";
 
 const kafka = new Kafka({
   clientId: "chat-application",
-  brokers: ["192.168.1.7:9092"],
+  brokers: ["192.168.1.10:9092"],
   requestTimeout: 1000 * 60 * 5,
   connectionTimeout: 3000,
   retry: {
@@ -14,6 +15,18 @@ const kafka = new Kafka({
 });
 
 const consumer = kafka.consumer({ groupId: "default" });
+
+async function initKafkaConsumer() {
+  await consumer.connect();
+  await consumer.subscribe({
+    topics,
+    fromBeginning: true,
+  });
+  await consumer.run({
+    eachMessage: kafkaMessageService,
+    autoCommit: true,
+  });
+}
 
 consumer.on("consumer.connect", () => {
   console.log("Consumer connected");
@@ -26,37 +39,5 @@ consumer.on("consumer.disconnect", () => {
 consumer.on("consumer.network.request_timeout", () => {
   console.log("Consumer request timeout");
 });
-
-async function initKafkaConsumer() {
-  await consumer.connect();
-  await consumer.subscribe({
-    topics: [
-      "MESSAGES",
-      "UPDATE_MESSAGES",
-      "CREATE_CONVERSATION",
-      "CREATE_GROUP",
-      "LEAVE_GROUP",
-      "DELETE_GROUP_CONVERSATION",
-      "REMOVE_MEMBER",
-      "CREATE_USER_CONVERSATION",
-      "CREATE_GROUP_CONVERSATION",
-      "JOIN_GROUP",
-      "UPDATE_USER_CONVERSATION",
-      "UPDATE_GROUP_CONVERSATION",
-      "UPDATE_USER_BLOCK_STATUS",
-      "UPDATE_USER",
-      "DELETE_MESSAGE_FOR_USER",
-      "CLEAR_CONVERSATION_FOR_USER",
-      "CLEAR_GROUP_CONVERSATION_FOR_USER",
-      "REGISTER_STARRED_MESSAGES",
-      "UNREGISTER_STARRED_MESSAGES",
-    ],
-    fromBeginning: true,
-  });
-  await consumer.run({
-    eachMessage: kafkaMessageService,
-    autoCommit: true,
-  });
-}
 
 export { initKafkaConsumer, consumer, kafka };

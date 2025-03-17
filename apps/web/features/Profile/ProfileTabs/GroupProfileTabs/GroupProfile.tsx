@@ -1,0 +1,228 @@
+"use client";
+
+// import Menu from "@features/ui/Menu";
+import { memo, useEffect, useMemo } from "react";
+import useSocket from "../../../../context/SocketProvider";
+import { IGroupConversation, IGroupMember } from "../../../../interfaces/conversationInterface";
+import { useStore } from "../../../../store/global";
+import MediaSelection from "../SharedComponents/MediaSelection";
+import { IModalKey } from "@interfaces/modalInterface";
+import Menu from "@features/ui/Menu";
+import { ChevronRightIcon, LinkIcon } from "@heroicons/react/24/solid";
+import NotificationToggle from "../SharedComponents/NotificationToggle";
+import StarredMessages from "../SharedComponents/StarredMessages";
+import TextInput from "@features/ui/TextInput";
+import TagInput from "@features/ui/TagInput";
+import useSelectedConversation from "@hooks/useSelectedConversation";
+import { UserPlusIcon } from "@heroicons/react/24/outline";
+import { Member } from "./components/Member";
+import { AvatarWrapper } from "./components/AvatarWrapper";
+
+function GroupProfile({ conversationId }: { conversationId: string }) {
+  const conversation = useSelectedConversation<IGroupConversation>(conversationId);
+
+  if (!conversation) return;
+
+  const { removeMemberFromGroup, makeAdmin, removeFromAdmin, sendGroupInfoUpdateRequest, addGroupTag, removeGroupTag } =
+    useSocket();
+
+  const setModal = useStore((s) => s.setModal);
+  const profileTab = useStore((s) => s.profileTab);
+
+  function closeProfile() {
+    profileTab.back();
+  }
+
+  const members = useMemo(() => sortGroupMembers([...conversation.members]), [conversation]);
+
+  const userIsAdmin = conversation.admins.includes(conversation.userId);
+  const totalMembers = conversation.members.length;
+
+  function sortGroupMembers(members: IGroupMember[]) {
+    if (!members) return [];
+    return members.sort((a, b) => {
+      if (a.isAdmin && !b.isAdmin) return -1;
+      if (!a.isAdmin && b.isAdmin) return 1;
+      return a.username.localeCompare(b.username);
+    });
+  }
+
+  function handleEditGroupName(displayName: string) {
+    if (displayName !== conversation?.displayName)
+      sendGroupInfoUpdateRequest(conversation!, { displayName: displayName });
+  }
+
+  function handleEditGroupDescription(description: string) {
+    if (description !== conversation?.desc) sendGroupInfoUpdateRequest(conversation!, { desc: description });
+  }
+
+  function toggleModal(activeModal: IModalKey) {
+    setModal({ activeModal, open: true });
+  }
+
+  function handleExitingGroup() {
+    setModal({
+      activeModal: "groupExitModal",
+      state: conversation,
+      open: true,
+    });
+  }
+
+  function handleAdmin(userId: string, action: string) {
+    if (action === "add") makeAdmin(conversation!, userId);
+    else removeFromAdmin(conversation!, userId);
+  }
+
+  function handleRemovingMember(user: IGroupMember) {
+    removeMemberFromGroup(conversation!, user);
+  }
+
+  function handleAddingTag(tag: string) {
+    addGroupTag({
+      conversation: conversation!,
+      tag,
+    });
+  }
+
+  function handleRemovingTag(tag: string) {
+    removeGroupTag({
+      conversation: conversation!,
+      tag,
+    });
+  }
+
+  return (
+    <div className="w-full h-full grid">
+      {/* Header */}
+      <div className="min-h-16 w-full flex items-center max-sm:gap-2 gap-4 max-sm:px-2 px-4">
+        <button onClick={closeProfile} className={`btn btn-sm btn-ghost btn-circle`}>
+          <ChevronRightIcon className="size-5" />
+        </button>
+        <label htmlFor="contact info">Group info</label>
+      </div>
+
+      {/* Profile details */}
+      <div className="flex relative h-full gap-8 max-sm:pt-2 pt-4 bg-gradient-to-t from-base-200 text-sm flex-col overflow-y-scroll max-sm:pb-3 pb-10 no-scrollbar">
+        <Menu<IGroupMember> id="groupProfile">
+          {(member) => (
+            <>
+              <Menu.Item onClick={() => handleAdmin(member.id!, member.isAdmin ? "remove" : "add")}>
+                {member.isAdmin ? "Remove Admin" : "Make Admin"}
+              </Menu.Item>
+              <Menu.Item onClick={() => handleRemovingMember(member)}>Remove</Menu.Item>
+            </>
+          )}
+        </Menu>
+        
+        {/* profile */}
+        <div className="flex gap-8 items-center max-sm:px-4 px-8">
+          <AvatarWrapper conversation={conversation} userIsAdmin={userIsAdmin} />
+
+          <div className="grid">
+            <TextInput
+              text={conversation?.displayName!}
+              className="text-base"
+              placeholderText="Add group description"
+              onSubmit={handleEditGroupName}
+              canEdit={userIsAdmin}
+            />
+            <div>{`Group - ${totalMembers} members`}</div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <div className="max-sm:px-4 px-8">
+            <TextInput
+              autoRaw
+              placeholderText="Add group description"
+              text={conversation?.desc!}
+              onSubmit={handleEditGroupDescription}
+              canEdit={userIsAdmin}
+            />
+          </div>
+
+          <div className="max-sm:px-4 px-8">
+            <TagInput
+              tags={conversation.tags}
+              showLabel={false}
+              canEdit={userIsAdmin}
+              onSubmit={handleAddingTag}
+              onDelete={handleRemovingTag}
+            />
+          </div>
+        </div>
+
+        {/* Media */}
+        <div className="space-y-1 divide-y-2 divide-base-300 max-sm:mt-2 sm:mt-4 max-sm:px-4 px-8 [&>div]:h-16">
+          <NotificationToggle id={conversation.id} />
+          <StarredMessages conversationId={conversation?.id!} />
+          <MediaSelection conversationId={conversation?.id!} />
+        </div>
+
+        {/* conversation members */}
+        <div className="w-full flex flex-col ">
+          <div className="flex gap-4 max-sm:px-4 px-8">
+            <label className="text-sm text-primary mb-2 " htmlFor="">
+              Group members
+            </label>
+            {totalMembers}
+          </div>
+          <div className="flex gap-1 flex-col w-full ">
+            {userIsAdmin && (
+              <div
+                tabIndex={0}
+                onClick={() => toggleModal("addGroupMembersModal")}
+                className="hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-8 py-3 cursor-pointer"
+              >
+                <div className="flex items-center justify-center w-[40px] h-[40px] bg-base-100 rounded-full">
+                  <UserPlusIcon className="size-5" />
+                </div>
+                Add Member
+              </div>
+            )}
+
+            <div
+              onClick={() => profileTab.push("inviteLink")}
+              tabIndex={0}
+              className="hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-8 py-3 cursor-pointer"
+            >
+              <div className="flex items-center justify-center w-[40px] h-[40px] bg-base-100 rounded-full">
+                <LinkIcon className="size-5" />
+              </div>
+              Invite via link
+            </div>
+
+            <div className="max-sm:px-4 px-8 py-2">
+              <div className="w-full h-[2px] bg-base-300"></div>
+            </div>
+
+            <div>
+              {members.map(
+                (member, i) => i < 5 && <Member showOptions={userIsAdmin} key={member.id} member={member} />
+              )}
+            </div>
+            <div
+              onClick={() => toggleModal("allMembers")}
+              tabIndex={0}
+              className="hover:bg-[--hover-secondary] duration-200  p-4 flex justify-center items-center cursor-pointer"
+            >
+              View all members
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-col gap-2 max-sm:px-4 px-8 mt-auto">
+          <div onClick={handleExitingGroup} tabIndex={0} className="btn btn-block btn-outline btn-error">
+            Exit Group
+          </div>
+        </div>
+        <label className="text-xs text-center text-base-content/50 px-8" htmlFor="">
+          {"Created By " + conversation.createdBy}
+        </label>
+      </div>
+    </div>
+  );
+}
+
+export default memo(GroupProfile);

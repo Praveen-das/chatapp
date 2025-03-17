@@ -8,11 +8,12 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@components/*": ["components/*"],
+      "@features/*": ["features/*"],
       "@lib/*": ["lib/*"],
       "@hooks/*": ["hooks/*"],
       "@interfaces/*": ["interfaces/*"],
       "@helpers/*": ["helpers/*"],
+      "@actions/*": ["actions/*"],
     }
   },
   "include": [
@@ -21,6 +22,6 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts"
-, "app/(dashboard)/page.tsx", "components/ChatWindow/components/ChatInput/EmojiPicker.tsx", "app/invite/route.js", "app/manifest.ts", "scripts/generate-vapid-keys.js"  ],
+, "app/(dashboard)/page.tsx", "features/ui/EmojiPicker.tsx", "app/invite/route.js", "app/manifestats", "scripts/generate-vapid-keys.js", "middleware.ts"  ],
   "exclude": ["node_modules"]
 }

@@ -1,14 +1,8 @@
 import { Server } from "socket.io";
 import { ISocket } from "../interfaces/socketInterfaces";
-import { createChatGroup } from "../services/groupServices";
 import axiosClient from "../lib/axiosClient";
 import produceMessage from "../kafka/kafka";
 import { Types } from "mongoose";
-
-function getUpdatedValues(obj: IGroupConversation, key: string) {
-  const value = { [key]: obj[key as keyof typeof obj] };
-  return { id: obj.id, ...value };
-}
 
 export default function registerGroupHandlers(io: Server, socket: ISocket) {
   socket.on("create group", async (group: IGroup) => {
@@ -36,7 +30,6 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
       io.to(member.id).emit("group created", userConversation);
     });
 
-    produceMessage({ group }, "CREATE_GROUP");
     produceMessage({ groupConversations }, "CREATE_GROUP_CONVERSATION");
   });
 
@@ -45,26 +38,26 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
     async ({
       conversation,
       updates,
+      admin,
     }: {
       conversation: IGroupConversation;
       updates: Partial<IGroupConversation>;
+      admin: IUser;
     }) => {
       const body = { groupId: conversation.conversationId, updates: updates };
-      const newConversation = await axiosClient
-        .patch(`/group/update`, body)
-        .then((res) => res.data[0])
-        .catch((res) => res);
+
+      produceMessage(body, "UPDATE_GROUP_INFO");
 
       const updatedProperty = Object.keys(updates)[0];
 
       function getUpdateMessage(key: string) {
         switch (key) {
           case "displayName":
-            return `${socket.username} changed group name to "${updates.displayName}"`;
+            return `${admin.username} changed group name to "${updates.displayName}"`;
           case "desc":
-            return `${socket.username} modified the group description`;
+            return `${admin.username} modified the group description`;
           case "profilePicture":
-            return `${socket.username} changed the profile picture`;
+            return `${admin.username} changed the profile picture`;
           default:
             break;
         }
@@ -80,16 +73,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
         timestamp: Date.now(),
       };
 
-      const updatedConversation = getUpdatedValues(
-        newConversation,
-        updatedProperty
-      );
-
-      io.to(conversation.channelId!).emit(
-        "UPDATE_GROUP",
-        updatedConversation,
-        message
-      );
+      io.to(conversation.channelId!).emit("UPDATE_GROUP", { ...updates, id: conversation.conversationId }, message);
     }
   );
 
@@ -119,10 +103,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
           updatedAt: Date.now(),
         };
 
-        produceMessage(
-          { groupConversations: [groupConversation] },
-          "CREATE_GROUP_CONVERSATION"
-        );
+        produceMessage({ groupConversations: [groupConversation] }, "CREATE_GROUP_CONVERSATION");
       }
 
       const body = {
@@ -164,63 +145,42 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
 
       io.to(conversation.channelId!)
         .except(user.id)
-        .emit(
-          "GROUP_ADD_MEMBERS",
-          { conversationId: conversation.id, members: [user] },
-          broadcastMessage
-        );
+        .emit("GROUP_ADD_MEMBERS", { conversationId: conversation.id, members: [user] }, broadcastMessage);
     }
   );
 
-  socket.on(
-    "LEAVE_GROUP",
-    async ({
-      conversation,
-      user,
-    }: {
-      conversation: IGroupConversation;
-      user: IUser;
-    }) => {
-      const req = {
-        userId: user.id,
+  socket.on("LEAVE_GROUP", async ({ conversation, user }: { conversation: IGroupConversation; user: IUser }) => {
+    const req = {
+      userId: user.id,
+      conversationId: conversation.conversationId,
+    };
+
+    produceMessage(req, "LEAVE_GROUP");
+
+    const broadcastMessage: Partial<IMessage>[] = [
+      {
+        id: crypto.randomUUID(),
         conversationId: conversation.conversationId,
-      };
+        from: "system",
+        message: `${user.username} left the group`,
+      },
+    ];
 
-      produceMessage(req, "LEAVE_GROUP");
+    const userMessage: Partial<IMessage>[] = [
+      {
+        id: crypto.randomUUID(),
+        conversationId: conversation.conversationId,
+        from: "system",
+        message: `You left the group`,
+      },
+    ];
 
-      const broadcastMessage: Partial<IMessage>[] = [
-        {
-          id: crypto.randomUUID(),
-          conversationId: conversation.conversationId,
-          from: "system",
-          message: `${user.username} left the group`,
-        },
-      ];
-      
-      const userMessage: Partial<IMessage>[] = [
-        {
-          id: crypto.randomUUID(),
-          conversationId: conversation.conversationId,
-          from: "system",
-          message: `You left the group`,
-        },
-      ];
+    io.to(conversation.channelId!)
+      .except(socket.userId!)
+      .emit("GROUP_REMOVE_MEMBER", { conversationId: conversation.conversationId, userId: user.id }, broadcastMessage);
 
-      io.to(conversation.channelId!)
-        .except(socket.userId!)
-        .emit(
-          "GROUP_REMOVE_MEMBER",
-          { conversationId: conversation.conversationId, userId: user.id },
-          broadcastMessage
-        );
-
-      socket.emit(
-        "GROUP_REMOVE_MEMBER",
-        { conversationId: conversation.conversationId, userId: user.id },
-        userMessage
-      );
-    }
-  );
+    socket.emit("GROUP_REMOVE_MEMBER", { conversationId: conversation.conversationId, userId: user.id }, userMessage);
+  });
 
   socket.on("DELETE_GROUP_CONVERSATION", async (conversation: IGroupConversation) => {
     produceMessage(conversation.id, "DELETE_GROUP_CONVERSATION");
@@ -229,13 +189,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
 
   socket.on(
     "GROUP_ADD_MEMBERS",
-    async ({
-      conversation,
-      members,
-    }: {
-      conversation: IGroupConversation;
-      members: IUser[];
-    }) => {
+    async ({ conversation, members, admin }: { conversation: IGroupConversation; members: IUser[]; admin: IUser }) => {
       const _members = members.map(({ id }) => id);
 
       const sockets = io.sockets.sockets;
@@ -251,16 +205,12 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
         id: crypto.randomUUID(),
         conversationId: conversation.conversationId,
         from: "system",
-        message: `${socket.username} added ${m.username} to the group`,
+        message: `${admin.username} added ${m.username} to the group`,
       }));
 
       io.to(conversation.channelId!)
         .except([..._members, socket.userId!])
-        .emit(
-          "GROUP_ADD_MEMBERS",
-          { conversationId: conversation.conversationId, members },
-          messages
-        );
+        .emit("GROUP_ADD_MEMBERS", { conversationId: conversation.conversationId, members }, messages);
 
       // message to user ///////////////////////////////////////////////////////
       const userMessages = members.map((m) => ({
@@ -270,11 +220,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
         message: `You added ${m.username} to the group`,
       }));
 
-      socket.emit(
-        "GROUP_ADD_MEMBERS",
-        { conversationId: conversation.conversationId, members },
-        userMessages
-      );
+      socket.emit("GROUP_ADD_MEMBERS", { conversationId: conversation.conversationId, members }, userMessages);
 
       // message to new members ///////////////////////////////////////////////////////
       const groupConversations: IGroupConversation[] = [];
@@ -285,7 +231,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
           id: crypto.randomUUID(),
           conversationId: conversation.conversationId,
           from: "system",
-          message: `${socket.username} added ${m.id === m.id ? "you" : m.username} to the group`,
+          message: `${admin.username} added ${m.id === m.id ? "you" : m.username} to the group`,
         }));
 
         groupConversations.push({
@@ -324,18 +270,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
 
   socket.on(
     "GROUP_REMOVE_MEMBER",
-    async ({
-      conversation,
-      user,
-    }: {
-      conversation: IGroupConversation;
-      user: IUser;
-    }) => {
-      const body = {
-        conversationId: conversation.conversationId,
-        userId: user.id,
-      };
-
+    async ({ conversation, user, admin }: { conversation: IGroupConversation; user: IUser; admin: IUser }) => {
       const req = {
         userId: user.id,
         conversationId: conversation.conversationId,
@@ -348,7 +283,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
           id: crypto.randomUUID(),
           conversationId: conversation.id,
           from: "system",
-          message: `${socket.username} removed ${user.username} from the group`,
+          message: `${admin.username} removed ${user.username} from the group`,
         },
       ];
 
@@ -380,7 +315,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
           id: crypto.randomUUID(),
           conversationId: conversation.id,
           from: "system",
-          message: `${socket.username} removed you from the group`,
+          message: `${admin.username} removed you from the group`,
         },
       ];
 
@@ -400,48 +335,91 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
 
   socket.on(
     "USER_MAKE_ADMIN",
-    async ({
-      conversationId,
-      userId,
-    }: {
-      conversationId: string;
-      userId: string;
-    }) => {
-      const body = { conversationId, userId };
+    async ({ conversation, userId }: { conversation: IGroupConversation; userId: string }) => {
+      const body = { conversationId: conversation.conversationId, userId };
+      produceMessage(body, "ADD_GROUP_ADMIN");
+      // const conversation: IGroupConversation = await axiosClient
+      //   .patch(`/group/admins/add`, body)
+      //   .then((res) => res.data[0])
+      //   .catch((res) => res);
 
-      const conversation: IGroupConversation = await axiosClient
-        .patch(`/group/admins/add`, body)
-        .then((res) => res.data[0])
-        .catch((res) => res);
-
-      io.to(conversation.channelId!).emit(
-        "SET_GROUP_ADMIN",
-        conversationId,
-        userId,
-        true
-      );
+      io.to(conversation.channelId!).emit("SET_GROUP_ADMIN", conversation.conversationId, userId, true);
     }
   );
 
   socket.on(
     "USER_REMOVE_FROM_ADMIN",
-    async ({
-      conversationId,
-      userId,
-    }: {
-      conversationId: string;
-      userId: string;
-    }) => {
-      const body = { conversationId, userId };
+    async ({ conversation, userId }: { conversation: IGroupConversation; userId: string }) => {
+      const body = { conversationId: conversation.conversationId, userId };
+      produceMessage(body, "REMOVE_GROUP_ADMIN");
 
-      const conversation: IGroupConversation = await axiosClient
-        .patch(`/group/admins/remove`, body)
-        .then((res) => res.data[0])
-        .catch((res) => res);
+      io.to(conversation.channelId).emit("SET_GROUP_ADMIN", conversation.conversationId, userId, false);
+    }
+  );
 
-      const members = conversation.members.map((m) => m.id);
+  socket.on(
+    "ADD_GROUP_TAG",
+    async ({ conversation, tag, admin }: { conversation: IGroupConversation; tag: string; admin: IUser }) => {
+      const body = { id: conversation.conversationId, tag };
 
-      io.to(members).emit("SET_GROUP_ADMIN", conversationId, userId, false);
+      produceMessage(body, "ADD_GROUP_TAG");
+
+      const broadcastMessage: Partial<IMessage>[] = [
+        {
+          id: crypto.randomUUID(),
+          conversationId: conversation.id,
+          from: "system",
+          message: `${admin.username} added a new group tag "${tag}"`,
+        },
+      ];
+
+      io.to(conversation.channelId)
+        .except(socket.userId!)
+        .emit("ADD_GROUP_TAG", { groupId: conversation.conversationId, tag }, broadcastMessage);
+
+      const adminMessage: Partial<IMessage>[] = [
+        {
+          id: crypto.randomUUID(),
+          conversationId: conversation.id,
+          from: "system",
+          message: `You added a new group tag "${tag}"`,
+        },
+      ];
+
+      socket.emit("ADD_GROUP_TAG", { groupId: conversation.conversationId, tag }, adminMessage);
+    }
+  );
+
+  socket.on(
+    "REMOVE_GROUP_TAG",
+    async ({ conversation, tag, admin }: { conversation: IGroupConversation; tag: string; admin: IUser }) => {
+      const body = { id: conversation.conversationId, tag };
+
+      produceMessage(body, "REMOVE_GROUP_TAG");
+
+      const broadcastMessage: Partial<IMessage>[] = [
+        {
+          id: crypto.randomUUID(),
+          conversationId: conversation.id,
+          from: "system",
+          message: `${admin.username} removed the group tag "${tag}"`,
+        },
+      ];
+
+      io.to(conversation.channelId)
+        .except(socket.userId!)
+        .emit("REMOVE_GROUP_TAG", { groupId: conversation.conversationId, tag }, broadcastMessage);
+
+      const adminMessage: Partial<IMessage>[] = [
+        {
+          id: crypto.randomUUID(),
+          conversationId: conversation.id,
+          from: "system",
+          message: `You removed the group tag "${tag}"`,
+        },
+      ];
+
+      socket.emit("REMOVE_GROUP_TAG", { groupId: conversation.conversationId, tag }, adminMessage);
     }
   );
 }

@@ -23,9 +23,29 @@ async function getAllUsers() {
   }
 }
 
+async function queryUser(query: string) {
+  try {
+    const result = await User.findOne({ $or: [{ username: query }, { phoneNumber: query }] });
+    return result;
+  } catch (error) {
+    console.error("queryUser Error:", error);
+    throw error; // Rethrow the error if needed
+  }
+}
+
+async function getUserByPhoneNumber(phoneNumber: string) {
+  try {
+    const result = await User.findOne({ phoneNumber });
+    return result;
+  } catch (error) {
+    console.error("Error:", error);
+    throw error; // Rethrow the error if needed
+  }
+}
+
 async function getUserById(userId: Types.ObjectId) {
   try {
-    const result = await User.find({ id: userId });
+    const result = await User.findOne({ id: userId });
     return result;
   } catch (error) {
     console.error("Error:", error);
@@ -36,11 +56,8 @@ async function getUserById(userId: Types.ObjectId) {
 async function updateUser(_userId: string, updates: Partial<IUser>) {
   try {
     const userId = new Types.ObjectId(_userId);
-    const result = await User.findOneAndUpdate(
-      { id: userId },
-      { ...updates },
-      { new: true }
-    );
+    const result = await User.findOneAndUpdate({ id: userId }, { ...updates }, { new: true });
+
     return result;
   } catch (error) {
     console.error("Error:", error);
@@ -120,10 +137,12 @@ async function getBlockedListByUserId(userId: Types.ObjectId) {
 export default {
   createUser,
   getAllUsers,
+  queryUser,
   getUserById,
   updateUser,
   deleteUser,
   blockUser,
   unblockUser,
   getBlockedListByUserId,
+  getUserByPhoneNumber,
 };

@@ -33,3 +33,6 @@ interface IUpdateBlockReq {
   value: boolean;
 }
 
+type IHideIndicators =
+  | ["acknowledgment" | "timestamp" | "starredIndicator" | "none"]
+  | null;

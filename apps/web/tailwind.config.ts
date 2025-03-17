@@ -26,13 +26,13 @@ const lightmode = {
   "--modal": "oklch(var(--b3))",
 };
 
-const DARK_THEME = `dark-${Object.values(COLORS)[0]?.replace("#", "")}`;
+const DARK_THEME = `dark-${COLORS.default?.replace("#", "")}`;
 
 export default {
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./features/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {},

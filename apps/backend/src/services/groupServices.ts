@@ -1,11 +1,7 @@
 import { Types } from "mongoose";
 import { IGroup } from "../interfaces/groupInterface";
 import Group from "../models/groupModel";
-import {
-  IDeleteConversationRequest,
-  IMember,
-} from "../interfaces/conversationInterface";
-import UserConversation from "../models/UserConversation";
+import { IDeleteConversationRequest } from "../interfaces/conversationInterface";
 import GroupConversation from "../models/GroupConversation";
 
 // createGroup
@@ -14,24 +10,24 @@ async function createGroup(data: IGroup) {
     const group = new Group(data);
     await group.save();
 
-    const populatedGroup = await Group.aggregate([
-      {
-        $match: { id: group.id },
-      },
-      {
-        $lookup: {
-          from: "users",
-          localField: "members.id",
-          foreignField: "id",
-          as: "members",
-        },
-      },
-    ]);
+    // const populatedGroup = await Group.aggregate([
+    //   {
+    //     $match: { id: group.id },
+    //   },
+    //   {
+    //     $lookup: {
+    //       from: "users",
+    //       localField: "members.id",
+    //       foreignField: "id",
+    //       as: "members",
+    //     },
+    //   },
+    // ]);
 
-    return populatedGroup[0];
+    return group
   } catch (error) {
     console.log("createGroup----------------->", error);
-    throw error;
+    // throw error;
   }
 }
 
@@ -119,6 +115,8 @@ async function fetchGroupsByUserId(id: string) {
           admins: "$conversation.admins",
           host: "$conversation.host",
           desc: "$conversation.desc",
+          tags: "$conversation.tags",
+          createdBy: "$conversation.createdBy",
         },
       },
       {
@@ -156,6 +154,13 @@ async function fetchGroupsByUserId(id: string) {
                 },
               },
             },
+
+            { $sort: { timestamp: -1 } },
+            {
+              $limit:10,
+            },
+            { $sort: { timestamp: 1 } },
+
             // Perform the messageDeleted lookup for only the matched messages
             {
               $lookup: {
@@ -203,12 +208,12 @@ async function fetchGroupsByUserId(id: string) {
         },
       },
       {
-        $lookup:{
-          from:'messages',
-          localField:'starred',
-          foreignField:'id',
-          as:'starred'
-        }
+        $lookup: {
+          from: "messages",
+          localField: "starred",
+          foreignField: "id",
+          as: "starred",
+        },
       },
       {
         $project: {
@@ -346,9 +351,11 @@ async function removeMemberFromGroup(
 }
 
 // updateGroup
-async function updateGroup(_conversationId: string, updates: Partial<IGroup>) {
+async function updateGroup(
+  conversationId: Types.ObjectId,
+  updates: Partial<IGroup>
+) {
   try {
-    const conversationId = new Types.ObjectId(_conversationId);
     const updatedGroup = await Group.findOneAndUpdate(
       { id: conversationId },
       updates,
@@ -388,10 +395,11 @@ async function deleteGroup(_groupId: string) {
 }
 
 // make user as admin
-async function makeUserAdmin(_conversationId: string, _userId: string) {
+async function makeUserAdmin(
+  conversationId: Types.ObjectId,
+  userId: Types.ObjectId
+) {
   try {
-    const conversationId = new Types.ObjectId(_conversationId);
-    const userId = new Types.ObjectId(_userId);
     const updatedGroup = await Group.findOneAndUpdate(
       { id: conversationId },
       {
@@ -420,10 +428,11 @@ async function makeUserAdmin(_conversationId: string, _userId: string) {
 }
 
 // remove user from admin
-async function removeUserAdmin(_conversationId: string, _userId: string) {
+async function removeUserAdmin(
+  conversationId: Types.ObjectId,
+  userId: Types.ObjectId
+) {
   try {
-    const conversationId = new Types.ObjectId(_conversationId);
-    const userId = new Types.ObjectId(_userId);
     const updatedGroup = await Group.findOneAndUpdate(
       { id: conversationId },
       {
@@ -470,6 +479,40 @@ async function clearGroupConversation(req: IDeleteConversationRequest) {
   }
 }
 
+async function addGroupTag(req: { id: string; tag: string }) {
+  try {
+    const res = await Group.findOneAndUpdate(
+      { id: req.id },
+      {
+        $push: {
+          tags: req.tag,
+        },
+      }
+    );
+    console.log(res);
+    return res;
+  } catch (error) {
+    console.log("addTag---------->", error);
+  }
+}
+
+async function removeGroupTag(req: { id: string; tag: string }) {
+  try {
+    const res = await Group.findOneAndUpdate(
+      { id: req.id },
+      {
+        $pull: {
+          tags: req.tag,
+        },
+      }
+    );
+    console.log(res);
+    return res;
+  } catch (error) {
+    console.log("removeGroupTag---------->", error);
+  }
+}
+
 export {
   createGroup,
   generateGroupInvitationId,
@@ -484,4 +527,6 @@ export {
   makeUserAdmin,
   removeUserAdmin,
   clearGroupConversation,
+  addGroupTag,
+  removeGroupTag,
 };

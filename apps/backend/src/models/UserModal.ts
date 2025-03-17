@@ -17,6 +17,11 @@ export const userSchema = new Schema({
         type: String,
         required: true
     },
+    phoneNumber: {
+        type: String,
+        required: true,
+        unique: true,
+    },
     bio: {
         type: String,
         default: '',
@@ -44,6 +49,8 @@ export const userSchema = new Schema({
     createdAt: Number,
     updatedAt: Number,
 }, schemaOptions)
+
+userSchema.index({ username: 1,phoneNumber:1 });
 
 const User = model('user', userSchema)
 

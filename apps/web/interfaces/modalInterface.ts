@@ -1,4 +1,4 @@
-import modals from "@components/ui/modals";
+import modals from "@features/ui/modals";
 
 export type IModal<T = any> = {
   activeModal: IModalKey;

@@ -1,0 +1,21 @@
+{
+  "name": "session-service",
+  "version": "1.0.0",
+  "private":true,
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "dotenv -- tsc-watch --onSuccess \"node dist/index.js\"",
+    "start": "node dist/index.js",
+    "another": "set PORT=8000 && node dist/index.js",
+    "build": "tsc -p ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ioredis": "^5.5.0",
+    "ts-node": "^10.9.2",
+    "ts-watch": "^1.0.8"
+  }
+}

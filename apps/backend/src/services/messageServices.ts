@@ -5,7 +5,31 @@ import { IMessage } from "../interfaces/messageInterface";
 
 async function saveUserMessage(messages: IMessage[]) {
   try {
+    //   if (!messages.length) return { message: "No messages to insert" };
+
+    // // Extract messages that contain an imageAttachment
+    // const imageAttachments = messages
+    //   .filter((msg) => msg.imageAttachment)
+    //   .map((msg) => msg.imageAttachment!);
+
+    // let savedImages = [];
+    // if (imageAttachments.length > 0) {
+    //   // Insert all images in one request
+    //   savedImages = await ImageAttachment.insertMany(imageAttachments);
+    // }
+
+    // // Map messages and attach the correct imageAttachment._id
+    // const messageDocs = messages.map((msg, index) => ({
+    //   text: msg.text,
+    //   user: new mongoose.Types.ObjectId(msg.user),
+    //   imageAttachment: msg.imageAttachment ? savedImages.shift()?._id : undefined, // Assign the saved ImageAttachment _id
+    // }));
+
+    // // Insert all messages in one request
+    // const savedMessages = await Message.insertMany(messageDocs);
+
     const res = await Messages.insertMany(messages);
+    console.log("saveUserMessage----->", !!res.length);
     await client.del("messages_cache");
     return res;
   } catch (error) {
@@ -22,81 +46,102 @@ async function getMessages() {
 }
 
 async function getUserMessages(
-  userId: string
-): Promise<Map<string, IMessage[]>> {
+  conversationId: string,
+  limit: number,
+  timestamp?: number,
+) {
   try {
+    const query: any = {
+      conversationId: new Types.ObjectId(conversationId),
+    };
+
+    if (timestamp) {
+      query.timestamp = { $lt: timestamp };
+    }
+
     const res = await Messages.aggregate([
       {
-        $lookup: {
-          from: "groups",
-          let: {
-            conversationId: "$conversationId",
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $eq: ["$id", "$$conversationId"],
-                },
-              },
-            },
-          ],
-          as: "conversation",
+        $match: query,
+      },
+      {
+        $sort: {
+          timestamp: -1,
         },
       },
       {
-        $unwind: "$conversation",
+        $limit: limit+1,
       },
       {
-        $match: { "conversation.members": userId },
-      },
-      {
-        $group: {
-          _id: "$conversationId",
-          messages: {
-            $push: {
-              $cond: {
-                if: {
-                  $in: [userId, "$deletedFor"],
-                },
-                then: "$$REMOVE",
-                else: {
-                  id: "$id",
-                  conversationId: "$conversationId",
-                  from: "$from",
-                  to: "$to",
-                  timestamp: "$timestamp",
-                  message: "$message",
-                  reply: "$reply",
-                  readReceipt: "$readReceipt",
-                },
-              },
-            },
-          },
+        $sort: {
+          timestamp: 1,
         },
       },
-      {
-        $addFields: {
-          conversationId: "$id",
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          "messages.deletedFor": 0,
-        },
-      },
+      // {
+      //   $lookup: {
+      //     from: "groups",
+      //     let: {
+      //       conversationId: "$conversationId",
+      //     },
+      //     pipeline: [
+      //       {
+      //         $match: {
+      //           $expr: {
+      //             $eq: ["$id", "$$conversationId"],
+      //           },
+      //         },
+      //       },
+      //     ],
+      //     as: "conversation",
+      //   },
+      // },
+      // {
+      //   $unwind: "$conversation",
+      // },
+      // {
+      //   $match: { "conversation.members": userId },
+      // },
+      // {
+      //   $group: {
+      //     _id: "$conversationId",
+      //     messages: {
+      //       $push: {
+      //         $cond: {
+      //           if: {
+      //             $in: [userId, "$deletedFor"],
+      //           },
+      //           then: "$$REMOVE",
+      //           else: {
+      //             id: "$id",
+      //             conversationId: "$conversationId",
+      //             from: "$from",
+      //             to: "$to",
+      //             timestamp: "$timestamp",
+      //             message: "$message",
+      //             reply: "$reply",
+      //             readReceipt: "$readReceipt",
+      //           },
+      //         },
+      //       },
+      //     },
+      //   },
+      // },
+      // {
+      //   $addFields: {
+      //     conversationId: "$id",
+      //   },
+      // },
+      // {
+      //   $project: {
+      //     _id: 0,
+      //     "messages.deletedFor": 0,
+      //   },
+      // },
     ]);
 
-    const response: any = res.map(({ conversationId, messages }) => [
-      conversationId,
-      messages,
-    ]);
-
-    return response;
+    return res;
   } catch (error) {
     console.log("getUserMessages---->", error);
-    return new Map();
+    return [];
   }
 }
 
@@ -104,7 +149,7 @@ async function deleteUserMessages(messagesId: string[]) {
   try {
     const res = await Messages.deleteMany({ id: { $in: messagesId } });
   } catch (error) {
-    console.log("getUserMessages---->", error);
+    console.log("deleteUserMessages---->", error);
   }
 }
 

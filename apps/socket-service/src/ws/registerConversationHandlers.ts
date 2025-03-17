@@ -1,7 +1,6 @@
 import { Server } from "socket.io";
 import { ISocket } from "../interfaces/socketInterfaces";
 import produceMessage from "../kafka/kafka";
-import axiosClient from "../lib/axiosClient";
 
 export default function registerConversationHandlers(
   io: Server,
@@ -18,7 +17,7 @@ export default function registerConversationHandlers(
         (c) => c.userId !== socket.userId
       );
 
-      io.to(conversation?.userId!).emit(
+      socket.emit(
         "CREATE_USER_CONVERSATION",
         conversation
       );

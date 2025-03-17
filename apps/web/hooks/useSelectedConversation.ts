@@ -1,16 +1,13 @@
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useConversationStore } from "../store/conversationStore";
-import { useStore } from "store/global";
+import { IConversation } from "@interfaces/conversationInterface";
 
-const useSelectedConversation = () => {
+const useSelectedConversation = <T extends IConversation>(conversationId: string): T | undefined => {
   const conversations = useConversationStore((s) => s.conversations);
-  const sc = useConversationStore((s) => s.selectedConversation);
-  const su = useStore((s) => s.selectedUser);
+
   const conversation = useMemo(
-    () =>
-      conversations.find((c) => c.conversationId === sc?.conversationId || c.host === 'user' && c.members.some(m=>m.id === su?.id)) ||
-      null,
-    [conversations, sc, su]
+    () => conversations.find((c): c is T => c.id === conversationId),
+    [conversations, conversationId]
   );
 
   return conversation;

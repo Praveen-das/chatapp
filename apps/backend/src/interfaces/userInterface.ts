@@ -3,8 +3,9 @@ import { Types } from "mongoose";
 export interface IUser {
   id: Types.ObjectId;
   username: string;
+  phoneNumber: string;
   bio: string;
-  profilePicture: string;
+  profilePicture?: string;
   createdAt: number;
   updatedAt: number;
 }

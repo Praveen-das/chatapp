@@ -5,7 +5,7 @@ interface ISocket extends Socket {
   selectedConversation?: IConversation | null;
 }
 
-const socket: ISocket = io("http://192.168.1.7:3001", {
+const socket: ISocket = io("http://localhost:3001", {
   transports: ["websocket"],
   autoConnect: false,
 });

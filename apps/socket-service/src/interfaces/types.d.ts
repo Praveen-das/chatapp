@@ -58,9 +58,18 @@ interface IUser {
 }
 
 interface ISession {
-  sessionId: string;
   userId: string;
-  username: string;
+  sessionId: string;
+  data:{
+    userData: IUser;
+    deviceData: {
+      browser: string;
+      os: string;
+      device: string;
+      city: string;
+      timestamp: number;
+    };
+  }
 }
 
 interface IImagePayload {

@@ -1,6 +1,6 @@
 import axios from "axios"
 
-const baseURL = 'http://localhost:3001/message'
+const baseURL = 'http://localhost:3001/db'
 
 const axiosClient = axios.create({
     baseURL,

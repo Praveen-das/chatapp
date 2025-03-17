@@ -1,40 +1,56 @@
-import { DBSchema, openDB } from "idb";
+"use client";
 
-type IValue = {
-  userId: string;
-  canSendNotifications: boolean;
-};
+import { DBSchema, IDBPDatabase, openDB } from "idb";
+import { useCallback, useEffect, useState } from "react";
 
 interface MyDB extends DBSchema {
   kv_store: {
     key: string;
     value: boolean;
-    // indexes: { userId: string };
   };
 }
 
-const db = openDB<MyDB>("idb", 1, {
-  upgrade(db) {
-    db.createObjectStore("kv_store");
-  },
-});
+export default function useIndexedDb() {
+  const [db, setDb] = useState<IDBPDatabase<MyDB> | null>(null);
 
-async function get(key: string) {
-  return (await db).get("kv_store", key);
-}
-async function set(key: string, val: boolean) {
-  return (await db).put("kv_store", val, key);
-}
-async function del(key: string) {
-  return (await db).delete("kv_store", key);
-}
-async function clear() {
-  return (await db).clear("kv_store");
-}
-async function keys() {
-  return (await db).getAllKeys("kv_store");
-}
+  useEffect(() => {
+    (async () => {
+      const idb = await openDB<MyDB>("idb", 1, {
+        upgrade(db) {
+          if (!db.objectStoreNames.contains("kv_store")) {
+            db.createObjectStore("kv_store");
+          }
+        },
+      });
+      setDb(idb);
+    })();
+  }, []);
 
-export default{
-    get,set,del,clear,keys
+  const get = async (key: string) => {
+    return db?.get("kv_store", key);
+  }
+
+  const set = async (key: string, val: boolean) => {
+    return db?.put("kv_store", val, key);
+  }
+
+  const del = async (key: string) => {
+    return db?.delete("kv_store", key);
+  }
+
+  const clear = async () => {
+    return db?.clear("kv_store");
+  }
+
+  const keys = async () => {
+    return db?.getAllKeys("kv_store");
+  }
+
+  return {
+    get,
+    set,
+    del,
+    clear,
+    keys,
+  };
 }

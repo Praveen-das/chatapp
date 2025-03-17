@@ -1,11 +1,12 @@
-import { Router } from 'express'
-import messageController from '../controller/messageController'
+import { Router } from "express";
+import messageController from "../controller/messageController";
 
-const router = Router()
+const router = Router();
 
-router
-    .route('/')
-    .get(messageController._getUserMessages)
-    .delete(messageController._deleteUserMessage)
+router.route("/").delete(messageController._deleteUserMessage);
 
-export default router
+router.get("/fetch", messageController._getMessages);
+
+router.get("/attachments");
+
+export default router;

@@ -5,9 +5,12 @@ import registerGroupHandlers from "./registerGroupHandlers";
 import registerMessageHandlers from "./registerMessageHandlers";
 import registerUserHandlers from "./registerUserHandlers";
 import registerConversationHandlers from "./registerConversationHandlers";
+import registerSessionHandler from "./registerSessionHandler";
 
 export async function onConnection(io: Server, socket: ISocket) {
     console.log(`Socket ${socket.id} connected connected to ${process.pid}`);
+
+    registerSessionHandler(io,socket);
 
     registerUserHandlers(io, socket);
 

@@ -34,6 +34,7 @@ export interface IUserConversation extends IConversationBase {
 export interface IGroupConversation extends IConversationBase {
   host: "group";
   members: IGroupMember[];
+  tags: string[]
 
   profilePicture: string;
   channelId?: string;
@@ -79,4 +80,9 @@ export interface IDeleteForUserRequest {
     userId: string;
     messageId: string;
   }[];
+}
+
+export interface IQueryResult {
+  chats: IUserConversation[];
+  groups: IGroupConversation[];
 }

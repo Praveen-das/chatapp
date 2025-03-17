@@ -1,6 +1,6 @@
 import { Server } from "socket.io";
 import Redis from "ioredis";
-import socketSessionMiddleware from "../middleware/socketSessionMiddleware";
+import authMiddleware from "../middleware/authMiddleware";
 import { createAdapter } from "@socket.io/redis-adapter";
 import { IHttpServer, ISocketService } from "../interfaces/socketInterfaces";
 
@@ -38,7 +38,7 @@ class SocketService implements ISocketService {
 
   initListeners() {
     console.log("Socket Listener initailized...");
-    this.io.use(socketSessionMiddleware);
+    this.io.use(authMiddleware);
     this.io.on("connection", (socket) => onConnection(this.io, socket));
   }
 }

@@ -15,7 +15,7 @@ export default function registerMessageHandlers(io: Server, socket: ISocket) {
       to: string[] | string;
     }) => {
       !!to.length &&
-        io.to(to).except(socket.userId!).emit("message receive", {
+        io.to(to).emit("message receive", {
           messages,
           conversationId,
         });
@@ -26,7 +26,7 @@ export default function registerMessageHandlers(io: Server, socket: ISocket) {
 
   socket.on("change readReceipt", async (_updates: IUpdates) => {
     const updates = new Map(_updates);
-    
+
     if (!updates.size) return;
 
     updates.forEach((values, { to, conversationId }) => {
@@ -35,33 +35,27 @@ export default function registerMessageHandlers(io: Server, socket: ISocket) {
     });
   });
 
-  socket.on(
-    "request:delete_message",
-    async ({ conversation, messages }: IDeleteRequest) => {
-      if (!messages.length) return;
+  socket.on("request:delete_message", async ({ conversation, messages }: IDeleteRequest) => {
+    if (!messages.length) return;
 
-      const receivers = conversation.members.map((m) => m.id);
+    const receivers = conversation.members.map((m) => m.id);
 
-      io.to(receivers).emit("request:delete_message", {
-        conversationId: conversation.conversationId,
-        messages,
-      });
+    io.to(receivers).emit("request:delete_message", {
+      conversationId: conversation.conversationId,
+      messages,
+    });
 
-      produceMessage({ messages }, "UPDATE_MESSAGES");
-    }
-  );
+    produceMessage({ messages }, "UPDATE_MESSAGES");
+  });
 
-  socket.on(
-    "request:delete_message_for_user",
-    async ({ conversationId, collection }: IDeleteForUserRequest) => {
-      if (!collection.length) return;
+  socket.on("request:delete_message_for_user", async ({ conversationId, collection }: IDeleteForUserRequest) => {
+    if (!collection.length) return;
 
-      socket.emit("request:delete_message_for_user", {
-        conversationId,
-        collection,
-      });
+    socket.emit("request:delete_message_for_user", {
+      conversationId,
+      collection,
+    });
 
-      produceMessage({ collection }, "DELETE_MESSAGE_FOR_USER");
-    }
-  );
+    produceMessage({ collection }, "DELETE_MESSAGE_FOR_USER");
+  });
 }

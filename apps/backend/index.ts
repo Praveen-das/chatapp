@@ -4,25 +4,32 @@ import initDatabase from "./src/db/mongoose";
 import { initKafkaConsumer } from "./src/kafka/kafka";
 import cors from "cors";
 import bodyParser from "body-parser";
+import { verifyAuth } from "./src/middlewares/auth";
 
 (async () => {
   const app = express();
 
-  app.use(cors({ origin: ["*"] }));
+  app.use(cors({ origin: [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+    "http://localhost:5000",
+  ] }));
 
   app.use(bodyParser.json());
 
   app.use(bodyParser.urlencoded({ extended: true }));
 
   const PORT = process.env.PORT || 4000;
-
+  
   try {
-    await Promise.all([initDatabase(), initKafkaConsumer()]);
+    initKafkaConsumer()
+    await initDatabase();
   } catch (error) {
     console.log("error line 20 ----->", error);
   }
 
-  app.use(router); 
+  app.use(verifyAuth,router); 
 
   app.use((err:any,req:any,res:any,next:any)=>{
     console.log('ERROR----------------->',err);

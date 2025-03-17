@@ -15,12 +15,6 @@ interface IUrlMetadata {
 
 type IAttachmentStatus = "loaded" | "uploaded" | "error";
 
-interface IImageAttachment extends IImagePayload {
-  id: string;
-  type: "images";
-
-}
-
 interface IImagePayload {
   fileId?: string;
   name: string;
@@ -30,16 +24,6 @@ interface IImagePayload {
   fileType: string;
   thumbnailUrl: string;
 }
-
-interface IUrlAttachment {
-  id: string;
-  type: "link";
-  host: string;
-  url: string;
-  metadata?: IUrlMetadata;
-}
-
-type IAttachment = IImageAttachment | IUrlAttachment;
 
 interface IMessageDeleteFlag {
   userId: string;

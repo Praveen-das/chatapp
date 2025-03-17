@@ -1,7 +1,7 @@
 import cache from "../redis/client";
 import { Response, Request } from "express";
 import messageServices from "../services/messageServices";
-import { IMessage } from "../interfaces/messageInterface";
+import { IAttachment, IMessage } from "../interfaces/messageInterface";
 import { IUserConversation } from "../interfaces/conversationInterface";
 import { Types } from "mongoose";
 import conversationServices from "../services/conversationServices";
@@ -16,25 +16,24 @@ interface IReq {
 const _saveUserMessage = async (req: string, reset: () => void) => {
   try {
     const { messages }: IReq = JSON.parse(req);
-    
-    
-    
+
     // if (!!conversation?.deletedUsers?.length) {
     //   console.log('reset conversation');
-      
+
     //   await conversationServices.unsetConversationDeletion(conversation.id);
     // }
 
     const _messages = messages.map((message) => {
-      let newMessage ={
+      let newMessage = {
         ...message,
+        hasAttachment: !!message.attachment,
         id: new Types.ObjectId(message.id),
         conversationId: new Types.ObjectId(message.conversationId),
         from: new Types.ObjectId(message.from),
         to: message.to ? new Types.ObjectId(message.to) : undefined,
-      }; 
-      if(!message.to) delete message.to
-      return newMessage
+      };
+      if (!message.to) delete message.to;
+      return newMessage;
     });
 
     await messageServices.saveUserMessage(_messages);
@@ -58,7 +57,7 @@ const _deleteMessagesForUser = async (req: string, reset: () => void) => {
   try {
     const { collection } = JSON.parse(req);
     console.log(collection);
-    
+
     await messageServices.deleteMessagesForUser(collection);
   } catch (error) {
     console.log("DELETE_MESSAGE_FOR_USER error--->", error);
@@ -66,47 +65,42 @@ const _deleteMessagesForUser = async (req: string, reset: () => void) => {
   }
 };
 
-const _getMessages = async (req: Express.Request, res: Response) => {
-  const messages_cache = await cache.get("messages_cache");
+// const _getMessages = async (req: Express.Request, res: Response) => {
+//   const messages_cache = await cache.get("messages_cache");
 
-  if (messages_cache) {
-    console.log("res send from cache");
-    return res.json(JSON.parse(messages_cache));
-  }
+//   if (messages_cache) {
+//     console.log("res send from cache");
+//     return res.json(JSON.parse(messages_cache));
+//   }
 
-  const messages = await messageServices.getMessages();
+//   const messages = await messageServices.getMessages();
 
-  cache.set("messages_cache", JSON.stringify(messages), () =>
-    console.log("data cached")
-  );
-  cache.expire("messages_cache", TIME_TO_EXPIRE);
+//   cache.set("messages_cache", JSON.stringify(messages), () =>
+//     console.log("data cached")
+//   );
+//   cache.expire("messages_cache", TIME_TO_EXPIRE);
 
-  return res.json(messages);
+//   return res.json(messages);
+// };
+
+type IGetUserMessages = {
+  cid: string;
+  c: string;
+  limit: string;
 };
 
-const _getUserMessages = async (req: Request, res: Response) => {
-  const userId = req.query.userId as string;
-  const cacheKey = `messages_cache:${userId}`;
+const _getMessages = async (req: Request<{}, {}, {}, IGetUserMessages>, res: Response) => {
+  const { cid: conversationId, c: timestamp, limit } = req.query;
+  const LIMIT = parseInt(limit);
+  const CURSOR = parseInt(timestamp);
 
   try {
-    // const messages_cache = await cache.get(cacheKey)
+    const messages = await messageServices.getUserMessages(conversationId, LIMIT, CURSOR);
 
-    // if (messages_cache) {
-    //     console.log('res send from cache');
-    //     return res.json(JSON.parse(messages_cache))
-    // }
-
-    const _messages = await messageServices.getUserMessages(userId);
-
-    const messages = _messages;
-
-    // cache.set(
-    //     cacheKey,
-    //     JSON.stringify(messages),
-    //     () => console.log('data cached')
-    // )
-
-    cache.expire(cacheKey, TIME_TO_EXPIRE);
+    const response = {
+      messages,
+      hasNextPage: messages.length > LIMIT,
+    };
 
     res.json(messages);
   } catch (error) {
@@ -134,6 +128,5 @@ export default {
   _updateUserMessages,
   _deleteMessagesForUser,
   _getMessages,
-  _getUserMessages,
   _deleteUserMessage,
 };

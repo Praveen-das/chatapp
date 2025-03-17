@@ -1,11 +1,10 @@
-import axios from "axios";
+import axiosClient from "@lib/axiosClient";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { NextResponse } from "next/server";
 
 export async function POST(req: NextApiRequest) {
-  const backendUrl = `http://localhost:3001/message/user`;
 
-  const response = await axios.post(backendUrl,{
+  const response = await axiosClient.post('/db/user',{
     headers: {
       "Content-Type": "application/json",
     },

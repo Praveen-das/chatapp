@@ -1,5 +1,5 @@
 import mongoose, { Schema, model } from "mongoose";
-import { IMessage } from "../interfaces/messageInterface";
+import { IAttachment, IImageAttachment, IMessage, IUrlAttachment } from "../interfaces/messageInterface";
 
 const readReceiptSchema = new Schema({
   userId: Schema.Types.ObjectId,
@@ -32,12 +32,9 @@ const urlAttachmentSchema = new Schema<IUrlAttachment>({
   },
 });
 
-const urlAttachmentModal = model("urlAttachmentModal", urlAttachmentSchema);
+const urlAttachmentModal = model("UrlAttachmentModal", urlAttachmentSchema);
 
-const imageAttachmentModal = model(
-  "imageAttachmentModal",
-  imageAttachmentSchema
-);
+const imageAttachmentModal = model("ImageAttachmentModal",imageAttachmentSchema);
 
 function validator(_: any, v: any) {
   if (!v) return true;
@@ -68,6 +65,7 @@ export const messageSchema = new Schema<IMessage>({
     type: Schema.Types.Mixed as unknown as IAttachment,
     validate: { validator },
   },
+  hasAttachment:{ type: Boolean, default: false },
   reply: replyMessageSchema,
   readReceipt: [readReceiptSchema],
   deleted: {
@@ -81,6 +79,8 @@ const messageDeleteFlagSchema = new Schema<IMessageDeleteFlag>({
   messageId: Schema.Types.ObjectId,
   deleted: Boolean,
 });
+
+messageSchema.index({ "hasAttachment": 1,"timestamp":1 });
 
 const Messages = model("messages", messageSchema);
 const MessageDeleteFlag = model("messageDeleteFlag", messageDeleteFlagSchema);
