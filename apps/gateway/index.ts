@@ -4,7 +4,7 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 
 const app = connect();
 
-app.use(cors({ origin: "http://localhost:3000" }));
+app.use(cors({ origin: "*" }));
 
 const PORT = process.env.PORT || 3001;
 
