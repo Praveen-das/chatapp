@@ -4,10 +4,9 @@ const USER_TOKEN_SECRET_KEY = new TextEncoder().encode(process.env.JWT_USER_TOKE
 const ACCESS_TOKEN_SECRET_KEY = new TextEncoder().encode(process.env.JWT_ACCESS_TOKEN_SECRET_KEY);
 
 export async function verifyUserToken(token: any) {
+  console.log({ USER_TOKEN_SECRET_KEY, JWT_USER_TOKEN_SECRET_KEY: process.env.JWT_USER_TOKEN_SECRET_KEY });
   try {
-    const { payload } = await jwtVerify(token, USER_TOKEN_SECRET_KEY, {
-      algorithms: ["HS256"],
-    });
+    const { payload } = await jwtVerify(token, USER_TOKEN_SECRET_KEY, { algorithms: ["HS256"] });
     return payload;
   } catch (error: any) {
     if (error.code === "ERR_JWS_SIGNATURE_VERIFICATION_FAILED") {
