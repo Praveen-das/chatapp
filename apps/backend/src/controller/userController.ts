@@ -1,10 +1,8 @@
 import { Request, Response } from "express";
 import userServices from "../services/userServices";
-import mongoose, { Types } from "mongoose";
+import { Types } from "mongoose";
 import { IUser } from "../interfaces/userInterface";
-import { serialize } from "cookie";
-import { jwtVerify } from "jose";
-import { verify } from "../lib/jwt";
+import { verifyUserToken } from "../lib/jwt";
 
 type IUserCreationReq = {
   username: string;
@@ -52,8 +50,8 @@ const _getUser = async (req: Request, res: Response) => {
 try {
     const header = req.headers.authorization
     const token = header?.split(' ')[1]
-    
-    const payload = await verify(token)
+
+    const payload = await verifyUserToken(token)
   
     if(!payload) return res.sendStatus(401)
     

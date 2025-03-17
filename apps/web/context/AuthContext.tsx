@@ -1,22 +1,11 @@
 "use client";
 
-import React, {
-  createContext,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { createContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { IUser } from "../interfaces/userInterface";
 import axiosClient from "@lib/axiosClient";
 import { useRouter } from "next/navigation";
-import { verifyAccessToken } from "@actions/jwt";
-import {
-  refreshToken as _refreshToken,
-  getRefreshToken,
-  saveSession,
-  updateSession,
-} from "@actions/session";
+import { verifyAccessToken, verifyRefreshToken } from "@actions/jwt";
+import { refreshToken as _refreshToken, getRefreshToken, saveSession, updateSession } from "@actions/session";
 import { ISession } from "@interfaces/sessionInterface";
 import useAxios from "@hooks/useAxios";
 
@@ -34,12 +23,9 @@ const useContextData = () => {
   useLayoutEffect(() => {
     (async () => {
       try {
-        await refreshToken();
-
-        const token = (await getRefreshToken())!;
-        const session = (await verifyAccessToken(token))!;
+        const {refresh_token} = (await refreshToken())!;
+        const session = (await verifyRefreshToken(refresh_token))!;
         const user = session.data.userData;
-
         userRef.current = user;
         setUser(user);
         setSession(session);
@@ -59,7 +45,7 @@ const useContextData = () => {
     if (!session) return router.push("/register");
     const access_token = session.access_token;
     setAccessToken(access_token);
-    return access_token;
+    return session;
   };
 
   const updateUser = async (key: string, value: any) => {
@@ -70,7 +56,7 @@ const useContextData = () => {
 
       const access_token = await updateSession(updatedUser);
       setAccessToken(access_token!);
-      setUser(s=>({ ...updatedUser}));
+      setUser((s) => ({ ...updatedUser }));
     } catch (error) {
       console.log(error);
     }
@@ -87,11 +73,7 @@ const useContextData = () => {
   };
 };
 
-export default function AuthContext({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AuthContext({ children }: { children: React.ReactNode }) {
   const value = useContextData();
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }

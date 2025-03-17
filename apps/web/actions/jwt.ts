@@ -4,15 +4,16 @@ import { ISession } from "@interfaces/sessionInterface";
 import { SignJWT, jwtVerify } from "jose";
 import { JWSInvalid, JWSSignatureVerificationFailed, JWTExpired, JWTInvalid } from "jose/errors";
 
+const USER_TOKEN_SECRET_KEY = new TextEncoder().encode(process.env.JWT_USER_TOKEN_SECRET_KEY);
 const REFRESH_TOKEN_SECRET_KEY = new TextEncoder().encode(process.env.JWT_REFRESH_TOKEN_SECRET_KEY);
 const ACCESS_TOKEN_SECRET_KEY = new TextEncoder().encode(process.env.JWT_ACCESS_TOKEN_SECRET_KEY);
 
-export async function sign(payload: any) {
+export async function createUserToken(payload: any) {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("20sec")
-    .sign(ACCESS_TOKEN_SECRET_KEY);
+    .sign(USER_TOKEN_SECRET_KEY);
 }
 
 export async function createRefreshToken(payload: any) {
@@ -26,7 +27,7 @@ export async function createAccessToken(payload: any) {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("5min")
+    .setExpirationTime("10Sec")
     .sign(ACCESS_TOKEN_SECRET_KEY);
 }
 
@@ -38,7 +39,7 @@ export async function verifyAccessToken(token: string) {
     return { ...payload, expired: false };
   } catch (error) {
     if (error instanceof JWSSignatureVerificationFailed) {
-      console.log("JWSSignatureVerificationFailed");
+      console.log("verifyAccessToken --- > JWSSignatureVerificationFailed");
       return null;
     }
 
@@ -66,7 +67,7 @@ export async function verifyRefreshToken(token: string) {
     return { ...payload, expired: false };
   } catch (error) {
     if (error instanceof JWSSignatureVerificationFailed) {
-      console.log("JWSSignatureVerificationFailed");
+      console.log("verifyRefreshToken --- > JWSSignatureVerificationFailed");
       return null;
     }
 

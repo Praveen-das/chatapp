@@ -2,19 +2,16 @@
 import Avatar from "@features/ui/Avatar";
 import { Input } from "@features/ui/Input";
 import { EditPencil } from "iconoir-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import OtpInput from "react-otp-input";
 
 import PhoneInput, { CountryData } from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import "./inputStyle.css";
 import { CountryCode, isValidPhoneNumber } from "libphonenumber-js";
-import { IUser } from "@interfaces/userInterface";
-import { createUser, fetchUser } from "@actions/auth";
+import { createUser } from "@actions/auth";
 import { useRouter } from "next/navigation";
 import { saveSession } from "@actions/session";
-import { getDeviceDetails } from "@lib/device";
-import { sign } from "@actions/jwt";
 import { verifyOtpAndGetUser } from "@actions/otp";
 
 type IPhoneNUmber = {
@@ -66,7 +63,7 @@ export default function RegistrationPage() {
     if (!phonenumber.value) throw "phonenumber not provided";
 
     const res = await verifyOtpAndGetUser(phonenumber.value);
-
+    
     if (res) {
       return router.replace("/");
     } else {

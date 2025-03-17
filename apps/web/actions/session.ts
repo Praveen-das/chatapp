@@ -4,10 +4,8 @@ import { ISession } from "@interfaces/sessionInterface";
 import axiosClient from "@lib/axiosClient";
 import { getDeviceDetails, getGeoLocationDetails } from "@lib/device";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import { createAccessToken, createRefreshToken, verifyRefreshToken } from "./jwt";
 import { IUser } from "@interfaces/userInterface";
-import useAuth from "@hooks/useAuth";
 
 const cookie: any = {
   name: "token",
@@ -29,7 +27,7 @@ export async function saveSession(user: IUser) {
     const sessionData: ISession = {
       userId: user.id,
       sessionId,
-      data:{
+      data: {
         userData: user,
         deviceData: {
           browser,
@@ -38,10 +36,10 @@ export async function saveSession(user: IUser) {
           city,
           timestamp: Date.now(),
         },
-      }
+      },
     };
 
-    const token = await createAccessToken({userId:sessionData?.userId});
+    const token = await createAccessToken({ userId: sessionData?.userId });
     const refresh_token = await createRefreshToken(sessionData);
 
     await axiosClient.post("/session", JSON.stringify(sessionData));
@@ -57,15 +55,15 @@ export async function updateSession(user: IUser) {
   try {
     const { os, browser, device } = getDeviceDetails();
     const { city } = await getGeoLocationDetails();
-    const token = await getRefreshToken()
-    const session = await verifyRefreshToken(token!)
+    const token = await getRefreshToken();
+    const session = await verifyRefreshToken(token!);
 
-    if(!session) return
+    if (!session) return;
 
     const sessionData: ISession = {
       ...session,
       data: {
-        userData:user,
+        userData: user,
         deviceData: {
           browser,
           os,
@@ -73,16 +71,16 @@ export async function updateSession(user: IUser) {
           city,
           timestamp: Date.now(),
         },
-      }
+      },
     };
 
-    const access_token = await createAccessToken({userId:sessionData?.userId});
+    const access_token = await createAccessToken({ userId: sessionData?.userId });
     const refresh_token = await createRefreshToken(sessionData);
 
     await axiosClient.post("/session", JSON.stringify(sessionData));
 
     cookies().set(cookie.name, refresh_token, cookie.options);
-    return access_token
+    return access_token;
   } catch (error) {
     console.log(error);
   }
@@ -109,36 +107,31 @@ export async function getRefreshToken() {
   return token;
 }
 
-export async function refreshToken(): Promise<{ access_token: string } | null> {
+export async function refreshToken(): Promise<{ access_token: string; refresh_token: string } | null> {
   try {
     const token = await getRefreshToken();
-    
+
     if (!token) return null;
-    
+
     const session = await verifyRefreshToken(token);
-    
+
     if (!session || session.expired) {
-      await clearLocalSession()
-      return null
-    };
-    
-    const res = await axiosClient.get(
-      `/session/fetch?sessionId=${session.sessionId}`
-    );
-    
-    if (!res.data) {
-      await clearLocalSession()
+      await clearLocalSession();
       return null;
     }
 
-    // const sessionData = await verifyRefreshToken(token);
-    const access_token = await createAccessToken({userId:res.data.userId});
-    const refresh_token = await createRefreshToken(res.data);
+    const res = await axiosClient.get(`/session/fetch?sessionId=${session.sessionId}`);
 
-    return { access_token };
-    
+    if (!res.data) {
+      await clearLocalSession();
+      return null;
+    }
+
+    const access_token = await createAccessToken({ userId: session.userId });
+
+    return { access_token, refresh_token: token };
   } catch (error) {
-    console.log('Error refreshToken---->',error)
+    console.log("Error refreshToken---->", error);
     return null;
   }
 }
@@ -150,8 +143,7 @@ export async function clearLocalSession() {
 
 export async function deleteSessionFromDb(sessionId: string) {
   try {
-    const sessions = (await axiosClient.delete(`/session/delete/${sessionId}`))
-      .data;
+    const sessions = (await axiosClient.delete(`/session/delete/${sessionId}`)).data;
     return true;
   } catch (error) {
     return false;

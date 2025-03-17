@@ -1,12 +1,9 @@
 "use server";
 
-import {
-  clearLocalSession,
-  deleteSessionFromDb
-} from "./session";
+import { clearLocalSession, deleteSessionFromDb } from "./session";
 import axiosClient from "@lib/axiosClient";
 import { IUser } from "@interfaces/userInterface";
-import { sign, verifyAccessToken } from "./jwt";
+import { createUserToken } from "./jwt";
 import useAuth from "@hooks/useAuth";
 
 type IUserCreationReq = {
@@ -28,15 +25,11 @@ export async function createUser(req: IUserCreationReq): Promise<IUser | null> {
 
 export async function fetchUser(phonenumber: string): Promise<IUser | null> {
   try {
-    const token = await sign({ phonenumber });
-
-    const res = await axiosClient.get(`/db/user`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
+    const token = await createUserToken({ phonenumber });
+    const res = await axiosClient.get(`/db/user`, { headers: { Authorization: `Bearer ${token}` } });
     return res.data;
   } catch (error) {
-    console.log("fetchUser-------->");
+    console.log("fetchUser-------->", error);
     return null;
   }
 }
@@ -44,7 +37,7 @@ export async function fetchUser(phonenumber: string): Promise<IUser | null> {
 export async function signOut() {
   try {
     const sessionId = useAuth.getState().session?.sessionId;
-    if(!sessionId) return
+    if (!sessionId) return;
     await deleteSessionFromDb(sessionId);
     await clearLocalSession();
     return true;
@@ -53,4 +46,3 @@ export async function signOut() {
     return false;
   }
 }
-

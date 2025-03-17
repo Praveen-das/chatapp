@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import { verify } from "../lib/jwt";
+import { verifyAccessToken } from "../lib/jwt";
+
+const ALLOWED_METHODS = ["GET","POST"]
 
 export async function verifyAuth(
   req: Request,
@@ -7,11 +9,11 @@ export async function verifyAuth(
   next: NextFunction
 ) {
   try {
-    if (req.method === "POST" && req.path === "/user") return next();
+    if (ALLOWED_METHODS.includes(req.method) && req.path === "/user") return next();
 
     const header = req.headers.authorization;
     const token = header?.split(" ")[1];
-    const isAuthorised = await verify(token);
+    const isAuthorised = await verifyAccessToken(token);
 
     if (!isAuthorised) return res.sendStatus(403);
     return next();

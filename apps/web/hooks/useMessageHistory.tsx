@@ -61,7 +61,8 @@ function useMessageHistory() {
       params.append("limit", PAGINATION_LIMIT.toString());
       if (cursor) params.append("c", cursor);
 
-      return await axios.get<IMessage[]>(`/db/messages/fetch?${params.toString()}`).then((res) => res.data);
+      const res = await axios.get<IMessage[]>(`/db/messages/fetch?${params.toString()}`);
+      return res.data
     } catch (error) {
       console.log(error);
       return;
