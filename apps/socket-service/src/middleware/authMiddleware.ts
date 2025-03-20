@@ -24,5 +24,5 @@ export default async function authMiddleware(socket: ISocket, next: any) {
     return next();
   }
 
-  return next(new Error("not authorized"));
+  return next(new Error("Not authorized"));
 }

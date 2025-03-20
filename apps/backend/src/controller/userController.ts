@@ -32,7 +32,7 @@ const _createUser = async (
 
 const _getAllUsers = async (req: Request, res: Response) => {
   const users = await userServices.getAllUsers();
-  res.json(users);
+  return res.json(users);
 };
 
 const _queryUser = async (req: Request, res: Response) => {

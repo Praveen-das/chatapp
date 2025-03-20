@@ -22,13 +22,13 @@ class SocketService implements ISocketService {
 
     pub.on("error", (err) => {
       console.log("Redis pubClient Error", err);
-      // pub.disconnect()
+      pub.disconnect()
       console.log("Client disconnected");
     });
 
     sub.on("error", (err) => {
       console.log("Redis subClient Error", err);
-      // sub.disconnect()
+      sub.disconnect()
       console.log("Client disconnected");
     });
 

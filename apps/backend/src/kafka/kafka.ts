@@ -4,7 +4,7 @@ import { topics } from "../config/kafkaTopics";
 
 const kafka = new Kafka({
   clientId: "chat-application",
-  brokers: ["192.168.1.10:9092"],
+  brokers: [`${process.env.KAFKA_HOST||'192.168.1.10'}:9092`],
   requestTimeout: 1000 * 60 * 5,
   connectionTimeout: 3000,
   retry: {

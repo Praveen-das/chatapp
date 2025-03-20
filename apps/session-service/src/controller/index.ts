@@ -1,15 +1,14 @@
 import { Request, Response } from "express";
 import sessionServices from "../services";
 
-interface SearchQuery {
-  sessionId?: string;
-  userId?: string;
+interface IGetSessionReq extends Request {
+  query: {
+    sessionId: string;
+    userId: string;
+  };
 }
 
-async function _getSession(
-  req: Request<{}, {}, {}, SearchQuery>,
-  res: Response
-) {
+async function _getSession(req: IGetSessionReq, res: Response):Promise<any> {
   const { sessionId, userId } = req.query;
 
   if (sessionId) {

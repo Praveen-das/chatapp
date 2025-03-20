@@ -2,7 +2,7 @@ import { Kafka, Producer } from "kafkajs";
 
 const kafka = new Kafka({
     clientId: "chat-app",
-    brokers: ["192.168.1.10:9092"],
+    brokers: [`${process.env.KAFKA_HOST}:9092`],
 });
 
 let producer: null | Producer = null;

@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 3002;
 
     socket.initListeners();
     
-    socket.io.listen(3002)
+    socket.io.listen(Number(PORT))
 
     // setupWorker(socket.io);
 })()

@@ -7,7 +7,10 @@ const redisConfig = {
     password: 'AVNS_Tdx5-ahhIXg-wizQLSd',
 }
 
-const client = new Redis(6380)
+const client = new Redis({
+    host: process.env.REDIS_HOST,
+    port: Number(process.env.REDIS_PORT),
+  });
 
 client.on('error', err => {
     console.log('Redis subClient Error', err)
