@@ -29,7 +29,7 @@ import userController from "./src/controller/userController";
     console.log("error line 20 ----->", error);
   }
 
-  app.get("/health", (_, res) => res.json({ status: "ok" }));
+  app.get("/health", (_, res) => res.json({ status: "okay" }));
   app.use(verifyAuth);
   app.use(router);
 
