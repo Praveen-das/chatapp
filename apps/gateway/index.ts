@@ -8,10 +8,6 @@ app.use(cors({ origin: "*" }));
 
 const PORT = process.env.PORT || 3001;
 
-app.use('/health',(_,res,next)=>{
-  // res.
-});
-
 const socketService = createProxyMiddleware({
   target: `http://${process.env.SOCKET_SERVICE_HOST || "localhost"}:3002/socket.io`,
   changeOrigin: true,
@@ -32,9 +28,16 @@ const sessionService = createProxyMiddleware({
   logger: console,
 });
 
+const health = createProxyMiddleware({
+  target: `https://chatapp-1-13qo.onrender.com/`,
+  changeOrigin: true,
+  logger: console,
+});
+
 app.use("/socket.io", socketService);
 app.use("/db", db);
 app.use("/session", sessionService);
+app.use("/health", health);
 
 app.use((err: any, req: any, res: any, next: any) => {
   console.log("session service error----------->", err);
