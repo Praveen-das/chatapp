@@ -4,7 +4,7 @@ import sessionController from "../controller";
 
 const router = Router();
 
-router.get("/health", (_:any, res:any) => res.json("ok"));
+router.get("/health", (_, res:any) => res.json({ status: "ok" }));
 
 router.get("/", sessionServices.getAllSessions);
 

@@ -10,26 +10,26 @@ const PORT = process.env.PORT || 3001;
 const LOCALHOST = "http://localhost";
 
 const socketService = createProxyMiddleware({
-  target: `${process.env.SOCKET_SERVICE_URL || LOCALHOST}:3002/socket.io`,
+  target: `${process.env.SOCKET_SERVICE_URL || LOCALHOST+':3002'}/socket.io`,
   changeOrigin: true,
   ws: true,
   logger: console,
 });
 
 const db = createProxyMiddleware({
-  target: `${process.env.BACKEND_URL || LOCALHOST}:4000`,
+  target: `${process.env.BACKEND_URL || LOCALHOST+':4000'}`,
   changeOrigin: true,
   logger: console,
 });
 
 const sessionService = createProxyMiddleware({
-  target: `${process.env.SESSION_SERVICE_URL || LOCALHOST}:5000`,
+  target: `${process.env.SESSION_SERVICE_URL || LOCALHOST + ":5000"}`,
   changeOrigin: true,
   logger: console,
 });
 
 const health = createProxyMiddleware({
-  target: `https://chatapp-1-13qo.onrender.com/`,
+  target: `${process.env.HEALTH_SERVICE_URL}|| LOCALHOST + ":3003"`,
   changeOrigin: true,
   logger: console,
 });
