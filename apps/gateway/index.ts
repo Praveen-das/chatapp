@@ -10,14 +10,14 @@ const PORT = process.env.PORT || 3001;
 const LOCALHOST = "http://localhost";
 
 const socketService = createProxyMiddleware({
-  target: `${process.env.SOCKET_SERVICE_URL || LOCALHOST+':3002'}/socket.io`,
+  target: `${process.env.SOCKET_SERVICE_URL || LOCALHOST + ":3002"}/socket.io`,
   changeOrigin: true,
   ws: true,
   logger: console,
 });
 
 const db = createProxyMiddleware({
-  target: `${process.env.BACKEND_URL || LOCALHOST+':4000'}`,
+  target: `${process.env.BACKEND_URL || LOCALHOST + ":4000"}`,
   changeOrigin: true,
   logger: console,
 });
@@ -29,7 +29,7 @@ const sessionService = createProxyMiddleware({
 });
 
 const health = createProxyMiddleware({
-  target: `${process.env.HEALTH_SERVICE_URL}|| LOCALHOST + ":3003"`,
+  target: `${process.env.HEALTH_SERVICE_URL || LOCALHOST + ":3003"}`,
   changeOrigin: true,
   logger: console,
 });
