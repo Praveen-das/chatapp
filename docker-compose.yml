@@ -100,9 +100,9 @@ services:
     #   - pubsub
     #   - kafka
     environment:
-      - SOCKET_SERVICE_HOST=socket-service
-      - SESSION_SERVICE_HOST=sessionservice
-      - BACKEND_HOST=backend
+      - SOCKET_SERVICE_URL=http://socket-service
+      - SESSION_SERVICE_URL=http://sessionservice
+      - BACKEND_URL=http://backend
       - NODE_ENV=production
     ports:
       - 3001:3001

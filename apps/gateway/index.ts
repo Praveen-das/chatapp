@@ -7,23 +7,23 @@ const app = connect();
 app.use(cors({ origin: "*" }));
 
 const PORT = process.env.PORT || 3001;
+const LOCALHOST = "http://localhost";
 
 const socketService = createProxyMiddleware({
-  target: `http://${process.env.SOCKET_SERVICE_HOST || "localhost"}:3002/socket.io`,
+  target: `${process.env.SOCKET_SERVICE_URL || LOCALHOST}:3002/socket.io`,
   changeOrigin: true,
   ws: true,
   logger: console,
 });
 
 const db = createProxyMiddleware({
-  target: `http://${process.env.BACKEND_HOST || "localhost"}:4000`,
+  target: `${process.env.BACKEND_URL || LOCALHOST}:4000`,
   changeOrigin: true,
   logger: console,
 });
 
-
 const sessionService = createProxyMiddleware({
-  target: `http://${process.env.SESSION_SERVICE_HOST || "localhost"}:5000`,
+  target: `${process.env.SESSION_SERVICE_URL || LOCALHOST}:5000`,
   changeOrigin: true,
   logger: console,
 });
