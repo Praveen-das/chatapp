@@ -21,6 +21,7 @@ const db = createProxyMiddleware({
   logger: console,
 });
 
+
 const sessionService = createProxyMiddleware({
   target: `http://${process.env.SESSION_SERVICE_HOST || "localhost"}:5000`,
   changeOrigin: true,
