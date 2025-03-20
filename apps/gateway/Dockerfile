@@ -29,6 +29,7 @@ WORKDIR /app
 # Create a non-root user
 RUN addgroup -S nodejs && adduser -S nodejs -G nodejs
 USER nodejs
+EXPOSE 3001
 
 # Copy only built output and node_modules
 COPY --from=installer /app/ ./

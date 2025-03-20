@@ -23,5 +23,6 @@
     "connect": "^3.7.0",
     "cors": "^2.8.5",
     "http-proxy-middleware": "^3.0.3"
-  }
+  },
+  "packageManager": "npm@10.2.4"
 }
