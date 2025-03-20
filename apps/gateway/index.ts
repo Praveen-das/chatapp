@@ -8,6 +8,10 @@ app.use(cors({ origin: "*" }));
 
 const PORT = process.env.PORT || 3001;
 
+app.use('/health',(_,res,next)=>{
+  // res.
+});
+
 const socketService = createProxyMiddleware({
   target: `http://${process.env.SOCKET_SERVICE_HOST || "localhost"}:3002/socket.io`,
   changeOrigin: true,
