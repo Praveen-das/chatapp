@@ -40,7 +40,7 @@ app.use("/session", sessionService);
 app.use("/health", health);
 
 app.use((err: any, req: any, res: any, next: any) => {
-  console.log("session service error------------>", err);
+  console.log("session service error------------->", err);
 });
 
 app.listen(3001, () => {
