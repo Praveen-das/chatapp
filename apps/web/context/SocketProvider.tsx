@@ -22,12 +22,11 @@ import { IDeleteResponse, IMessage, IReadReceiptUpdatesCollection, IUpdates } fr
 import { IUser } from "../interfaces/userInterface";
 import { IGroupCreationReq } from "../interfaces/groupInterface";
 import { processMessagesForUser } from "@lib/messages";
-import { decrypt } from "@lib/e2e";
 import { useRouter } from "next/navigation";
-import { clearLocalSession, getRefreshToken } from "@actions/session";
+import { clearLocalSession } from "@actions/session";
 import { getReceiver } from "@lib/conversation";
-import idb from "@lib/idb";
 import useIndexedDb from "@lib/idb";
+import { encrypt } from "@lib/e2e";
 
 declare global {
   interface Map<K, V> {
@@ -60,7 +59,7 @@ const useContextData = () => {
   const removeMember = useConversationStore((s) => s.removeMember);
   const setSelectedConversation = useConversationStore((s) => s.setSelectedConversation);
   const setMediaStore = useAttachments((s) => s.setMediaStore);
-  const idb = useIndexedDb()
+  const idb = useIndexedDb();
 
   useEffect(() => {
     if (!user) return;
@@ -202,11 +201,10 @@ const useContextData = () => {
 
       if (!receiver) return;
 
-      const text = decrypt(recentMessage?.message!);
-      
+      const text = recentMessage?.message!;
+
       const notificationDisabledForUser = await idb.get(receiver.id);
-      !notificationDisabledForUser &&
-      sendBrowserNotification(text, receiver.username, receiver.icon);
+      !notificationDisabledForUser && sendBrowserNotification(text, receiver.username, receiver.icon);
     }
   }
 
@@ -474,6 +472,10 @@ const useContextData = () => {
   const sendMessage = (conversation: IConversation, messages: IMessage[]) => {
     let conversationId = conversation.conversationId!;
     let receivers;
+
+    messages.forEach((m) => {
+      if (m.message) m.message = encrypt(m.message);
+    });
 
     if (conversation.host === "user") {
       if (conversation.blockedByUser) {

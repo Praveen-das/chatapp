@@ -33,7 +33,7 @@ function LinkManagement({ conversationId }: { conversationId: string }) {
       state: [
         {
           id: "",
-          message: encrypt(`http://localhost:3000/invite/${conversation.invitationId}`),
+          message: `http://localhost:3000/invite/${conversation.invitationId}`,
         },
       ],
       open: true,

@@ -3,17 +3,12 @@ import { IConversation, INewConversation } from "@interfaces/conversationInterfa
 import {
   IAttachment,
   IImageAttachment,
-  IMessage,
-  IReadReceipt,
-  IReadReceiptUpdatesCollection,
-  IUnreadMessageMeta,
-  IUpdatesCollection,
-  IUrlAttachment,
+  IMessage, IReadReceiptUpdatesCollection, IUrlAttachment
 } from "@interfaces/messageInterface";
 import ObjectID from "bson-objectid";
 import { IMessageReadReceipt } from "enums/enums";
 import { useMessageStore } from "store/messageStore";
-import { encrypt } from "./e2e";
+import { decrypt } from "./e2e";
 import { IUser } from "@interfaces/userInterface";
 import { useStore } from "store/global";
 import { getReceiver } from "./conversation";
@@ -61,10 +56,9 @@ export const generateMessageTemplate = (
   attachment?: IAttachment
 ) => {
   const replyRequest = useMessageStore.getState().replyRequest;
-  const encryptedMessage = message ? encrypt(message) : message;
 
   return createMessageTemplate(conversation, {
-    message: encryptedMessage,
+    message,
     attachment,
     replyRequest,
   });
@@ -97,6 +91,9 @@ export function processMessagesForUser(user: IUser, status: IMessageReadReceipt,
   }
 
   for (let message of messages) {
+    if(message.message)message.message=  decrypt(message.message)
+    if(message.reply?.message) message.reply.message = decrypt(message.reply.message)
+      
     message.user = users.find((u) => u.id === message.from);
 
     if (message.isPlaceholder) {

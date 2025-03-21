@@ -1,15 +1,10 @@
 import Redis from 'ioredis'
 
-const redisConfig = {
-    host: "redis-e7e3656-artworld.a.aivencloud.com",
-    port: 17595,
-    username: 'default',
-    password: 'AVNS_Tdx5-ahhIXg-wizQLSd',
-}
-
 const client = new Redis({
     host: process.env.REDIS_HOST,
     port: Number(process.env.REDIS_PORT),
+    username: process.env.REDIS_USERNAME,
+    password: process.env.REDIS_PASSWORD,
   });
 
 client.on('error', err => {

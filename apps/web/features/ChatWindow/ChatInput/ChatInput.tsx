@@ -1,5 +1,5 @@
 "use client";
-import React, { ChangeEvent, memo, useEffect, useRef, useState } from "react";
+import React, { ChangeEvent, memo, useRef, useState } from "react";
 import { Popover } from "@headlessui/react";
 
 import useSocket from "../../../context/SocketProvider";
@@ -13,25 +13,18 @@ import InputButton from "../../ui/InputButton";
 import { useConversationStore } from "../../../store/conversationStore";
 import useSelectedConversation from "@hooks/useSelectedConversation";
 import LinkPreview from "../../ui/LinkPreview";
-import { getUrlMetadata } from "@lib/fetchers";
 import { getImages } from "@lib/utils";
 import { SendSolid } from "iconoir-react";
 import {
-  ArrowUturnRightIcon,
-  ChatBubbleLeftRightIcon,
-  DocumentTextIcon,
+  ArrowUturnRightIcon, DocumentTextIcon,
   XCircleIcon,
-  XMarkIcon,
+  XMarkIcon
 } from "@heroicons/react/24/solid";
-import socket from "@lib/ws";
-import { handleGeneratingConversation } from "@lib/conversation";
 import { IUrlAttachment } from "@interfaces/messageInterface";
 import ObjectID from "bson-objectid";
 import { generateMessageTemplate } from "@lib/messages";
 import ImageAttachmentPreview from "./AttachmentPreview/ImageAttachmentPreview";
 import UrlAttachmentPreview from "./AttachmentPreview/UrlAttachmentPreview";
-import { decrypt } from "@lib/e2e";
-import { ai } from "@lib/openAI";
 import { FaceSmileIcon } from "@heroicons/react/24/outline";
 import useUrlParser from "./useUrlParser";
 
@@ -87,7 +80,7 @@ function Input(): React.ReactNode {
 
   const sender = selectedConversation?.members.find((m) => m.id === replyRequest?.userId);
   const receiver = sender?.id === user?.id ? "You" : sender?.username!;
-  const replyMessage = replyRequest?.message ? decrypt(replyRequest.message) : null;
+  const replyMessage = replyRequest?.message || '';
 
   const handleEmoji = (emoji: any) => {
     setMessageString((s) => s.concat(emoji.native));

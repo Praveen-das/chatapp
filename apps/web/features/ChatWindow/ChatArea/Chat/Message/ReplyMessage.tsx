@@ -1,9 +1,7 @@
 "use client";
-import React from "react";
 import { IMessageReply } from "@interfaces/messageInterface";
 import useAuth from "@hooks/useAuth";
 import { PhotoIcon } from "@heroicons/react/16/solid";
-import { decrypt } from "@lib/e2e";
 import { useConversationStore } from "store/conversationStore";
 
 export function ReplyMessage({
@@ -22,7 +20,7 @@ export function ReplyMessage({
     (m) => m.id === reply.userId
   );
   const self = user?.id === sender?.id;
-  const messageString = reply.message ? decrypt(reply.message) : null;
+  const messageString = reply.message;
 
   return (
     <div

@@ -7,7 +7,6 @@ import ImageAttachment from "./Attachments/ImageAttachment";
 import UrlAttachment from "./Attachments/UrlAttachment";
 import { ArrowUturnLeftIcon } from "@heroicons/react/24/solid";
 import { EllipsisVerticalIcon } from "@heroicons/react/24/solid";
-import { decrypt } from "@lib/e2e";
 import { ChatIndicators } from "./ChatIndicators/ChatIndicators";
 import { DeletedMessage } from "./Message/DeletedMessage";
 import { ReplyMessage } from "./Message/ReplyMessage";
@@ -19,7 +18,6 @@ import { useMessageStore } from "store/messageStore";
 import classNames from "classnames";
 import { useStore } from "store/global";
 import { IUser } from "@interfaces/userInterface";
-import { useConversationStore } from "store/conversationStore";
 import { scrolleToIndexHelper } from "@lib/events";
 
 interface IChatProps {
@@ -85,9 +83,8 @@ function Chat({
 export default memo(Chat);
 
 function RenderChat({ chat, ...chatProps }: { chat: IMessage } & IChatProps) {
-  const isEncrypted = Boolean(chat.message) && chat.from !== "system";
   const attachment = chat.attachment!;
-  const messageString = isEncrypted ? decrypt(chat.message) : chat.message;
+  const messageString = chat.message;
   const isEmoji = matchEmoji(messageString);
   const haveAttachment = !!chat.attachment;
 
@@ -126,7 +123,7 @@ function RenderChat({ chat, ...chatProps }: { chat: IMessage } & IChatProps) {
         "w-min": canShowAttachment,
       })}
     >
-      <ImageAttachment attachment={attachment as IImageAttachment} />
+      <ImageAttachment attachment={attachment as IImageAttachment} isPlaceholder={Boolean(chat.isPlaceholder)} />
       <div className={messageClassNames}>
         {chat.deleted ? (
           <DeletedMessage />

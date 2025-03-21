@@ -1,7 +1,5 @@
 "use client";
-import React from "react";
 import { CameraIcon } from "@heroicons/react/16/solid";
-import { decrypt } from "@lib/e2e";
 import { IMessage } from "@interfaces/messageInterface";
 import { LinkIcon } from "@heroicons/react/24/solid";
 
@@ -12,9 +10,7 @@ export function DisplayRecentMessage({
   recentMessage: IMessage;
   sender?: string;
 }) {
-  const messageString = recentMessage?.message
-    ? decrypt(recentMessage.message)
-    : '';
+  const messageString = recentMessage?.message||'';
 
   const messageType =
     recentMessage?.attachment?.type === "images"

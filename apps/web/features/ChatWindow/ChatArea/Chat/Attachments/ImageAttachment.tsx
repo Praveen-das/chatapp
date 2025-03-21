@@ -12,19 +12,18 @@ declare module "csstype" {
   }
 }
 
-const ImageAttachment = ({ attachment }: { attachment: IImageAttachment }) => {
+const ImageAttachment = ({ attachment,isPlaceholder }: { attachment: IImageAttachment;isPlaceholder:boolean }) => {
   if(attachment?.type !== "images") return null
   
   const setModal = useStore(s=>s.setModal);
   const uploadProgress =
     useStore((s) => s.uploadProgress).get(attachment.fileId!) || 0;
-  const isUploading = attachment.status === "uploading";
   const uploadingCompleted = uploadProgress === 100;
   const width = attachment.width!;
   const height = attachment.height!;
 
   const handleClick = () => {
-    if (isUploading) return;
+    if (isPlaceholder) return;
     setModal({activeModal:'imageViewer',state:attachment,open:true})
   };
 
@@ -40,9 +39,9 @@ const ImageAttachment = ({ attachment }: { attachment: IImageAttachment }) => {
           [ASPECT_RATIO > 1 ? "width" : "height"]: "300px",
         }}
       >
-        {isUploading && (
+        {isPlaceholder && (
           <div
-            className={`backdrop-blur-md bg-black/50 flex justify-center items-center duration-200 absolute inset-0 rounded-lg`}
+            className={`backdrop-blur-md bg-black/50 flex justify-center items-center duration-200 absolute inset-0 rounded-lg z-10`}
           >
             {uploadingCompleted ? (
               <span className="loading loading-spinner w-[50px]"></span>
