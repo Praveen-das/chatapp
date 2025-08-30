@@ -104,7 +104,7 @@ const GroupCreationTab = () => {
   return (
     <div className="flex flex-col h-full">
       <Header title="Create Group" mainTab="addMembersToGroup" />
-      <div className="flex relative flex-col items-center justify-around px-6 py-8 h-full w-full">
+      <div className="flex relative flex-col items-center justify-around px-6 pb-8 h-full w-full">
         <Menu id="GROUP_CREATION" clientPoint>
           {options.map(({ handler, label }) => (
             <Menu.Item key={label} onClick={handler}>
@@ -125,7 +125,7 @@ const GroupCreationTab = () => {
         <Input label="Group name" value={displayName} onChange={setGroupName} />
       </div>
       <div className="flex justify-center pb-8">
-        <button onClick={handleSubmit} className="btn btn-circle btn-md btn-primary text-white">
+        <button onClick={handleSubmit} className="btn btn-circle btn-md btn-primary text-[--black-white]">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-7 h-7 ">
             <path
               fillRule="evenodd"

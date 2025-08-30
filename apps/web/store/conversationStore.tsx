@@ -1,228 +1,207 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import {
-  IUserConversation,
   IGroupConversation,
   IGroupMember,
   IConversation,
   IConversationBase,
-} from "../interfaces/conversationInterface";
-import { IUser } from "../interfaces/userInterface";
-import { IMessage } from "@interfaces/messageInterface";
+  ISystemConversation,
+  IUserConversation,
+} from "@repo/interfaces/conversationInterface";
+import { IMessage } from "@repo/interfaces/messageInterface";
+import { IUser, IUserRuleChangeRequest, IUserRules } from "@repo/interfaces/userInterface";
 
-interface IMessageStore {
+type IConversationStore = {
   conversations: IConversation[];
-
-  setConversation: (conversations: IConversation) => void;
-  updateConversation: (
-    conversationId: string,
-    updates: Partial<IConversationBase>
-  ) => void;
-  deleteConversation: (conversationId: string) => void;
-  updateGroupConversation: (
-    conversationId: string,
-    updates: Partial<IGroupConversation>
-  ) => void;
-  setAdmin: (conversationId: string, userId: string, isAdmin: boolean) => void;
-
-  addMembers: (conversationId: string, users: IGroupMember[]) => void;
-  removeMember: (conversationId: string, userId: string) => void;
-  addGroupTag: (conversationId: string, tag: string) => void;
-  removeGroupTag: (conversationId: string, tag: string) => void;
-
-  selectedConversation: IConversation | null;
-  setSelectedConversation: (conversationId: string | null) => void;
-
-  addToStarred: (id: string, message: IMessage[]) => void;
-  removeFromStarred: (id: string, messageId: string) => void;
-  clearStarred: (id: string) => void;
-  updateConversationRule: (userId: string, rule: IUserRules) => void;
-
-  updateUserStatus: (
-    userId: string,
-    status: "online" | "offline",
-    lastSeen?: number
-  ) => void;
-}
+  selectedConversation?: IConversation | null;
+  conversationActions: {
+    setConversation: (conversations: IConversation) => void;
+    updateConversation: (conversationId: string, updates: Partial<IConversationBase>) => void;
+    deleteConversation: (conversationId: string) => void;
+    setSelectedConversation: (conversationId: string | null) => void;
+    addToStarred: (id: string, message: IMessage[]) => void;
+    removeFromStarred: (id: string, messageId: string) => void;
+    clearStarred: (id: string) => void;
+    updateConversationRule: (userId: string, rule: IUserRuleChangeRequest["updates"]["rules"]) => void;
+    updateUserStatus: (userId: string, status: "online" | "offline", lastSeen?: number) => void;
+  };
+  groupActions: {
+    updateGroupConversation: (conversationId: string, updates: Partial<IGroupConversation>) => void;
+    setAdmin: (conversationId: string, userId: string, isAdmin: boolean) => void;
+    addMembers: (conversationId: string, users: IGroupMember[]) => void;
+    removeMember: (conversationId: string, userId: string) => void;
+    addGroupTag: (conversationId: string, tag: string) => void;
+    removeGroupTag: (conversationId: string, tag: string) => void;
+  };
+  reset: () => void;
+};
 
 const store = create(
-  subscribeWithSelector<IMessageStore>((set, get) => {
+  subscribeWithSelector<IConversationStore>((set, get) => {
     return {
-      addGroupTag: (conversationId, tag) => {
-        const conversations = get().conversations.map((c) => {
-          if (c.id === conversationId && c.host === "group") {
-            return { ...c, tags: [tag,...c.tags] };
-          }
-          return c;
-        });
-        set({ conversations });
-      },
-      removeGroupTag: (conversationId, tag) => {
-        const conversations = get().conversations.map((c) => {
-          if (c.id === conversationId && c.host === "group") {
-            return { ...c, tags: c.tags.filter((t) => t !== tag) };
-          }
-          return c;
-        });
-        set({ conversations });
-      },
-      updateUserStatus: (userId, status, lastSeen) => {
-        const conversations = get().conversations.map((c) => {
-          if (c.host === "user")
-            return {
-              ...c,
-              members: c.members.map((m) =>
-                m.id === userId
-                  ? { ...m, status, lastSeen: lastSeen || m.lastSeen }
-                  : m
-              ),
-            };
-          return c;
-        });
-        set({ conversations });
-      },
-      updateConversationRule: (userId, rule) => {
-        const conversations = get().conversations.map((c) => {
-          const members: any = c.members.map((m) => {
-            if (m.id === userId)
-              return { ...m, rules: { ...m.rules, ...rule } };
-            return m;
-          });
-          return { ...c, members };
-        });
-        set({ conversations });
-      },
-
       conversations: [],
-      setConversation: (conversation) => {
-        if (conversation.host === "group") {
-          conversation.members.forEach((member) => {
-            member.isAdmin = conversation.admins.includes(member.id!);
-          });
-        }
-
-        let conversations = get().conversations;
-        conversations = conversations.filter(
-          (c) => c.conversationId !== conversation.conversationId
-        );
-        conversations.push(conversation);
-
-        set({ conversations });
-      },
-      updateGroupConversation: (conversationId, updates) => {
-        const conversations = get().conversations.map((c) => {
-          if (c.id === conversationId && c.host === "group") {
-            // if (c.host === "group" && updates.host === 'group') {
-            //   //   if ("admins" in updates) {
-            //   //     let members = c.members.map((member: any) => {
-            //   //       return {
-            //   //         ...member,
-            //   //         isAdmin: updates.admins?.includes(member.id!),
-            //   //       };
-            //   //     });
-            //   //     return { ...c, members };
-            //   //   }
-            //   // return { ...c, ...updates };
-            //   return { ...c, ...updates };
-            // } else if(c.host === "user" && updates.host === 'user') {
-            // }
-            return { ...c, ...updates };
-          }
-
-          return c;
-        });
-
-        set({ conversations });
-      },
-      setAdmin: (conversationId, userId, isAdmin) => {
-        const conversations = get().conversations.map((c) => {
-          if (c.conversationId === conversationId && c.host === "group") {
-            const members = c.members.map((m) =>
-              m.id === userId ? { ...m, isAdmin } : m
-            );
-            return { ...c, members };
-          }
-
-          return c;
-        });
-
-        set({ conversations });
-      },
-      updateConversation: (id, updates) => {
-        const _conversations = get().conversations;
-
-        const conversations = _conversations.map((c) =>
-          c.id === id ? { ...c, ...updates } : c
-        );
-
-        set({ conversations });
-      },
-      deleteConversation: (id) => {
-        const conversations = get().conversations.filter((c) => c.id !== id);
-        set({ conversations });
-      },
-
-      addMembers: (conversationId, members) => {
-        const conversations = get().conversations.map((c) => {
-          if (c.conversationId === conversationId && c.host === "group")
-            c.members.push(...members);
-          return c;
-        });
-
-        set({ conversations });
-      },
-      removeMember: (conversationId, userId) => {
-        let conversations = get().conversations.map((c) => {
-          if (c.id === conversationId && c.host === "group") {
-            let members = c.members.filter((m) => m.id !== userId);
-            let admins = c.admins.filter((id) => id !== userId);
-            return { ...c, members, admins };
-          }
-          return c;
-        });
-
-        set({ conversations });
-      },
-
       selectedConversation: null,
-      setSelectedConversation: (conversationId) => {
-        const conversations = get().conversations;
+      reset: () => set({ conversations: [], selectedConversation: null }),
+      conversationActions: {
+        setConversation: (conversation) => {
+          if (conversation.host === "group") {
+            conversation.members.forEach((member) => {
+              member.isAdmin = conversation.admins.includes(member.id!);
+            });
+          }
 
-        let selectedConversation = conversations.find(
-          (s) => s.id === conversationId
-        );
+          let conversations = get().conversations;
+          conversations = conversations.filter((c) => c.conversationId !== conversation.conversationId);
+          conversations.push(conversation);
 
-        set({
-          selectedConversation,
-        });
-      },
+          set({ conversations });
+        },
+        updateUserStatus: (userId, status, lastSeen) => {
+          const conversations = get().conversations.map((c) => {
+            if (c.host === "user") {
+              const members = c.members.map((m) => (m.id === userId ? m : m)) as [IUser, IUser];
+              return { ...c, members };
+            }
+            return c;
+          });
 
-      addToStarred: (id, messages) => {
-        const conversations = get().conversations.map((c) =>
-          c.id === id
-            ? {
-                ...c,
-                starred: !!c.starred?.length
-                  ? [...c.starred!, ...messages]
-                  : [...messages],
-              }
-            : c
-        );
-        set({ conversations });
+          set({ conversations });
+        },
+        updateConversationRule: (userId, rule) => {
+          const conversations = get().conversations.map((c) => {
+            const members: any =
+              c.host === "user" &&
+              c.members.map((m) => {
+                if (m.id === userId) return { ...m, rules: { ...m.rules, ...rule } };
+                return m;
+              });
+            return { ...c, members };
+          });
+          set({ conversations });
+        },
+        updateConversation: (id, update) => {
+          const _conversations = get().conversations;
+
+          const conversations = _conversations.map((c) => (c.id === id ? { ...c, ...update } : c));
+
+          set({ conversations });
+        },
+        deleteConversation: (id) => {
+          const conversations = get().conversations.filter((c) => c.id !== id);
+          set({ conversations });
+        },
+        setSelectedConversation: (conversationId) => {
+          const conversations = get().conversations;
+
+          let selectedConversation = conversations.find((s) => s.id === conversationId);
+
+          set({
+            selectedConversation,
+          });
+        },
+        addToStarred: (id, messages) => {
+          function getModifiedStarredMessages<T extends IConversation>(c: T) {
+            if (c.id === id) {
+              const starred = [...(c.starred ?? []), ...messages];
+              return { ...c, starred } as IConversation;
+            }
+            return c;
+          }
+
+          const conversations = get().conversations.map((c) => getModifiedStarredMessages(c));
+          set({ conversations });
+        },
+        removeFromStarred: (id: string, messageId: string) => {
+          const conversations = get().conversations.map((c) => {
+            if (c.id !== id) {
+              let starred = { ...c, starred: c.starred?.filter((c) => c.id !== messageId) };
+              return starred as IConversation;
+            }
+            return c;
+          });
+          set({ conversations });
+        },
+        clearStarred: (id) => {
+          const conversations = get().conversations.map((c) => (c.id !== id ? c : { ...c, starred: [] }));
+          set({ conversations });
+        },
       },
-      removeFromStarred: (id: string, messageId: string) => {
-        const conversations = get().conversations.map((c) =>
-          c.id !== id
-            ? c
-            : { ...c, starred: c.starred?.filter((c) => c.id !== messageId) }
-        );
-        set({ conversations });
-      },
-      clearStarred: (id) => {
-        const conversations = get().conversations.map((c) =>
-          c.id !== id ? c : { ...c, starred: [] }
-        );
-        set({ conversations });
+      groupActions: {
+        addGroupTag: (conversationId, tag) => {
+          const conversations = get().conversations.map((c) => {
+            if (c.id === conversationId && c.host === "group") {
+              return { ...c, tags: [tag, ...c.tags] };
+            }
+            return c;
+          });
+          set({ conversations });
+        },
+        removeGroupTag: (conversationId, tag) => {
+          const conversations = get().conversations.map((c) => {
+            if (c.id === conversationId && c.host === "group") {
+              return { ...c, tags: c.tags.filter((t) => t !== tag) };
+            }
+            return c;
+          });
+          set({ conversations });
+        },
+        updateGroupConversation: (conversationId, updates) => {
+          const conversations = get().conversations.map((c) => {
+            if (c.id === conversationId && c.host === "group") {
+              // if (c.host === "group" && updates.host === 'group') {
+              //   //   if ("admins" in updates) {
+              //   //     let members = c.members.map((member: any) => {
+              //   //       return {
+              //   //         ...member,
+              //   //         isAdmin: updates.admins?.includes(member.id!),
+              //   //       };
+              //   //     });
+              //   //     return { ...c, members };
+              //   //   }
+              //   // return { ...c, ...updates };
+              //   return { ...c, ...updates };
+              // } else if(c.host === "user" && updates.host === 'user') {
+              // }
+              return { ...c, ...updates };
+            }
+
+            return c;
+          });
+
+          set({ conversations });
+        },
+        setAdmin: (conversationId, userId, isAdmin) => {
+          const conversations = get().conversations.map((c) => {
+            if (c.conversationId === conversationId && c.host === "group") {
+              const members = c.members.map((m) => (m.id === userId ? { ...m, isAdmin } : m));
+              return { ...c, members };
+            }
+
+            return c;
+          });
+
+          set({ conversations });
+        },
+        addMembers: (conversationId, members) => {
+          const conversations = get().conversations.map((c) => {
+            if (c.conversationId === conversationId && c.host === "group") c.members.push(...members);
+            return c;
+          });
+
+          set({ conversations });
+        },
+        removeMember: (conversationId, userId) => {
+          let conversations = get().conversations.map((c) => {
+            if (c.id === conversationId && c.host === "group") {
+              let members = c.members.filter((m) => m.id !== userId);
+              let admins = c.admins.filter((id) => id !== userId);
+              return { ...c, members, admins };
+            }
+            return c;
+          });
+
+          set({ conversations });
+        },
       },
     };
   })

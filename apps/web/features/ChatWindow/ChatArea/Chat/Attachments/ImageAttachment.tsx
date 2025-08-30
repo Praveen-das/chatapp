@@ -1,8 +1,9 @@
-import Image from "next/image";
+import { ImageProps } from "next/image";
 import { useAttachments } from "../../../../../store/attachments";
-import { IImageAttachment } from "../../../../../interfaces/messageInterface";
+import { IImageAttachment } from "@repo/interfaces/messageInterface";
 import { useStore } from "../../../../../store/global";
-import {IKImage} from 'imagekitio-next'
+import { DetailedHTMLProps, ImgHTMLAttributes, useEffect, useLayoutEffect, useState } from "react";
+import { CustomImage } from "@features/ui/CustomImage";
 
 declare module "csstype" {
   interface Properties {
@@ -12,28 +13,29 @@ declare module "csstype" {
   }
 }
 
-const ImageAttachment = ({ attachment,isPlaceholder }: { attachment: IImageAttachment;isPlaceholder:boolean }) => {
-  if(attachment?.type !== "images") return null
-  
-  const setModal = useStore(s=>s.setModal);
-  const uploadProgress =
-    useStore((s) => s.uploadProgress).get(attachment.fileId!) || 0;
+const ImageAttachment = ({ attachment, isPlaceholder }: { attachment: IImageAttachment; isPlaceholder: boolean }) => {
+  if (attachment?.type !== "images") return null;
+
+  const setModal = useStore((s) => s.setModal);
+  const uploadProgress = useStore((s) => s.uploadProgress).get(attachment.fileId!) || 0;
   const uploadingCompleted = uploadProgress === 100;
   const width = attachment.width!;
   const height = attachment.height!;
 
   const handleClick = () => {
     if (isPlaceholder) return;
-    setModal({activeModal:'imageViewer',state:attachment,open:true})
+    setModal({ activeModal: "imageViewer", state: attachment, open: true });
   };
 
   const ASPECT_RATIO = width / height;
+
+  const [base64, setBase64] = useState("");
 
   return (
     <>
       <div
         onClick={handleClick}
-        className="flex relative"
+        className="flex relative bg-contain rounded-2xl overflow-clip"
         style={{
           aspectRatio: ASPECT_RATIO,
           [ASPECT_RATIO > 1 ? "width" : "height"]: "300px",
@@ -60,12 +62,11 @@ const ImageAttachment = ({ attachment,isPlaceholder }: { attachment: IImageAttac
             )}
           </div>
         )}
-        <Image
+        <CustomImage
+          href={attachment.url}
+          placeHolder={attachment.url + "?tr=w-5"}
           fill
           sizes="(max-width: 500px) 100vw 180px"
-          src={attachment.url!}
-          className="rounded-2xl"
-          alt={attachment.name!}
         />
       </div>
     </>

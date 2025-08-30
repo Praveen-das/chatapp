@@ -4,7 +4,7 @@ import { uploadImage } from "@lib/imageKit";
 import { useMenu } from "store/menu";
 import Menu from "@features/ui/Menu";
 import Avatar from "@features/ui/Avatar";
-import { IGroupConversation } from "@interfaces/conversationInterface";
+import { IGroupConversation } from "@repo/interfaces/conversationInterface";
 import useSocket from "context/SocketProvider";
 import { useStore } from "store/global";
 
@@ -68,10 +68,6 @@ export function AvatarWrapper({ conversation, userIsAdmin }: { conversation: IGr
           </Menu.Item>
         ))}
       </Menu>
-      {/* <div ref={setReference} className="absolute z-50" style={{ top: menu?.position?.y, left: menu?.position?.x }}>
-              <div>
-              </div>
-            </div> */}
 
       <Avatar
         id="group_avatar"

@@ -1,42 +1,46 @@
-import { Blob } from "buffer";
 import { create } from "zustand";
 import {
   IAttachment,
   IImageAttachment,
   IImagePayload,
   IMediaStore,
+  IUrlAttachment,
   IUserMedia,
-} from "../interfaces/messageInterface";
+} from "@repo/interfaces/messageInterface";
 
-interface IAttachmentsContext {
+interface State {
   imageSelectionModal: boolean;
-  setImageSelectionModal: (action: boolean) => void;
-
   images: IImagePayload[];
+  mediaStore: IMediaStore;
+  selectedAttachment: IImageAttachment | null;
+}
+
+interface Actions {
+  setImageSelectionModal: (action: boolean) => void;
   addImages: (payload: IImagePayload[]) => void;
   removeImages: (index: number) => void;
   clearImages: () => void;
-
-  mediaStore: IMediaStore;
   setMediaStore: (conversationId: string, userMedia: IUserMedia) => void;
-  addToMediaStore: (
-    conversationId: string,
-    type: keyof IUserMedia,
-    attachment: IAttachment[]
-  ) => void;
-
-  selectedAttachment: IImageAttachment | null;
+  addToMediaStore: (conversationId: string, type: keyof IUserMedia, attachment: IAttachment[]) => void;
   setSelectedAttachment: (attachment: IImageAttachment | null) => void;
+  reset: () => void;
 }
+
+type IAttachmentsContext = State & Actions;
+
+const getInitialState = (): State => ({
+  imageSelectionModal: false,
+  images: [],
+  mediaStore: new Map(),
+  selectedAttachment: null,
+});
 
 export const useAttachments = create<IAttachmentsContext>((set, get) => {
   return {
-    imageSelectionModal: false,
+    ...getInitialState(),
+    reset: () => set(getInitialState()),
     setImageSelectionModal: (action) => set({ imageSelectionModal: action }),
-
-    images: [],
-    addImages: (payload: IImagePayload[]) =>
-      set((s) => ({ images: [...payload, ...s.images] })),
+    addImages: (payload: IImagePayload[]) => set((s) => ({ images: [...payload, ...s.images] })),
     removeImages: (index: number) =>
       set((s) => {
         const images = s.images;
@@ -47,18 +51,29 @@ export const useAttachments = create<IAttachmentsContext>((set, get) => {
       }),
     clearImages: () => set((s) => ({ images: [] })),
 
-    mediaStore: new Map(),
-    setMediaStore: (conversationId, userMedia) => {
-      const media = Object.keys(userMedia).reduce((obj, c) => {
-        let key = c as keyof typeof userMedia;
-        if (userMedia[key]?.length) Object.assign(obj, { [key]: userMedia[key] });
-        return obj;
-      }, {});
+    setMediaStore: (conversationId, newUserMedia) =>
+      set((s) => {
+        const mediaStore = get().mediaStore;
 
-      set((s) => ({
-        mediaStore: new Map(s.mediaStore).set(conversationId, media),
-      }));
-    },
+        const existingMedia = mediaStore.get(conversationId);
+
+        if (!existingMedia) mediaStore.set(conversationId, newUserMedia);
+        else {
+          Object.keys(newUserMedia).forEach((k) => {
+            const key = k as keyof typeof newUserMedia;
+            const newItems = newUserMedia[key] as any;
+            if (existingMedia[key]) {
+              existingMedia[key]!.unshift(...newItems);
+            } else {
+              existingMedia[key] = newItems;
+            }
+          });
+        }
+
+        return {
+          mediaStore: new Map(mediaStore),
+        };
+      }),
     addToMediaStore: (conversationId, type, attachment) => {
       const mediaStore = get().mediaStore;
       let userMedia = mediaStore.get(conversationId);
@@ -71,8 +86,6 @@ export const useAttachments = create<IAttachmentsContext>((set, get) => {
       set({ mediaStore: new Map(mediaStore) });
     },
 
-    selectedAttachment: null,
-    setSelectedAttachment: (attachment) =>
-      set({ selectedAttachment: attachment }),
+    setSelectedAttachment: (attachment) => set({ selectedAttachment: attachment }),
   };
 });

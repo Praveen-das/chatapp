@@ -4,13 +4,6 @@ const schemaOptions = { toJSON: { virtuals: true } }
 
 const ProfileRules = new Schema({ isVisible: { type: Boolean, default: true } })
 
-const rulesSchema = new Schema({
-    profilePicture: ProfileRules,
-    bio: ProfileRules,
-    lastSeen: ProfileRules,
-    readReceipts: ProfileRules,
-})
-
 export const userSchema = new Schema({
     id: Schema.Types.ObjectId,
     username: {
@@ -31,13 +24,10 @@ export const userSchema = new Schema({
         default: '',
     },
     rules: {
-        type: rulesSchema,
-        default: {
-            profilePicture: { isVisible: true },
-            bio: { isVisible: true },
-            lastSeen: { isVisible: true },
-            readReceipts: { isVisible: true },
-        }
+        profilePicture: { isVisible: { type: Boolean, default: true } },
+        bio: { isVisible: { type: Boolean, default: true } },
+        lastSeen: { isVisible: { type: Boolean, default: true } },
+        readReceipts: { isVisible: { type: Boolean, default: true } },
     },
     status: {
         type: String,

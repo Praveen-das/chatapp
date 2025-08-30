@@ -1,9 +1,10 @@
 import { getUrlMetadata } from "@lib/fetchers";
 import { parseUrl } from "@lib/utils";
+import { IUrlMetadata } from "@repo/interfaces/messageInterface";
 import React, { useEffect, useState } from "react";
 
 function useUrlParser(messageString: string) {
-  const [metadata, setMetadata] = useState<IUrlMetadata | undefined>(undefined);
+  const [metadata, setMetadata] = useState<IUrlMetadata | undefined | null>(undefined);
 
   useEffect(() => {
     const isUrl = parseUrl(messageString);

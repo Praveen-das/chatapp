@@ -1,26 +1,17 @@
 import { Request, Response } from "express";
 import conversationServices from "../services/conversationServices";
 import { Types } from "mongoose";
-import {
-  IConversation,
-  IGroupConversation,
-  IUserConversation,
-} from "../interfaces/conversationInterface";
+import { conversationSchema, userConversationsSchema, conversationBlockRequest } from "../schemas/conversationSchema";
+import { groupConversationsSchema } from "../schemas/groupSchema";
+import { objectId } from "../schemas/objectId";
 
 const _createConversation = async (req: string, reset: () => void) => {
   try {
-    const { conversation }: { conversation: IConversation } = JSON.parse(req);
+    const { conversation: body } = JSON.parse(req);
 
-    let members = conversation.members.map((m) => new Types.ObjectId(m.id));
+    let conversation = conversationSchema.parse(body);
 
-    let _conversation = {
-      ...conversation,
-      id: new Types.ObjectId(conversation.id),
-      members,
-    };
-
-    const response =
-      await conversationServices.createConversation(_conversation);
+    const response = await conversationServices.createConversation(conversation);
   } catch (error) {
     console.log(error);
     reset();
@@ -29,18 +20,10 @@ const _createConversation = async (req: string, reset: () => void) => {
 
 const _createUserConversation = async (req: string, reset: () => void) => {
   try {
-    let { userConversations }: { userConversations: IUserConversation[] } =
-      JSON.parse(req);
+    let { userConversations: body } = JSON.parse(req);
+    const userConversations = userConversationsSchema.parse(body);
 
-    userConversations = userConversations.map((userConversation) => ({
-      ...userConversation,
-      id: new Types.ObjectId(userConversation.id),
-      userId: new Types.ObjectId(userConversation.userId),
-      conversationId: new Types.ObjectId(userConversation.conversationId),
-    }));
-
-    const response =
-      await conversationServices.createUserConversation(userConversations);
+    const response = await conversationServices.createUserConversation(userConversations);
   } catch (error) {
     console.log(error);
     reset();
@@ -49,18 +32,11 @@ const _createUserConversation = async (req: string, reset: () => void) => {
 
 const _createGroupConversation = async (req: string, reset: () => void) => {
   try {
-    let { groupConversations }: { groupConversations: IGroupConversation[] } =
-      JSON.parse(req);
+    let { groupConversations: body } = JSON.parse(req);
 
-    groupConversations = groupConversations.map((groupConversation) => ({
-      ...groupConversation,
-      id: new Types.ObjectId(groupConversation.id),
-      userId: new Types.ObjectId(groupConversation.userId),
-      conversationId: new Types.ObjectId(groupConversation.conversationId),
-    }));
+    const groupConversations = groupConversationsSchema.parse(body);
 
-    const response =
-      await conversationServices.createGroupConversation(groupConversations);
+    const response = await conversationServices.createGroupConversation(groupConversations);
   } catch (error) {
     console.log(error);
     reset();
@@ -70,7 +46,7 @@ const _createGroupConversation = async (req: string, reset: () => void) => {
 const _deleteGroupConversation = async (req: string, reset: () => void) => {
   try {
     const parsed: string = JSON.parse(req);
-    let id = new Types.ObjectId(parsed);
+    let id = objectId.parse(parsed);
     const response = await conversationServices.deleteGroupConversation(id);
   } catch (error) {
     console.log(error);
@@ -106,9 +82,11 @@ const _fetchAllConversations = async (req: Request, res: Response) => {
 };
 
 const _getUserConversation = async (req: Request, res: Response) => {
-  const userId = req.params.userId;
-
   try {
+    const userId = objectId.parse(req.params.userId);
+
+    if (!userId) throw new Error("userId is required");
+
     const response = await conversationServices.getUserConversation(userId);
     res.json(response);
   } catch (error) {
@@ -121,13 +99,10 @@ const _updateUserConversationById = async (req: string, reset: () => void) => {
   try {
     const parsed = JSON.parse(req);
 
-    const conversationId = new Types.ObjectId(parsed.id as string);
+    const conversationId = objectId.parse(parsed.id);
     const updates = parsed.updates;
 
-    const response = await conversationServices.updateUserConversationById(
-      conversationId,
-      updates
-    );
+    const response = await conversationServices.updateUserConversationById(conversationId, updates);
   } catch (error) {
     console.log(error);
     reset();
@@ -138,92 +113,36 @@ const _updateGroupConversationById = async (req: string, reset: () => void) => {
   try {
     const parsed = JSON.parse(req);
 
-    const conversationId = new Types.ObjectId(parsed.id as string);
+    const conversationId = objectId.parse(parsed.id);
     const updates = parsed.updates;
 
-    const response = await conversationServices.updateGroupConversationById(
-      conversationId,
-      updates
-    );
+    const response = await conversationServices.updateGroupConversationById(conversationId, updates);
   } catch (error) {
     console.log(error);
     reset();
   }
 };
 
-const _updateUserConversationBlockStatus = async (
-  req: string,
-  reset: () => void
-) => {
+const _updateUserConversationBlockStatus = async (req: string, reset: () => void) => {
   try {
-    const parsed = JSON.parse(req);
+    const body = JSON.parse(req);
 
-    const conversationId = new Types.ObjectId(parsed.conversationId as string);
-    const userId = new Types.ObjectId(parsed.userId as string);
-    const requestedUserId = new Types.ObjectId(
-      parsed.requestedUserId as string
-    );
-
-    const response =
-      await conversationServices.updateUserConversationBlockStatus({
-        ...parsed,
-        conversationId,
-        userId,
-        requestedUserId,
-      });
+    const updates = conversationBlockRequest.parse(body);
+    console.log({ updates });
+    const response = await conversationServices.updateUserConversationBlockStatus(updates);
   } catch (error) {
     console.log(error);
     reset();
   }
 };
-
-const _updateConversationById = async (req: Request, res: Response) => {
-  const { conversationId, ...updates } = req.body;
-
-  try {
-    const response = await conversationServices.updateConversationById(
-      conversationId,
-      {
-        ...updates,
-        updatedAt: Date.now(),
-      }
-    );
-    res.json(response);
-  } catch (error) {
-    console.log(error);
-    res.json(error);
-  }
-};
-
-async function _addToArchive(req: Request<{ id: string }>, res: Response) {
-  if (!req.body) return;
-  const id = new Types.ObjectId(req.params.id!);
-
-  await conversationServices.addToArchive(id);
-  res.json("ok");
-}
-
-async function _removeFromArchive(req: Request<{ id: string }>, res: Response) {
-  if (!req.body) return;
-  const id = new Types.ObjectId(req.params.id!);
-
-  await conversationServices.removeFromArchive(id);
-  res.json("ok");
-}
 
 const _registerStarredMessages = async (req: string, reset: () => void) => {
   try {
-    const parsed: { conversationId: string; messageIds: string[];host: string } = JSON.parse(req);
-    const conversationId = new Types.ObjectId(parsed.conversationId);
-    const messageIds = parsed.messageIds.map(
-      (id) => new Types.ObjectId(id)
-    );
+    const parsed: { conversationId: string; messageIds: string[]; host: string } = JSON.parse(req);
+    const conversationId = objectId.parse(parsed.conversationId);
+    const messageIds = parsed.messageIds.map((id) => objectId.parse(id));
 
-    const response = await conversationServices.registerStarredMessages(
-      conversationId,
-      messageIds,
-      parsed.host
-    );
+    const response = await conversationServices.registerStarredMessages(conversationId, messageIds, parsed.host);
   } catch (error) {
     console.log(error);
     reset();
@@ -232,16 +151,12 @@ const _registerStarredMessages = async (req: string, reset: () => void) => {
 
 const _unregisterStarredMessages = async (req: string, reset: () => void) => {
   try {
-    const parsed: { conversationId: string; messageId: string;host: string } = JSON.parse(req);
+    const parsed: { conversationId: string; messageId: string; host: string } = JSON.parse(req);
 
-    const conversationId = new Types.ObjectId(parsed.conversationId);
-    const messageId = new Types.ObjectId(parsed.messageId)
+    const conversationId = objectId.parse(parsed.conversationId);
+    const messageId = objectId.parse(parsed.messageId);
 
-    const response = await conversationServices.unregisterStarredMessages(
-      conversationId,
-      messageId,
-      parsed.host
-    );
+    const response = await conversationServices.unregisterStarredMessages(conversationId, messageId, parsed.host);
   } catch (error) {
     console.log(error);
     reset();
@@ -255,13 +170,10 @@ export default {
   _deleteGroupConversation,
   _fetchAllConversations,
   _getUserConversation,
-  _updateConversationById,
   _updateUserConversationById,
   _updateGroupConversationById,
   _updateUserConversationBlockStatus,
   _clearConversation,
-  _addToArchive,
-  _removeFromArchive,
   _registerStarredMessages,
   _unregisterStarredMessages,
 };

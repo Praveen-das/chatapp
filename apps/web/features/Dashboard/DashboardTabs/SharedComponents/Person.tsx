@@ -2,7 +2,8 @@
 import React, { Fragment, useEffect, useState } from "react";
 import { useStore } from "../../../../store/global";
 import Avatar from "../../../ui/Avatar";
-import { IUser } from "../../../../interfaces/userInterface";
+import { IUser } from "@repo/interfaces/userInterface";
+import { CheckedIcon } from "../../../ui/CheckedIcon";
 
 interface IPerson {
   person: IUser;
@@ -10,11 +11,7 @@ interface IPerson {
   isSelected?: boolean;
 }
 
-export default function Person({
-  person,
-  onClick,
-  isSelected,
-}: IPerson): React.JSX.Element {
+export default function Person({ person, onClick, isSelected }: IPerson): React.JSX.Element {
   const isOnline = person.status === "online";
 
   return (
@@ -29,29 +26,10 @@ export default function Person({
         // onlineIndication={false}
       />
       <div className="flex-1 space-y-1 w-full">
-        <h1 className="text-sm">
-          {person.self ? "yourself " + person.username : person.username}
-        </h1>
+        <h1 className="text-sm">{person.self ? "yourself " + person.username : person.username}</h1>
         <h1 className="text-sm">{person.bio}</h1>
       </div>
-      {isSelected ? (
-        <span className="text-white bg-[--100-primary] rounded-full p-0.5">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 16 16"
-            fill="currentColor"
-            className="size-4"
-          >
-            <path
-              fillRule="evenodd"
-              d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </span>
-      ) : (
-        <span />
-      )}
+      {isSelected ? <CheckedIcon /> : <span />}
     </div>
   );
 }

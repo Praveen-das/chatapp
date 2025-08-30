@@ -1,4 +1,4 @@
-import { IMessage } from "@interfaces/messageInterface";
+import { IMessage } from "@repo/interfaces/messageInterface";
 import React, { useEffect, useRef, useState } from "react";
 import { useConversationStore } from "store/conversationStore";
 import { useMessageStore } from "store/messageStore";

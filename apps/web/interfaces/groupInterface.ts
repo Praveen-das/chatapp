@@ -1,18 +1,13 @@
-import ObjectID from "bson-objectid";
-import { IGroupMember } from "./conversationInterface";
-import { IMessage } from "./messageInterface";
-import { IUser } from "./userInterface";
+import { IGroupMember } from "@repo/interfaces/conversationInterface";
+import { IGroup as _IGroup } from "@repo/interfaces/groupInterface";
+import { Override } from "@repo/interfaces/type";
 
-export interface IGroupCreationReq {
-  id: string,
-  channelId: string,
-  invitationId?: string,
-  displayName:string,
-  profilePicture: string,
-  admins: string[],
-  host: string,
-  members: IUser[],
-  createdBy: string,
-  createdAt: number,
-  updatedAt: number,
-}
+export type IGroup = Override<
+  _IGroup,
+  {
+    id: string;
+    createdBy: string;
+    admins:string[]
+    members:IGroupMember[]
+  }
+>;

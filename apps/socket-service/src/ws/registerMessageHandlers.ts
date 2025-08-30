@@ -1,6 +1,7 @@
-import { Server } from "socket.io";
-import { ISocket } from "../interfaces/socketInterfaces";
+import { Namespace, Server } from "socket.io";
 import produceMessage from "../kafka/kafka";
+import { ISocket } from "../interfaces/socketInterfaces";
+import { IMessage } from "@repo/interfaces/messageInterface";
 
 export default function registerMessageHandlers(io: Server, socket: ISocket) {
   socket.on(
@@ -48,14 +49,14 @@ export default function registerMessageHandlers(io: Server, socket: ISocket) {
     produceMessage({ messages }, "UPDATE_MESSAGES");
   });
 
-  socket.on("request:delete_message_for_user", async ({ conversationId, collection }: IDeleteForUserRequest) => {
-    if (!collection.length) return;
+  socket.on(
+    "request:delete_message_for_user",
+    async ({ conversationId, collection }: IDeleteForUserRequest, callback) => {
+      if (!collection.length) return;
 
-    socket.emit("request:delete_message_for_user", {
-      conversationId,
-      collection,
-    });
+      callback({ conversationId, collection });
 
-    produceMessage({ collection }, "DELETE_MESSAGE_FOR_USER");
-  });
+      produceMessage({ collection }, "DELETE_MESSAGE_FOR_USER");
+    }
+  );
 }

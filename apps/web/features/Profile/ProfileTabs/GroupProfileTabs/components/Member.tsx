@@ -1,15 +1,13 @@
 import AdminTag from "@features/ui/AdminTag";
 import Avatar from "@features/ui/Avatar";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
-import { IGroupMember } from "@interfaces/conversationInterface";
-import { IUser } from "@interfaces/userInterface";
+import { IGroupMember } from "@repo/interfaces/conversationInterface";
+import { IUser } from "@repo/interfaces/userInterface";
 import { MouseEvent } from "react";
 import { useStore } from "store/global";
 import { useMenu } from "store/menu";
 
-
-
-export function Member({ member, showOptions = false }: { member: IGroupMember; showOptions?: boolean; }) {
+export function Member({ member, showOptions = false }: { member: IGroupMember; showOptions?: boolean }) {
   const setSelectedUser = useStore((s) => s.setSelectedUser);
   const profileTab = useStore((s) => s.profileTab);
   const setMenu = useMenu((s) => s.setMenu);
@@ -38,7 +36,8 @@ export function Member({ member, showOptions = false }: { member: IGroupMember; 
         url={member.profilePicture}
         profileHidden={!member.rules?.profilePicture.isVisible}
         size="40px"
-        onlineIndication={false} />
+        onlineIndication={false}
+      />
       <div className="w-full flex flex-col justify-center">
         <div className="flex justify-between items-center w-full">
           <label className="py-1" htmlFor="member name">

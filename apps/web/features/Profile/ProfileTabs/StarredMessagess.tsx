@@ -1,11 +1,11 @@
 "use client";
 
 import { useStore } from "../../../store/global";
-import { IConversation } from "../../../interfaces/conversationInterface";
+import { IConversation } from "@repo/interfaces/conversationInterface";
 import Avatar from "@features/ui/Avatar";
 import moment from "moment";
 import { ArrowRightIcon } from "@heroicons/react/24/solid";
-import { IUser } from "@interfaces/userInterface";
+import { IUser } from "@repo/interfaces/userInterface";
 import useMediaQuery from "@hooks/useMediaQuery";
 import Chat from "@features/ChatWindow/ChatArea/Chat/Chat";
 import { scrolleToIndexHelper } from "@lib/events";
@@ -14,6 +14,8 @@ import useSelectedConversation from "@hooks/useSelectedConversation";
 function findParticipants(conversation: IConversation, from: string, to: string) {
   let sender = null;
   let receiver = null;
+
+  if (conversation.host === "system") return { sender: null, receiver: null };
 
   for (let member of conversation.members) {
     if (member.id === conversation.userId) member.self = true;
@@ -54,7 +56,7 @@ function StarredMessagess({ conversationId }: { conversationId: string }) {
       <div className="flex flex-col w-full h-full bg-gradient-to-t from-base-200 overflow-y-auto no-scrollbar">
         {messages?.map((chat, i) => {
           if (!chat) return;
-          let { sender, receiver } = findParticipants(conversation, chat.from!, chat.to);
+          let { sender, receiver } = findParticipants(conversation, chat.from!, chat.to!);
 
           let userMessageFlow = `${formatName(sender!)} -> ${formatName(receiver!)}`;
           let groupMessageFlow = `${formatName(sender!)}`;

@@ -1,17 +1,11 @@
-import Conversation from "./SharedComponents/Conversation/Conversation";
-import React, { useEffect, useState } from "react";
-import { useConversationStore } from "store/conversationStore";
-import GroupConversation from "./SharedComponents/Conversation/GroupConversation";
-import { IGroupConversation } from "@interfaces/conversationInterface";
+import { useState } from "react";
 import SecondaryHeader from "./SharedComponents/Header";
-import Menu_Conversation from "./SharedComponents/MenuContext";
 import Avatar from "@features/ui/Avatar";
 import { useStore } from "store/global";
 import SearchUser from "../../ui/Searchbar";
-import { useSearch } from "@hooks/useSearch";
 import useAxios from "@hooks/useAxios";
 import { debounce } from "@lib/query";
-import { IUser } from "@interfaces/userInterface";
+import { IUser } from "@repo/interfaces/userInterface";
 import useConversation from "@hooks/useConversation";
 
 const setFetchedUserUser = useStore.getState().setFetchedUserUser;
@@ -19,11 +13,10 @@ const setFetchedUserUser = useStore.getState().setFetchedUserUser;
 function FetchedUser() {
   const fetchedUser = useStore((s) => s.fetchedUser);
   const setDashboardTab = useStore((s) => s.setDashboardTab);
-  const searchQuery = useSearch((s) => s.searchQuery);
-  const setSearchQuery = useSearch((s) => s.setSearchQuery);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const axios = useAxios();
-  const {startConversation} = useConversation()
+  const { startConversation } = useConversation();
   const setDeviceTab = useStore((s) => s.setDeviceTab);
 
   const handleSearchQuery = debounce(async () => {
@@ -39,16 +32,15 @@ function FetchedUser() {
     }
   }, 300);
 
-  function handleAddingUserAsAFriend(){
-    startConversation(fetchedUser!)
+  function handleAddingUserAsAFriend() {
+    startConversation(fetchedUser!);
     setDashboardTab("dashboard");
-    setDeviceTab('chatarea');
-    setSearchQuery("");
+    setDeviceTab("chatarea");
   }
 
   return (
     <div className="flex flex-col h-full max-sm:gap-2 sm:gap-4">
-      <SecondaryHeader onClose={() => setSearchQuery("")} title="Find friend" mainTab="dashboard" />
+      <SecondaryHeader onClose={() => setFetchedUserUser(null)} title="Find friend" mainTab="dashboard" />
       <SearchUser onClick={handleSearchQuery} onChange={setSearchQuery} initialValue={searchQuery} />
       <div className="flex h-full w-full flex-col items-center gap-2 pt-12 overflow-y-scroll no-scrollbar">
         {loading ? (
@@ -58,7 +50,7 @@ function FetchedUser() {
             <Avatar size="140px" url={fetchedUser.profilePicture} onlineIndication={false} />
             <span className="text-lg">{fetchedUser.username}</span>
             <span className="text-sm">+{fetchedUser.phoneNumber}</span>
-            <div className="btn px-8 mt-8" onClick={handleAddingUserAsAFriend} tabIndex={0}>
+            <div className="btn btn-primary text-[--black-white] px-8 mt-8" onClick={handleAddingUserAsAFriend} tabIndex={0}>
               Add friend
             </div>
           </div>

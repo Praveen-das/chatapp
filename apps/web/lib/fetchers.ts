@@ -1,3 +1,4 @@
+import { IUrlMetadata } from "@repo/interfaces/messageInterface";
 import axios from "axios";
 
 export async function getUrlMetadata(url: string) {

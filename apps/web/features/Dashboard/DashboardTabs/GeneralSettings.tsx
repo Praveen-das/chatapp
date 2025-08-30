@@ -1,6 +1,5 @@
 "use client";
 
-import { useTheme } from "next-themes";
 import React, { ChangeEvent, useEffect, useState } from "react";
 import { getSystemTheme } from "@lib/theme";
 import { useStore } from "../../../store/global";
@@ -9,6 +8,7 @@ import useAuth from "../../../hooks/useAuth";
 import { usePersistentStore } from "../../../store/persistentStore";
 import COLORS from "config/themes";
 import Header from "./SharedComponents/Header";
+import { useTheme } from "@hooks/useTheme";
 
 declare module "csstype" {
   interface Properties {
@@ -18,7 +18,7 @@ declare module "csstype" {
 
 function GeneralSettings() {
   const { user } = useAuth();
-  const { theme, resolvedTheme, setTheme } = useTheme();
+  const { setTheme, colorHex, mode, isSystemDefault } = useTheme();
   const setModal = useStore((s) => s.setModal);
   const { sendUserRuleChangeRequest } = useSocket();
 
@@ -27,17 +27,16 @@ function GeneralSettings() {
 
   const themes = [...new Set(Object.values(COLORS))].map((key) => key.replace("#", ""));
 
-  const mode = resolvedTheme?.split("-")[0];
-  const [bgcolor, setBgcolor] = useState("");
-
   function handleMode(e: ChangeEvent<HTMLInputElement>) {
     const selectedTheme = e.target.value;
+
     if (selectedTheme === "system") {
       const system_theme = getSystemTheme();
-      setTheme(system_theme + "-" + bgcolor);
+      setTheme(system_theme + "-" + colorHex);
       return;
     }
-    setTheme(selectedTheme + "-" + bgcolor);
+
+    setTheme(selectedTheme + "-" + colorHex);
   }
 
   function handleTheme(value: string) {
@@ -50,7 +49,7 @@ function GeneralSettings() {
 
     sendUserRuleChangeRequest({
       userId: user?.id!,
-      rules: { [name]: { isVisible: checked } },
+      updates: { rules: { [name]: { isVisible: checked } } },
     });
   };
 
@@ -59,8 +58,6 @@ function GeneralSettings() {
     let checked = e.target.checked;
 
     if (checked) {
-      if (Notification.permission !== "granted") await Notification.requestPermission();
-
       if (Notification.permission === "denied") {
         setModal({ activeModal: "notificationBlockedAlert", open: true });
         return;
@@ -69,8 +66,6 @@ function GeneralSettings() {
 
     setUserNotificationPref(name, checked);
   };
-
-  useEffect(() => setBgcolor(theme?.split("-")[1] || themes[0]!), [theme, themes]);
 
   const checkBoxStyle = "checkbox checkbox-primary [--chkfg:oklch(var(--b3))] checkbox-sm";
 
@@ -87,7 +82,7 @@ function GeneralSettings() {
               <input
                 name="profilePicture"
                 onChange={handleChangingProfileRules}
-                checked={Boolean(user?.rules?.profilePicture.isVisible)}
+                checked={Boolean(user?.rules?.profilePicture?.isVisible)}
                 type="checkbox"
                 className={checkBoxStyle}
               />
@@ -99,7 +94,7 @@ function GeneralSettings() {
               <input
                 name="lastSeen"
                 onChange={handleChangingProfileRules}
-                checked={Boolean(user?.rules?.lastSeen.isVisible)}
+                checked={Boolean(user?.rules?.lastSeen?.isVisible)}
                 type="checkbox"
                 className={checkBoxStyle}
               />
@@ -111,7 +106,7 @@ function GeneralSettings() {
               <input
                 name="bio"
                 onChange={handleChangingProfileRules}
-                checked={Boolean(user?.rules?.bio.isVisible)}
+                checked={Boolean(user?.rules?.bio?.isVisible)}
                 type="checkbox"
                 className={checkBoxStyle}
               />
@@ -123,7 +118,7 @@ function GeneralSettings() {
               <input
                 name="readReceipts"
                 onChange={handleChangingProfileRules}
-                checked={Boolean(user?.rules?.readReceipts.isVisible)}
+                checked={Boolean(user?.rules?.readReceipts?.isVisible)}
                 type="checkbox"
                 className={checkBoxStyle}
               />
@@ -140,7 +135,7 @@ function GeneralSettings() {
               <input
                 name="chatNotification"
                 onChange={handleNotification}
-                checked={Boolean(userNotificationPref?.chatNotification)}
+                checked={Boolean(userNotificationPref?.user)}
                 type="checkbox"
                 className={checkBoxStyle}
               />
@@ -152,7 +147,7 @@ function GeneralSettings() {
               <input
                 name="groupNotification"
                 onChange={handleNotification}
-                checked={Boolean(userNotificationPref?.groupNotification)}
+                checked={Boolean(userNotificationPref?.group)}
                 type="checkbox"
                 className={checkBoxStyle}
               />
@@ -170,7 +165,7 @@ function GeneralSettings() {
                 <input
                   name="dark"
                   value="system"
-                  checked={mode === "dark" || mode === "light"}
+                  checked={isSystemDefault}
                   onChange={handleMode}
                   type="radio"
                   className="radio-primary radio radio-sm "
@@ -214,7 +209,7 @@ function GeneralSettings() {
                 key={color}
                 onClick={() => handleTheme(color)}
                 tabIndex={0}
-                className={`flex flex-col gap-2 min-w-20 p-2 ${bgcolor === color ? `ring-2 ring-inset ` : ""} shadow-md cursor-pointer rounded-xl bg-gradient-to-t from-base-200`}
+                className={`flex flex-col gap-2 min-w-20 p-2 ${colorHex === color ? `ring-2 ring-inset ` : ""} shadow-md cursor-pointer rounded-xl bg-gradient-to-t from-base-200`}
                 style={{ "--tw-ring-color": "#" + color }}
               >
                 <div className={`w-4/5 h-4 ml-auto rounded-xl`} style={{ backgroundColor: "#" + color }} />

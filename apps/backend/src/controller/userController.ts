@@ -2,7 +2,9 @@ import { Request, Response } from "express";
 import userServices from "../services/userServices";
 import { Types } from "mongoose";
 import { IUser } from "../interfaces/userInterface";
-import { verifyUserToken } from "../lib/jwt";
+import { verifyUserToken } from "@repo/utils";
+import { updateUserSchema, userSchema } from "../schemas/userSchema";
+import { ZodError } from "zod";
 
 type IUserCreationReq = {
   username: string;
@@ -11,23 +13,23 @@ type IUserCreationReq = {
   profilePicture?: string;
 };
 
-const _createUser = async (
-  req: Request<any, any, IUserCreationReq>,
-  res: Response
-) => {
-  let body: IUser = {
-    id: new Types.ObjectId(),
-    username: req.body.username,
-    phoneNumber: req.body.phoneNumber,
-    bio: "",
-    profilePicture: req.body.profilePicture,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
+const _createUser = async (req: Request<any, any, IUserCreationReq>, res: Response) => {
+  try {
+    const data = userSchema.parse(req);
 
-  const user = await userServices.createUser(body);
+    let body: IUser = {
+      ...data,
+      id: new Types.ObjectId(),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
 
-  res.json(user);
+    const user = await userServices.createUser(body);
+
+    res.json(user);
+  } catch (error) {
+    console.log("error _createUser----->", error);
+  }
 };
 
 const _getAllUsers = async (req: Request, res: Response) => {
@@ -37,35 +39,36 @@ const _getAllUsers = async (req: Request, res: Response) => {
 
 const _queryUser = async (req: Request, res: Response) => {
   try {
-    const query = req.query.q as string
+    const query = req.query.q as string;
     const users = await userServices.queryUser(query);
     res.json(users);
   } catch (error) {
-    console.log(error)
-    res.send(error)
+    console.log(error);
+    res.send(error);
   }
 };
 
 const _getUser = async (req: Request, res: Response) => {
-try {
-    const header = req.headers.authorization
-    const token = header?.split(' ')[1]
+  try {
+    const header = req.headers.authorization;
+    const token = header?.split(" ")[1];
 
-    const payload = await verifyUserToken(token)
-  
-    if(!payload) return res.sendStatus(401)
-    
+    const payload = await verifyUserToken(token);
+
+    if (!payload) return res.sendStatus(401);
+
     let user = null;
-    const phoneNumber = payload.phonenumber as string
+    const phoneNumber = payload.phonenumber as string;
     const userId = new Types.ObjectId(payload.userId as string);
-    console.log({phoneNumber})
+
     if (userId) user = await userServices.getUserById(userId);
     if (phoneNumber) user = await userServices.getUserByPhoneNumber(phoneNumber);
+
     res.json(user);
-} catch (error) {
-  res.json(error)
-  console.log('_getUser error--->',error)
-}
+  } catch (error) {
+    res.json(error);
+    console.log("_getUser error--->", error);
+  }
 };
 
 const _getUserById = async (req: Request, res: Response) => {
@@ -77,19 +80,28 @@ const _getUserById = async (req: Request, res: Response) => {
 };
 
 const _updateUser = async (req: Request, res: Response) => {
-  let id = req.params.id;
-
-  let updates = req.body;
-  
-  const user = await userServices.updateUser(id, updates);
-  res.json(user);
+  try {
+    let updates = updateUserSchema.parse(req.body);
+    
+    const user = await userServices.updateUser(updates);
+    res.json(user);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      console.log("ZodError error _updateUser", error);
+      res.json({ errors: error.errors });
+    } else {
+      console.log("error _updateUser", error);
+      res.json({ error: error });
+    }
+  }
 };
 
 const _updateUserFromKafka = async (req: string, reset: () => void) => {
   try {
-    let { id, updates } = JSON.parse(req);
+    let body = JSON.parse(req);
+    let updates = updateUserSchema.parse(body);
 
-    userServices.updateUser(id, updates);
+    userServices.updateUser(updates);
   } catch (error) {
     console.log("UPDATE_USER error--->", error);
     reset();
@@ -103,48 +115,6 @@ const _deleteUser = async (req: Request, res: Response) => {
   res.json(user);
 };
 
-const _blockUser = async (req: Request, res: Response) => {
-  try {
-    let body = req.body;
-
-    let userId = new Types.ObjectId(body.userId);
-    let blockedId = new Types.ObjectId(body.blockedId);
-    let id = new Types.ObjectId(body.id);
-
-    const response = await userServices.blockUser({ userId, blockedId, id });
-    res.json(response);
-  } catch (error) {
-    console.log("UPDATE_USER error--->", error);
-    // reset()
-  }
-};
-
-const _unblockUser = async (req: Request, res: Response) => {
-  try {
-    let id__ = req.params.id;
-    let id = new Types.ObjectId(id__);
-
-    const response = await userServices.unblockUser(id);
-    res.json(response);
-  } catch (error) {
-    console.log("UPDATE_USER error--->", error);
-    // reset()
-  }
-};
-
-const _getBlockedListByUserId = async (req: Request, res: Response) => {
-  try {
-    let id = req.params.id;
-    let userId = new Types.ObjectId(id);
-
-    const blockedList = await userServices.getBlockedListByUserId(userId);
-    res.json(blockedList);
-  } catch (error) {
-    console.log("UPDATE_USER error--->", error);
-    // reset()
-  }
-};
-
 export default {
   _createUser,
   _getUser,
@@ -154,7 +124,4 @@ export default {
   _updateUser,
   _deleteUser,
   _updateUserFromKafka,
-  _blockUser,
-  _unblockUser,
-  _getBlockedListByUserId,
 };

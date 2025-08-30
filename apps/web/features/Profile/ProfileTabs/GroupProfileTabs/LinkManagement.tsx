@@ -4,7 +4,7 @@ import { useStore } from "../../../../store/global";
 import Avatar from "../../../ui/Avatar";
 import { useTabs } from "../../../ui/Tab/Tabs";
 import { useConversationStore } from "../../../../store/conversationStore";
-import { IConversation, IGroupConversation } from "../../../../interfaces/conversationInterface";
+import { IConversation, IGroupConversation } from "@repo/interfaces/conversationInterface";
 import { ArrowUturnRightIcon, ChevronRightIcon } from "@heroicons/react/24/solid";
 import useAuth from "@hooks/useAuth";
 import { encrypt } from "@lib/e2e";
@@ -14,14 +14,13 @@ import { useMemo } from "react";
 
 function LinkManagement({ conversationId }: { conversationId: string }) {
   const conversation = useSelectedConversation<IGroupConversation>(conversationId);
+  const { updateGroupConversation } = useConversationStore((s) => s.groupActions);
 
   if (!conversation) return;
 
-  const axios = useAxios();
   const { user } = useAuth();
-  const updateGroupConversation = useConversationStore((s) => s.updateGroupConversation);
+  const axios = useAxios();
   const setModal = useStore((s) => s.setModal);
-
   const profileTab = useStore((s) => s.profileTab);
 
   const userIdAdmin = conversation.admins.includes(user?.id!);

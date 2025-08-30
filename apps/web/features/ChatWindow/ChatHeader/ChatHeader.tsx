@@ -1,7 +1,8 @@
 "use client";
-import { ArrowLeftIcon, EllipsisVerticalIcon } from "@heroicons/react/24/solid";
-import { IGroupConversation, IUserConversation } from "@interfaces/conversationInterface";
-import { generateConversation, getReceiver } from "@lib/conversation";
+import { ArrowLeftIcon, EllipsisVerticalIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import { IGroupConversation, IUserConversation } from "@repo/interfaces/conversationInterface";
+import { generateConversation, generateUserConversations, handleGeneratingConversation } from "@repo/utils/index";
+import { getReceiver } from "@lib/conversation";
 import { getRelativeTime } from "@lib/utils";
 import { MouseEvent, memo, useMemo } from "react";
 import { useAttachments } from "store/attachments";
@@ -9,12 +10,12 @@ import { useMenu } from "store/menu";
 import useSocket from "../../../context/SocketProvider";
 import useAuth from "../../../hooks/useAuth";
 import useSelectedConversation from "../../../hooks/useSelectedConversation";
-import useSelectedUser from "../../../hooks/useSelectedUser";
 import { useConversationStore } from "../../../store/conversationStore";
 import { useStore } from "../../../store/global";
 import { useMessageStore } from "../../../store/messageStore";
 import Avatar from "../../ui/Avatar";
 import Menu from "../../ui/Menu";
+import { APP_NAME } from "config/constants";
 
 const { setDeviceTab, setSelectedUser } = useStore.getState();
 
@@ -29,7 +30,7 @@ function openProfile() {
   }
 }
 
-function ChatHeader({ showMenu = true }) {
+function ChatHeader({ showMenu = true, onClose }: { showMenu: boolean; onClose?: () => void }) {
   const images = useAttachments((s) => s.images);
   const clearImages = useAttachments((s) => s.clearImages);
   const setMenu = useMenu((s) => s.setMenu);
@@ -37,7 +38,9 @@ function ChatHeader({ showMenu = true }) {
   const conversationId = useConversationStore((s) => s.selectedConversation)?.id!;
   const selectedConversation = useSelectedConversation(conversationId);
 
+  const isUserConversation = selectedConversation?.host === "user";
   const isGroupConversation = selectedConversation?.host === "group";
+  const isSystem = selectedConversation?.host === "system";
 
   function handleClose(e: MouseEvent<HTMLSpanElement>) {
     e.stopPropagation();
@@ -54,7 +57,7 @@ function ChatHeader({ showMenu = true }) {
   };
 
   return (
-    <div className="text-xs min-h-16 flex items-center max-sm:px-2 px-4 ">
+    <div className="text-xs min-h-16 flex items-center max-sm:px-2 px-4">
       <HeaderMenuContext />
 
       <div onClick={openProfile} className="max-sm:gap-2 sm:gap-4 w-full flex items-center gap-4 cursor-pointer">
@@ -63,9 +66,11 @@ function ChatHeader({ showMenu = true }) {
         </span>
         {isGroupConversation ? (
           <GroupInfo conversationId={conversationId} />
-        ) : (
+        ) : isUserConversation ? (
           <UserInfo conversationId={conversationId} />
-        )}
+        ) : isSystem ? (
+          <SystemInfo />
+        ) : null}
       </div>
 
       {showMenu && (
@@ -73,7 +78,27 @@ function ChatHeader({ showMenu = true }) {
           <EllipsisVerticalIcon className="size-6 pointer-events-none" />
         </div>
       )}
+
+      {onClose && (
+        <div onClick={onClose} tabIndex={0} className="btn btn-circle btn-ghost btn-sm">
+          <XMarkIcon className="size-6 pointer-events-none" />
+        </div>
+      )}
     </div>
+  );
+}
+
+function SystemInfo() {
+  return (
+    <>
+      <Avatar url="/favicon.svg" size="40px" onlineIndication={false} />
+      <div className="grid gap-1">
+        <label className="text-sm truncate" htmlFor="username">
+          {APP_NAME}
+        </label>
+        <label htmlFor="lastseen">System notifications</label>
+      </div>
+    </>
   );
 }
 
@@ -138,13 +163,15 @@ function HeaderMenuContext() {
   } = useSocket();
 
   const { user: currentUser } = useAuth();
-  const selectedUser = useSelectedUser();
+  const selectedUser = useStore((s) => s.selectedUser);
   const conversationId = useConversationStore((s) => s.selectedConversation)?.id!;
 
   const selectedConversation = useSelectedConversation(conversationId);
+  const isGroupConversation = selectedConversation?.host === "group";
   const isUserConversation = selectedConversation?.host === "user";
+  const isSystemConversation = selectedConversation?.host === "system";
   const isBlocked = isUserConversation && selectedConversation.blocked;
-  const isGroupMember = !isUserConversation && selectedConversation?.members.some((m) => m.id === currentUser?.id);
+  const isGroupMember = isGroupConversation && selectedConversation?.members.some((m) => m.id === currentUser?.id);
 
   const selectedChats = useMessageStore((s) => s.selectedChats);
 
@@ -152,14 +179,17 @@ function HeaderMenuContext() {
   const toggleProfile = useStore((s) => s.toggleProfile);
   const setSelectedChats = useMessageStore((s) => s.setSelectedChats);
   const clearChat = useMessageStore((s) => s.clearChat);
-  const updateConversation = useConversationStore((s) => s.updateConversation);
-  const setSelectedConversation = useConversationStore((s) => s.setSelectedConversation);
+  const { updateConversation, setSelectedConversation } = useConversationStore((s) => s.conversationActions);
   const setSelectedUser = useStore((s) => s.setSelectedUser);
 
   const handleBlockingUser = () => {
     if (selectedConversation?.host === "group") return;
-    let conversation = selectedConversation || generateConversation(currentUser!, selectedUser!);
-    sendUserBlockRequest(conversation, !selectedConversation);
+    if (isSystemConversation) return;
+
+    if (selectedConversation) return sendUserBlockRequest({ userConversation: selectedConversation });
+
+    const { conversation, userConversations } = handleGeneratingConversation(currentUser!, selectedUser!);
+    sendUserBlockRequest({ conversation, userConversations });
   };
 
   const handleUnblockingUser = () => {
@@ -194,20 +224,21 @@ function HeaderMenuContext() {
   }
 
   return (
-    <Menu id="chatHeader">
-      <Menu.Item onClick={openProfile}>{isUserConversation ? "Chat info" : "Group info"}</Menu.Item>
+    <Menu id="chatHeader" placement="bottom-end">
+      <Menu.Item onClick={openProfile}>{isGroupConversation ? "Group info" : "Chat info"}</Menu.Item>
       {!!selectedChats.length && <Menu.Item onClick={() => setSelectedChats(null)}>Clear Selection</Menu.Item>}
       <Menu.Item onClick={handleClosingChat}>Close chat</Menu.Item>
       <Menu.Item onClick={handleClearChat}>Clear chat</Menu.Item>
-      {isUserConversation ? (
-        <Menu.Item onClick={isBlocked ? handleUnblockingUser : handleBlockingUser}>
-          {isBlocked ? "Unblock" : "Block"}
-        </Menu.Item>
-      ) : isGroupMember ? (
-        <Menu.Item onClick={handleExitingGroup}>Exit group</Menu.Item>
-      ) : (
-        <Menu.Item onClick={handleDeletingGroupConversation}>Delete group</Menu.Item>
-      )}
+      {!isSystemConversation &&
+        (isUserConversation ? (
+          <Menu.Item onClick={isBlocked ? handleUnblockingUser : handleBlockingUser}>
+            {isBlocked ? "Unblock" : "Block"}
+          </Menu.Item>
+        ) : isGroupMember ? (
+          <Menu.Item onClick={handleExitingGroup}>Exit group</Menu.Item>
+        ) : (
+          <Menu.Item onClick={handleDeletingGroupConversation}>Delete group</Menu.Item>
+        ))}
     </Menu>
   );
 }

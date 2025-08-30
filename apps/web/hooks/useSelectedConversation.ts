@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useConversationStore } from "../store/conversationStore";
-import { IConversation } from "@interfaces/conversationInterface";
+import { IConversation } from "@repo/interfaces/conversationInterface";
 
 const useSelectedConversation = <T extends IConversation>(conversationId: string): T | undefined => {
   const conversations = useConversationStore((s) => s.conversations);

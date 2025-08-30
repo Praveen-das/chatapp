@@ -1,15 +1,12 @@
 import Menu from "@features/ui/Menu";
 import useAuth from "@hooks/useAuth";
-import {
-  IConversation,
-  IUserConversation,
-} from "@interfaces/conversationInterface";
-import socket from "@lib/ws";
+import { IConversation, IUserConversation } from "@repo/interfaces/conversationInterface";
 import useSocket from "context/SocketProvider";
 import { memo } from "react";
 import { useConversationStore } from "store/conversationStore";
 import { useStore } from "store/global";
 import { useMessageStore } from "store/messageStore";
+import { useAttachments } from "store/attachments";
 
 function MenuContext() {
   const { user } = useAuth();
@@ -20,15 +17,9 @@ function MenuContext() {
     sendRequestToUnarchiveConversation,
     deleteGroupConversation,
   } = useSocket();
-  const setSelectedConversation = useConversationStore(
-    (s) => s.setSelectedConversation
-  );
 
   const setModal = useStore((s) => s.setModal);
-  const selectedConversation = useConversationStore(
-    (s) => s.selectedConversation
-  );
-
+  const clearImages = useAttachments((s) => s.clearImages);
   const handleArchiving = (conversation: IConversation) => {
     conversation.archived
       ? sendRequestToUnarchiveConversation(conversation)
@@ -43,9 +34,12 @@ function MenuContext() {
     });
   };
 
-  const handleBlockingUser = (conversation: IUserConversation) => {
-    if (conversation.blocked) sendUserUnBlockRequest(conversation);
-    else sendUserBlockRequest(conversation);
+  const handleBlockingUser = (userConversation: IUserConversation) => {
+    if (userConversation.blocked) sendUserUnBlockRequest(userConversation);
+    else {
+      sendUserBlockRequest({ userConversation });
+      clearImages();
+    }
   };
 
   const handleExitingGroup = (conversation: IConversation) => {
@@ -54,10 +48,12 @@ function MenuContext() {
       state: conversation,
       open: true,
     });
+    clearImages();
   };
 
   const handleDeletingGroup = (conversation: IConversation) => {
     deleteGroupConversation(conversation);
+    clearImages();
   };
 
   return (
@@ -69,24 +65,18 @@ function MenuContext() {
           </Menu.Item>
           {conversation.host === "group" ? (
             conversation.members.some((m) => m.id === user?.id) ? (
-              <Menu.Item onClick={() => handleExitingGroup(conversation)}>
-                Exit group
-              </Menu.Item>
+              <Menu.Item onClick={() => handleExitingGroup(conversation)}>Exit group</Menu.Item>
             ) : (
-              <Menu.Item onClick={() => handleDeletingGroup(conversation)}>
-                Delete group
-              </Menu.Item>
+              <Menu.Item onClick={() => handleDeletingGroup(conversation)}>Delete group</Menu.Item>
             )
           ) : (
             <>
-              <Menu.Item
-                onClick={() => handleDeletingConversation(conversation)}
-              >
-                Delete chat
-              </Menu.Item>
-              <Menu.Item onClick={() => handleBlockingUser(conversation)}>
-                {conversation.blocked ? "Unblock" : "Block"}
-              </Menu.Item>
+              <Menu.Item onClick={() => handleDeletingConversation(conversation)}>Delete chat</Menu.Item>
+              {conversation.host === "user" && (
+                <Menu.Item onClick={() => handleBlockingUser(conversation)}>
+                  {conversation.blocked ? "Unblock" : "Block"}
+                </Menu.Item>
+              )}
             </>
           )}
         </>

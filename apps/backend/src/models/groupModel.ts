@@ -1,5 +1,5 @@
 import { Schema, model } from "mongoose";
-import { IGroup } from "../interfaces/groupInterface";
+import { IGroup } from "@repo/interfaces/groupInterface";
 
 const schemaOptions = { toJSON: { virtuals: true } };
 

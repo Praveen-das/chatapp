@@ -5,7 +5,7 @@ import { initKafkaConsumer } from "./src/kafka/kafka";
 import cors from "cors";
 import bodyParser from "body-parser";
 import { verifyAuth } from "./src/middlewares/auth";
-import userController from "./src/controller/userController";
+import otpRoute from "./src/routes/otpRoute";
 
 (async () => {
   const app = express();
@@ -30,6 +30,7 @@ import userController from "./src/controller/userController";
   }
 
   app.get("/health", (_, res) => res.json({ status: "okay" }));
+  app.use('/otp', otpRoute);
   app.use(verifyAuth);
   app.use(router);
 

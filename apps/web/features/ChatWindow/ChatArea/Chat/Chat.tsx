@@ -2,7 +2,7 @@
 
 import { MouseEvent, memo } from "react";
 import Avatar from "@features/ui/Avatar";
-import { IImageAttachment, IMessage, IMessageReply, IUrlAttachment } from "@interfaces/messageInterface";
+import { IImageAttachment, IMessage, IMessageReply, IUrlAttachment } from "@repo/interfaces/messageInterface";
 import ImageAttachment from "./Attachments/ImageAttachment";
 import UrlAttachment from "./Attachments/UrlAttachment";
 import { ArrowUturnLeftIcon } from "@heroicons/react/24/solid";
@@ -17,7 +17,7 @@ import { useMenu } from "store/menu";
 import { useMessageStore } from "store/messageStore";
 import classNames from "classnames";
 import { useStore } from "store/global";
-import { IUser } from "@interfaces/userInterface";
+import { IUser } from "@repo/interfaces/userInterface";
 import { scrolleToIndexHelper } from "@lib/events";
 
 interface IChatProps {
@@ -26,6 +26,7 @@ interface IChatProps {
   noColorChange?: boolean;
   displayUsername?: boolean;
   canSelect?: boolean;
+  replyButton?: boolean;
   self: boolean;
 }
 
@@ -58,11 +59,11 @@ function Chat({
           "bg-black bg-opacity-20": isSelected,
         },
         `${self ? "ml-auto flex-row-reverse" : "mr-auto"} 
-        group flex gap-3 text-xs px-4 pt-2 pb-2 `
+        group flex gap-3 text-xs px-4 py-3 `
       )}
     >
       <div
-        className={`${self ? "ml-auto" : chat.from === "system" ? "mx-auto" : "mr-auto"} relative flex flex-col max-w-[calc(100%-(1rem+30px))]`}
+        className={`${self ? "ml-auto" : chat.type === "notification" ? "mx-auto" : "mr-auto"} relative flex flex-col max-w-[calc(100%-(1rem+30px))]`}
       >
         <div
           className={`grid ${displayAvatar ? "grid-cols-[30px_1fr] gap-x-2" : ""} ${self ? "justify-items-end" : "justify-items-start"}`}
@@ -73,7 +74,11 @@ function Chat({
             avatarVisibility={avatarVisibility}
           />
           <RenderChat chat={chat} self={self} {...chatProps} />
-          <ChatIndicators chat={chat} displayChatIndicators={chat.from !== "system"} hideIndicators={hideIndicators} />
+          <ChatIndicators
+            chat={chat}
+            displayChatIndicators={chat.type !== "notification"}
+            hideIndicators={hideIndicators}
+          />
         </div>
       </div>
     </div>
@@ -100,8 +105,8 @@ function RenderChat({ chat, ...chatProps }: { chat: IMessage } & IChatProps) {
   let messageClassNames = classnames(
       {
         hidden: !chat.message,
-        "bg-primary text-white": !isEmoji && !haveAttachment && (self || noColorChange),
-        "bg-base-300 shadow-lg text-base-content": !isEmoji && !haveAttachment && !self && !noColorChange,
+        "bg-primary text-white": !isEmoji && (self || noColorChange),
+        "bg-[--base-300-100] shadow-lg text-base-content": !isEmoji && !self && !noColorChange,
       },
       `relative 
     text-sm 
@@ -112,18 +117,21 @@ function RenderChat({ chat, ...chatProps }: { chat: IMessage } & IChatProps) {
     overflow-hidden`
     ),
     messagePadding = classnames({
-      "px-3": !isEmoji && !haveAttachment,
-      "py-2": chat.message && haveAttachment,
-      "py-1": chat.message && !haveAttachment,
+      "px-3": !isEmoji,
+      "py-1": chat.message,
+      // "py-1": chat.message && !haveAttachment,
     });
-    
+
   return (
     <div
       className={classnames(`relative flex flex-col gap-1`, {
         "w-min": canShowAttachment,
       })}
     >
-      <ImageAttachment attachment={attachment as IImageAttachment} isPlaceholder={Boolean(chat.isPlaceholder)} />
+      <ImageAttachment
+        attachment={attachment as IImageAttachment}
+        isPlaceholder={Boolean(chat.type === "placeholder")}
+      />
       <div className={messageClassNames}>
         {chat.deleted ? (
           <DeletedMessage />
@@ -143,6 +151,7 @@ function RenderChat({ chat, ...chatProps }: { chat: IMessage } & IChatProps) {
       <ActionButtons
         classNames={`${self ? "-left-1 -translate-x-full" : "-right-1 translate-x-full flex-row-reverse"}`}
         disabled={chatProps.canSelect}
+        replyButton={Boolean(chatProps.replyButton)}
         chat={chat}
       />
     </div>
@@ -153,10 +162,12 @@ function ActionButtons({
   chat,
   classNames,
   disabled = false,
+  replyButton = true,
 }: {
   chat: IMessage;
   classNames?: string;
   disabled?: boolean;
+  replyButton?: boolean;
 }) {
   if (disabled) return null;
 
@@ -180,7 +191,7 @@ function ActionButtons({
 
   return (
     <div className={`max-sm:hidden flex items-center absolute top-0 bottom-0 ${classNames}`}>
-      {!chat.deleted && (
+      {!chat.deleted && replyButton && (
         <div
           tabIndex={0}
           onClick={handleReplyingChat}
@@ -188,7 +199,7 @@ function ActionButtons({
         >
           <ArrowUturnLeftIcon className="size-4" />
         </div>
-      )}
+      )}        
       <div className="group-hover:opacity-100 opacity-0 btn btn-circle btn-ghost btn-xs" onClick={handleOpen}>
         <EllipsisVerticalIcon className="size-5 pointer-events-none" />
       </div>
@@ -206,7 +217,7 @@ function DisplaySenderName({ user }: { user: IUser }) {
 
   return (
     <label onClick={handleOpenProfile} className="hover:underline hover:cursor-pointer  flex text-[11px] text-primary">
-      {user.username}
+      {user?.username}
     </label>
   );
 }

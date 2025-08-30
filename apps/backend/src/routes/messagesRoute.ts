@@ -3,8 +3,6 @@ import messageController from "../controller/messageController";
 
 const router = Router();
 
-router.route("/").delete(messageController._deleteUserMessage);
-
 router.get("/fetch", messageController._getMessages);
 
 router.get("/attachments");

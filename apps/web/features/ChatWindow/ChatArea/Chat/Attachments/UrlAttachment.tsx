@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { memo } from "react";
-import { IUrlAttachment } from "../../../../../interfaces/messageInterface";
+import { IUrlAttachment } from "@repo/interfaces/messageInterface";
 
 const UrlAttachment = ({ attachment }: { attachment: IUrlAttachment }) => {
   if(attachment?.type !== 'link') return null

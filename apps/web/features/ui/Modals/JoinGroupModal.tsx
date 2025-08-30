@@ -3,98 +3,88 @@ import useSocket from "../../../context/SocketProvider";
 import useAuth from "../../../hooks/useAuth";
 import Avatar from "../Avatar";
 import { useStore } from "../../../store/global";
-import { IGroupConversation } from "../../../interfaces/conversationInterface";
-import { IModal } from "@interfaces/modalInterface";
+import { IGroupConversation } from "@repo/interfaces/conversationInterface";
 import { useConversationStore } from "store/conversationStore";
 import { useEffect, useState } from "react";
 import useAxios from "@hooks/useAxios";
+import { IModal } from "@interfaces/modalInterface";
+import { IGroup } from "@interfaces/groupInterface";
+import FramerWrapper from "../MotionWrapper";
 
 export const JoinGroupModal = () => {
-  const axios = useAxios()
+  const axios = useAxios();
   const { user } = useAuth();
   const { sendGroupjoinRequest } = useSocket();
-  const setModal = useStore(s=>s.setModal)
-  const { invitationId } = useStore<IModal<{ invitationId: string }> | null>(
-    (s) => s.modal
-  )?.state!;
+  const setModal = useStore((s) => s.setModal);
+  const { invitationId } = useStore<IModal<{ invitationId: string }> | null>((s) => s.modal)?.state!;
   const conversations = useConversationStore((s) => s.conversations);
-  const setSelectedConversation = useConversationStore(
-    (s) => s.setSelectedConversation
-  );
-  const [group, setGroup] = useState<IGroupConversation | null>(null);
+  const { setSelectedConversation } = useConversationStore((s) => s.conversationActions);
+  const [group, setGroup] = useState<IGroup | null>(null);
   const [loading, setLoading] = useState(false);
 
   function handleJoiningGroup() {
     if (!group) return;
+
     sendGroupjoinRequest(
       group!,
       user!,
-      conversations.some((c) => c.id === group.id)
+      conversations.some((c) => c.conversationId === group.id)
     );
-    setModal(null)
+
+    setModal(false);
   }
 
   useEffect(() => {
     (async () => {
-      setLoading(true);
-      await axios<IGroupConversation[]>(`/db/group/fetch/${invitationId}`)
-        .then((res) => {
-          setLoading(false);
-          const conversation = res.data[0]!;
+      try {
+        setLoading(true);
+        const fetchedGroup = await axios<IGroup[]>(`/db/group/fetch/${invitationId}`).then((res) => res.data[0]);
 
-          if (conversation) {
-            if (conversation.members.find((m) => m.id === user?.id)) {
-              const conversationId = useConversationStore
-                .getState()
-                .conversations.find(
-                  (c) => c.conversationId === conversation.id
-                )?.id!;
+        setLoading(false);
 
-              setSelectedConversation(conversationId);
-              setModal(null);
-            } else {
-              setGroup(conversation as IGroupConversation);
-            }
+        if (fetchedGroup) {
+          if (fetchedGroup.members.find((m) => m.id === user?.id)) {
+            const conversationId = useConversationStore
+              .getState()
+              .conversations.find((c) => c.conversationId === fetchedGroup.id)?.id!;
+
+            setSelectedConversation(conversationId);
+            setModal(false);
           } else {
+            setGroup(fetchedGroup);
           }
-        })
-        .catch((res) => {
-          setLoading(false);
-          console.log(res);
-        });
+        } else {
+        }
+      } catch (error) {
+        console.log(error);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [invitationId, user]);
 
   return (
-    <div className="modal-box p-8 relative flex gap-2 items-center flex-col max-w-[450px] bg-[--modal]">
+    <FramerWrapper className={`modal-box p-8 py-10 relative flex gap-2 items-center flex-col max-w-[400px] bg-[--modal]`}>
       {loading ? (
         <span className="loading loading-spinner loading-lg"></span>
       ) : !group ? (
         <label htmlFor="">Group doesn't exist.</label>
       ) : (
         <>
-          <Avatar
-            url={group.profilePicture}
-            size="120px"
-            onlineIndication={false}
-          />
-          <label className="mt-4" htmlFor="">
+          <Avatar url={group.profilePicture} size="150px" onlineIndication={false} />
+          <label className="mt-4 text-lg" htmlFor="">
             {group.displayName}
           </label>
-          <label className="text-sm text-center text-white/20" htmlFor="">
+          <label className="text-sm text-center text-base-content" htmlFor="">
             Created by {group.createdBy} on{" "}
-            {moment(new Date(group.createdAt)).format("LT")}
+            <span className="whitespace-nowrap">{moment(new Date(group.createdAt)).format("LT")}</span>
           </label>
           <div className="avatar-group -space-x-4 rtl:space-x-reverse">
             {group.members.map((member, i) =>
               i > 4 ? null : (
-                <div key={member.id} className="avatar border-base-300">
+                <div key={member.id} className="avatar rounded-full bg-base-200 border-base-200">
                   <div>
-                    <Avatar
-                      size="38px"
-                      url={member.profilePicture}
-                      onlineIndication={false}
-                    />
+                    <Avatar size="38px" url={member.profilePicture} onlineIndication={false} />
                   </div>
                 </div>
               )
@@ -108,21 +98,18 @@ export const JoinGroupModal = () => {
             )}
           </div>
           <div className="grid grid-cols-2 gap-2 mt-6">
-            <div
-              onClick={()=>setModal(null)}
-              className="btn  btn-outline h-10 min-h-10 rounded-full"
-            >
+            <div onClick={() => setModal(false)} className="btn [--b2:--b1] h-10 min-h-10 rounded-full">
               Cancel
             </div>
             <div
               onClick={handleJoiningGroup}
-              className="btn  btn-primary h-10 min-h-10 rounded-full"
+              className="btn  btn-primary text-[--black-white] h-10 min-h-10 rounded-full"
             >
               Join Group
             </div>
           </div>
         </>
       )}
-    </div>
+    </FramerWrapper>
   );
 };

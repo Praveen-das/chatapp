@@ -13,8 +13,8 @@ import {
 } from "@heroicons/react/24/outline";
 import { MouseEvent } from "react";
 import { useConversationStore } from "store/conversationStore";
+import { IMessageReply } from "@repo/interfaces/messageInterface";
 import { IModalKey } from "@interfaces/modalInterface";
-import { IMessageReply } from "@interfaces/messageInterface";
 
 export default function ChatHeaderActions() {
   const setModal = useStore((s) => s.setModal);
@@ -30,78 +30,57 @@ export default function ChatHeaderActions() {
   }
 
   function handleModal(modal: IModalKey) {
-    setModal({ activeModal: modal, state: selectedChats,open:true });
+    setModal({ activeModal: modal, state: selectedChats, open: true });
   }
 
   function handleCopyingMsg() {
-    const selectedConversation =
-      useConversationStore.getState().selectedConversation;
+    const selectedConversation = useConversationStore.getState().selectedConversation;
 
     const copiedMessages = selectedChats
       .map(({ timestamp, from, message }) => {
-        const receiver = selectedConversation?.members.find(
-          (m) => m.id === from
-        );
-        return [
-          moment(new Date(timestamp)).format("D-MM-YY"),
-          receiver?.username,
-          message,
-        ].join(" ");
+        const receiver =
+          selectedConversation?.host !== "system" ? selectedConversation?.members.find((m) => m.id === from) : null;
+        return [moment(new Date(timestamp)).format("D-MM-YY"), receiver?.username, message].join(" ");
       })
       .join("\n");
 
     navigator.clipboard.writeText(copiedMessages);
   }
 
-  function handleReply(){
-    const chat  = selectedChats[0]!
-    
-    const req:IMessageReply = {
-      messageId:chat.id,
-      userId:chat.from!,
-      message:chat.message,
-      attachment:chat.attachment,
+  function handleReply() {
+    const chat = selectedChats[0]!;
+
+    const req: IMessageReply = {
+      messageId: chat.id,
+      userId: chat.from!,
+      message: chat.message,
+      attachment: chat.attachment,
     };
 
-    setReplyRequest(req)
-    setSelectedChats(null)
+    setReplyRequest(req);
+    setSelectedChats(null);
   }
 
   return (
     <>
       <div className="text-xs min-h-16 flex items-center gap-4 px-2 ">
-        <span
-          onClick={handleClose}
-          className="sm:hidden btn btn-circle btn-ghost btn-sm"
-        >
+        <span onClick={handleClose} className="sm:hidden btn btn-circle btn-ghost btn-sm">
           <ArrowLeftIcon className="size-5" />
         </span>
         <span className="mr-auto">{selectedChats.length}</span>
 
         {selectedChats.length === 1 && (
-          <span
-            onClick={handleReply}
-            className="btn btn-circle btn-ghost btn-sm"
-          >
+          <span onClick={handleReply} className="btn btn-circle btn-ghost btn-sm">
             <ArrowUturnLeftIcon className="size-5" />
           </span>
         )}
-        <span
-          onClick={() => handleModal("deleteMessageModal")}
-          className="btn btn-circle btn-ghost btn-sm"
-        >
+        <span onClick={() => handleModal("deleteMessageModal")} className="btn btn-circle btn-ghost btn-sm">
           <TrashIcon className="size-5" />
         </span>
-        <span
-          onClick={handleCopyingMsg}
-          className="btn btn-circle btn-ghost btn-sm"
-        >
+        <span onClick={handleCopyingMsg} className="btn btn-circle btn-ghost btn-sm">
           <DocumentDuplicateIcon className="size-5" />
         </span>
-        <span
-          onClick={() => handleModal("forwardMessageModal")}
-          className="btn btn-circle btn-ghost btn-sm"
-        >
+        <span onClick={() => handleModal("forwardMessageModal")} className="btn btn-circle btn-ghost btn-sm">
           <ArrowUturnRightIcon className="size-5" />
         </span>
       </div>

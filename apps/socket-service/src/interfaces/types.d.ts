@@ -35,17 +35,6 @@ interface IDeleteForUserRequest {
   }[];
 }
 
-interface IRule {
-  isVisible: boolean;
-}
-
-interface IUserRules {
-  profilePicture: IRule;
-  bio: IRule;
-  lastSeen: IRule;
-  ReadReceipts: IRule;
-}
-
 interface IUser {
   id: string;
   username: string;
@@ -55,21 +44,6 @@ interface IUser {
   createdAt: number;
   updatedAt: number;
   self?: boolean;
-}
-
-interface ISession {
-  userId: string;
-  sessionId: string;
-  data:{
-    userData: IUser;
-    deviceData: {
-      browser: string;
-      os: string;
-      device: string;
-      city: string;
-      timestamp: number;
-    };
-  }
 }
 
 interface IImagePayload {
@@ -100,21 +74,6 @@ interface IUrlAttachment {
   host: string;
   url: string;
   // metadata: IUrlMetadata | null;
-}
-
-
-interface IMessage {
-  id: string;
-  conversationId?: string;
-  from?: string | "system";
-  to: string;
-  message: string;
-
-  attachment: IAttachment | null;
-  reply?: IMessageReply;
-  readReceipt: IReadReceipt[];
-  deleted: boolean;
-  timestamp: number;
 }
 
 interface IMessageStore {
@@ -178,6 +137,7 @@ interface IGroupConversation extends IConversationBase {
 }
 
 interface IGroup {
+  _id?: string,
   id: string,
   channelId: string,
   invitationId?: string,
@@ -212,14 +172,5 @@ interface IUserUpdateRequest {
   updates: Partial<IUser>;
 }
 
-interface IUserRuleChangeRequest {
-  userId: string;
-  rules: IUserRules;
-}
 
-interface IUpdateBlockReq {
-  conversationId: string;
-  userId: string;
-  requestedUserId: string;
-  value: boolean;
-}
+

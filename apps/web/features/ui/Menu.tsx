@@ -1,9 +1,9 @@
 import { Placement, flip, shift, useDismiss, useFloating, useInteractions } from "@floating-ui/react";
-import React, { ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useMenu } from "../../store/menu";
 
 import PropTypes from "prop-types";
-import { createPortal } from "react-dom";
+import { AnimatePresence, motion } from "framer-motion";
 
 interface MenuProps<T> {
   id: string | number;
@@ -20,16 +20,15 @@ function Menu<T>({ children, placement = "bottom-start", clientPoint = false, st
   const reference = menu?.reference;
   const open = Boolean(id === menu?.id);
 
-  const { refs, floatingStyles, elements, context } = useFloating({
+  const { refs, floatingStyles, context } = useFloating({
     open,
     onOpenChange: (o) => !o && setMenu(null),
     middleware: [flip(), shift()],
     placement,
     elements: { reference: clientPoint ? wrapper.current : reference?.target },
+    transform: false,
   });
-
   const dismiss = useDismiss(context, { enabled: open });
-
   const { getFloatingProps } = useInteractions([dismiss]);
 
   useEffect(() => {
@@ -44,22 +43,55 @@ function Menu<T>({ children, placement = "bottom-start", clientPoint = false, st
     wrapper.current.style.top = y;
   }, [reference, clientPoint]);
 
-  if (!open) return null;
+  const variants = useMemo(() => {
+    const _variants = {
+      hidden: { opacity: 0, clipPath: "" },
+      visible: { opacity: 1, clipPath: "polygon(0 0, 100% 0, 100% 100%, 0% 100%)" },
+    };
 
-  return createPortal(
+    switch (context.placement) {
+      case "top-start":
+        _variants.hidden.clipPath = "polygon(0 30%, 30% 30%, 30% 100%, 0 100%)";
+        break;
+      case "top-end":
+        _variants.hidden.clipPath = "polygon(30% 30%, 100% 30%, 100% 100%, 30% 100%)";
+        break;
+      case "bottom-start":
+        _variants.hidden.clipPath = "polygon(0 0, 30% 0, 30% 30%, 0 30%)";
+        break;
+      case "bottom-end":
+        _variants.hidden.clipPath = "polygon(30% 0, 100% 0, 100% 30%, 30% 30%)";
+        break;
+      default:
+        break;
+    }
+
+    return _variants;
+  }, [context.placement]);
+
+  return (
     <div>
       {open && <div className="fixed inset-0 z-[1000]" />}
       {clientPoint && <div ref={wrapper} className="fixed z-[1000]" />}
-      <ul
-        ref={refs.setFloating}
-        style={floatingStyles}
-        {...getFloatingProps()}
-        onClick={() => setMenu(null)}
-        className="menu bg-base-100 p-1 rounded-lg text-xs shadow z-[1000]"
-      >
-        {open && (typeof children === "function" ? children(menu?.data) : children)}
-      </ul>
-    </div>,document.body
+      <AnimatePresence key={context.placement}>
+        {open && (
+          <motion.ul
+            className={`menu bg-base-100/70 backdrop-blur-lg p-1 rounded-lg text-xs shadow z-[1000] overflow-hidden`}
+            initial="hidden"
+            exit="hidden"
+            animate="visible"
+            transition={{ duration: 0.08 }}
+            onClick={() => setMenu(null)}
+            variants={variants}
+            ref={refs.setFloating}
+            {...getFloatingProps()}
+            style={floatingStyles}
+          >
+            {typeof children === "function" ? children(menu?.data) : children}
+          </motion.ul>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 

@@ -6,12 +6,14 @@ import Avatar from "../Avatar";
 import SearchUser from "../Searchbar";
 import AdminTag from "../AdminTag";
 import { useStore } from "../../../store/global";
-import { IUser } from "../../../interfaces/userInterface";
-import { IGroupConversation, IGroupMember } from "../../../interfaces/conversationInterface";
+import { IUser } from "@repo/interfaces/userInterface";
+import { IGroupConversation, IGroupMember } from "@repo/interfaces/conversationInterface";
 import Menu from "@features/ui/Menu";
 import { useMenu } from "store/menu";
 import useAuth from "@hooks/useAuth";
 import { XCircleIcon } from "@heroicons/react/24/solid";
+import ModalTitle from "./components/ModalTitle";
+import FramerWrapper from "../MotionWrapper";
 
 export const AllMembers = () => {
   const { user } = useAuth();
@@ -19,7 +21,7 @@ export const AllMembers = () => {
   const setMenu = useMenu((s) => s.setMenu);
 
   const setSelectedUser = useStore((s) => s.setSelectedUser);
-  const setSelectedConversation = useConversationStore((s) => s.setSelectedConversation);
+  const { setSelectedConversation } = useConversationStore((s) => s.conversationActions);
   const profileTab = useStore((s) => s.profileTab);
   const toggleProfile = useStore((s) => s.toggleProfile);
   const { removeMemberFromGroup, makeAdmin, removeFromAdmin } = useSocket();
@@ -60,7 +62,7 @@ export const AllMembers = () => {
   const handleSelectingUser = (member: IGroupMember) => {
     setSelectedUser(member as IUser);
     profileTab.push("user");
-    setModal(null);
+    setModal(false);
   };
 
   const handleMessagingUser = (member: IGroupMember) => {
@@ -68,7 +70,7 @@ export const AllMembers = () => {
     setSelectedConversation(null);
     toggleProfile(false);
 
-    setModal(null);
+    setModal(false);
   };
 
   function handleRemovingMember(member: IGroupMember) {
@@ -88,21 +90,13 @@ export const AllMembers = () => {
   return (
     <div
       id="container"
-      className="modal-box max-sm:max-w-full max-sm:max-h-full max-sm:rounded-none max-sm:pt-4 max-sm:w-full max-sm:h-full relative flex flex-col max-w-[450px] h-full m-auto  px-0 pb-0 bg-[--modal] z-0 overflow-hidden !transform-none"
+      className={`modal-box max-sm:max-w-full max-sm:max-h-full max-sm:rounded-none max-sm:pt-4 max-sm:w-full max-sm:h-full relative flex flex-col max-w-[450px] h-full m-auto  px-0 pb-0 z-0 overflow-hidden !transform-none bg-transparent`}
     >
-      <div className="flex max-sm:px-4 px-6 justify-between items-center w-full ">
-        <h3 className="font-medium text-lg">Group members</h3>
-        <form method="dialog">
-          <button className="btn btn-circle btn-sm btn-ghost">
-            <XCircleIcon className="size-6" />
-          </button>
-        </form>
-      </div>
-
+      <div className="absolute inset-0 backdrop-blur-xl bg-[--modal] z-[-1]"></div>
+      <ModalTitle>Group members</ModalTitle>
       <div className="max-sm:px-4 px-6 mt-4">
         <SearchUser onChange={setQuery} highlightElm=".displayName" highlightResults />
       </div>
-
       <div className="flex relative flex-col w-full h-full overflow-y-scroll no-scrollbar mt-4 mb-2">
         <Menu<IGroupMember> id="ALL_MEMBERS" clientPoint>
           {(member) => (
@@ -129,7 +123,7 @@ export const AllMembers = () => {
                   <label className="text-sm px-2 py-[2px] bg-primary text-white rounded-lg" htmlFor="">
                     {key}
                   </label>
-                  <span className="w-full h-[2px] bg-black/30" />
+                  <span className="w-full h-[2px] bg-black/10" />
                 </div>
                 {groupMembers.map((member) => (
                   <Member key={member.id} member={member} onClick={(e) => handleSelecting(e, member)} />
@@ -138,8 +132,6 @@ export const AllMembers = () => {
             ))}
       </div>
     </div>
-    // <div className="fixed flex inset-0">
-    // </div>
   );
 };
 
@@ -156,11 +148,8 @@ function Member({ member, onClick }: { member: IGroupMember; onClick: (e: MouseE
             <AdminTag isAdmin={member.isAdmin} />
           </div>
           <div className="flex justify-between items-center opacity-60">
-            <label className="text-sm max-w-1/3 truncate" htmlFor="">
-              {member.bio || "asd asdasd qwe zx"}
-            </label>
             <label className="text-xs text-end" htmlFor="">
-              +918848990353
+              {member.phoneNumber}
             </label>
           </div>
         </div>

@@ -1,50 +1,33 @@
+import { IUserRules } from "@repo/interfaces/userInterface";
 import { create } from "zustand";
-import { persist, createJSONStorage } from 'zustand/middleware'
+import { persist, createJSONStorage } from "zustand/middleware";
 
-
-
-interface IPersistentStoreContext {
-    usersProfilePref: IUserRules[]
-    setUserProfilePref: (prefs: IUserRules[]) => void
-    updateUserProfilePref: (userId: string, pref: Partial<IUserRules>) => void
-
-    userNotificationPref: IUserNotificationPref
-    setUserNotificationPref: (key: string, value: boolean) => void
-
-
-    // setUserPref: (pref: IUserPref) => void,
-    // getUserPref: (userId: string) => IUserPref,
-    // updateUserPref: (userId: string, pref: IUserPref) => void,
+interface IUserNotificationPref {
+  user: boolean;
+  group: boolean;
 }
 
-export const usePersistentStore = create(persist<IPersistentStoreContext>((set, get) => {
-    return {
-        usersProfilePref: [],
-        setUserProfilePref: (usersProfilePref) => set({ usersProfilePref }),
-        updateUserProfilePref: (userId, pref) => {
-            const usersProfilePref = get().usersProfilePref
-            // const userProfilePref = usersProfilePref.find(u => u.userId === userId)
+interface IPersistentStoreContext {
+  userNotificationPref: IUserNotificationPref;
+  setUserNotificationPref: (key: string, value: boolean) => void;
 
-            // if (!userProfilePref) usersProfilePref.push({ userId, userPref: { ...USER_PREF_DEFAULT, ...pref } })
-            // else usersProfilePref.map(u => u.userId === userId ? { ...u, userPref: { ...u.userPref, ...pref } } : u)
+  // setUserPref: (pref: IUserPref) => void,
+  // getUserPref: (userId: string) => IUserPref,
+  // updateUserPref: (userId: string, pref: IUserPref) => void,
+}
 
-            console.log(usersProfilePref);
-            
-            // set(({ usersProfilePref }))
-        },
-
-        userNotificationPref: { chatNotification: true, groupNotification: true },
-        setUserNotificationPref: (key, value) => set(s => ({ userNotificationPref: { ...s.userNotificationPref, [key]: value } }))
-
-        // setUserPref: (pref) => set({ userProfilePrefs }),
-        // getUserPref: (userId) => get().userProfilePrefs.find(c => c.userId === userId)!,
-        // updateUserPref: (connection) => {
-        //     const userProfilePrefs = get().userProfilePrefs.filter(c => c.userId !== connection.userId)
-        //     userProfilePrefs.push(connection)
-        //     set({ userProfilePrefs })
-        // },
+export const usePersistentStore = create(
+  persist<IPersistentStoreContext>(
+    (set) => {
+      return {
+        userNotificationPref: { user: true, group: true },
+        setUserNotificationPref: (key, value) =>
+          set((s) => ({ userNotificationPref: { ...s.userNotificationPref, [key]: value } })),
+      };
+    },
+    {
+      name: "persistent-store",
+      storage: createJSONStorage(() => localStorage),
     }
-}, {
-    name: 'persistent-store', // name of the item in the storage (must be unique)
-    // storage: createJSONStorage(() => sessionStorage), // (optional) by default, 'localStorage' is used
-},))
+  )
+);

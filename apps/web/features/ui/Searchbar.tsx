@@ -52,7 +52,7 @@ export default function Searchbar({
 
   return (
     <div
-      className={`flex items-center ${onClick ? "flex-row-reverse" : ""} gap-2 rounded-2xl px-3 py-2 bg-base-100 shadow-lg`}
+      className={`flex items-center ${onClick ? "flex-row-reverse" : ""} gap-2 rounded-2xl px-3 py-2 bg-[--base-100-300] shadow-lg`}
     >
       <div className={`btn btn-circle btn-xs btn-ghost `}>
         <MagnifyingGlassIcon  />

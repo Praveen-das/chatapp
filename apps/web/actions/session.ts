@@ -1,11 +1,15 @@
 "use server";
 
-import { ISession } from "@interfaces/sessionInterface";
+import { ISession } from "@repo/interfaces/sessionInterface";
+import { createAccessToken, createRefreshToken } from "@repo/utils";
 import axiosClient from "@lib/axiosClient";
 import { getDeviceDetails, getGeoLocationDetails } from "@lib/device";
-import { cookies } from "next/headers";
-import { createAccessToken, createRefreshToken, verifyRefreshToken } from "./jwt";
-import { IUser } from "@interfaces/userInterface";
+import { cookies, headers } from "next/headers";
+import { IUser } from "@repo/interfaces/userInterface";
+import { NextRequest } from "next/server";
+import { getServerSession as _getServerSession } from "next-auth";
+import { getToken } from "next-auth/jwt";
+import { AxiosError } from "axios";
 
 const cookie: any = {
   name: "token",
@@ -18,127 +22,97 @@ const cookie: any = {
   },
 };
 
-export async function saveSession(user: IUser) {
+export async function createTokens(user: IUser) {
   try {
     const { os, browser, device } = getDeviceDetails();
     const { city } = await getGeoLocationDetails();
     const sessionId = crypto.randomUUID();
 
+    const access_token = await createAccessToken({ userId: user.id, sessionId });
+    const refresh_token = await createRefreshToken({ userId: user.id, sessionId });
+
     const sessionData: ISession = {
-      userId: user.id,
+      userId: user.id as string,
       sessionId,
       data: {
-        userData: user,
-        deviceData: {
-          browser,
-          os,
-          device,
-          city,
-          timestamp: Date.now(),
-        },
+        browser,
+        os,
+        device,
+        city,
+        timestamp: Date.now(),
       },
     };
 
-    const token = await createAccessToken({ userId: sessionData?.userId });
-    const refresh_token = await createRefreshToken(sessionData);
+    !process.env.NEXT_PUBLIC_CLIENT_ONLY && (await axiosClient.post("/session", JSON.stringify(sessionData)));
 
-    await axiosClient.post("/session", JSON.stringify(sessionData));
-
-    cookies().set(cookie.name, refresh_token, cookie.options);
-    return token;
+    return { access_token, refresh_token, sessionId };
   } catch (error) {
     console.log(error);
+    throw Error("Token creation failed");
   }
 }
 
-export async function updateSession(user: IUser) {
+export async function refreshToken() {
   try {
-    const { os, browser, device } = getDeviceDetails();
-    const { city } = await getGeoLocationDetails();
-    const token = await getRefreshToken();
-    const session = await verifyRefreshToken(token!);
+    const res = await validateRefreshToken();
 
-    if (!session) return;
+    if (!res?.data) {
+      console.log("Invalid session");
+      return null;
+    }
 
-    const sessionData: ISession = {
-      ...session,
-      data: {
-        userData: user,
-        deviceData: {
-          browser,
-          os,
-          device,
-          city,
-          timestamp: Date.now(),
-        },
-      },
-    };
-
-    const access_token = await createAccessToken({ userId: sessionData?.userId });
-    const refresh_token = await createRefreshToken(sessionData);
-
-    await axiosClient.post("/session", JSON.stringify(sessionData));
-
-    cookies().set(cookie.name, refresh_token, cookie.options);
+    const access_token = await createAccessToken({ userId: res.data.userId });
     return access_token;
   } catch (error) {
-    console.log(error);
+    if (error instanceof Error) {
+      console.log("instanceof Error refreshToken---->", error);
+    }
+
+    if (error instanceof AxiosError) {
+      console.log("instanceof AxiosError refreshToken---->", {
+        status: error.response?.status,
+        url: error.config?.url,
+        data: error.response?.data,
+      });
+    }
+
+    return null;
   }
 }
 
-export async function withSession<T>(f: () => Promise<T>): Promise<T> {
-  // const accessToken = useAuth.getState().accessToken;
-  // const setAccessToken = useAuth.getState().setAccessToken!;
-
-  // const session = await verifyAccessToken(accessToken!);
-
-  // if (session?.expired) {
-  //   const { access_token } = (await refreshToken())!;
-  //   if (!access_token) return redirect("/register");
-  //   setAccessToken(access_token);
-  // }
-
-  return f();
-}
-
-export async function getRefreshToken() {
-  const cookieStore = cookies();
-  const token = cookieStore.get(cookie.name)?.value;
-  return token;
-}
-
-export async function refreshToken(): Promise<{ access_token: string; refresh_token: string } | null> {
+export async function validateRefreshToken() {
   try {
-    const token = await getRefreshToken();
+    const req = new NextRequest(process.env.NEXTAUTH_URL!, { headers: { cookie: headers().get("cookie") || "" } });
+    const token = await getToken({ req: req });
 
-    if (!token) return null;
+    if (!token) throw Error("Token not found login again");
 
-    const session = await verifyRefreshToken(token);
+    const res = await axiosClient.get(`/session/token`, {
+      headers: {
+        Authorization: `Bearer ${token.refresh_token}`,
+      },
+    });
 
-    if (!session || session.expired) {
-      await clearLocalSession();
-      return null;
-    }
+    return res.data;
+  } catch (error: any) {
+    console.log("validateRefreshToken error------>", {
+      status: error?.response?.status,
+      statusText: error?.response?.data,
+    });
 
-    const res = await axiosClient.get(`/session/fetch?sessionId=${session.sessionId}`);
-
-    if (!res.data) {
-      await clearLocalSession();
-      return null;
-    }
-
-    const access_token = await createAccessToken({ userId: session.userId });
-
-    return { access_token, refresh_token: token };
-  } catch (error) {
-    console.log("Error refreshToken---->", error);
     return null;
   }
 }
 
 export async function clearLocalSession() {
   const cookieStore = await cookies();
-  cookieStore.delete(cookie.name);
+  cookieStore.delete("next-auth.session-token");
+}
+
+export async function deleteCookie() {
+  const cookieStore = await cookies();
+  cookieStore.delete("user");
+  console.log("deleteCookie");
 }
 
 export async function deleteSessionFromDb(sessionId: string) {

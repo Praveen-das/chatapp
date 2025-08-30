@@ -1,32 +1,26 @@
-import { Server } from "socket.io";
-import { ISocket } from "../interfaces/socketInterfaces";
+import { Namespace, Server } from "socket.io";
 import produceMessage from "../kafka/kafka";
+import { ISocket } from "../interfaces/socketInterfaces";
 
-export default function registerConversationHandlers(
-  io: Server,
-  socket: ISocket
-) {
+export default function registerConversationHandlers(io: Server, socket: ISocket) {
   socket.on("REGISTER_CONVERSATION", (conversation: INewConversation) => {
-    produceMessage({ conversation }, "CREATE_CONVERSATION");
+    const members = conversation.members.map(({ id }) => id);
+    produceMessage({ conversation: { ...conversation, members } }, "CREATE_CONVERSATION");
   });
 
-  socket.on(
-    "REGISTER_USER_CONVERSATION",
-    (conversations: IUserConversation[]) => {
-      const conversation = conversations.find(
-        (c) => c.userId !== socket.userId
-      );
+  socket.on("REGISTER_USER_CONVERSATION", (conversations: IUserConversation[]) => {
+    const userConversations: any[] = [];
 
-      socket.emit(
-        "CREATE_USER_CONVERSATION",
-        conversation
-      );
-      produceMessage(
-        { userConversations: conversations },
-        "CREATE_USER_CONVERSATION"
-      );
-    }
-  );
+    conversations.forEach((conversation) => {
+      let members = conversation.members.map(({ id }) => id);
+
+      userConversations.push({ ...conversation, members });
+
+      io.to(conversation.userId).emit("CREATE_USER_CONVERSATION", conversation, conversation.userId === socket.userId);
+    });
+
+    produceMessage({ userConversations }, "CREATE_USER_CONVERSATION");
+  });
 
   socket.on("CLEAR_CONVERSATION", (id: string) => {
     const req = { id, updates: { deletedAt: Date.now() } };
@@ -75,18 +69,11 @@ export default function registerConversationHandlers(
     socket.emit("UPDATE_CONVERSATION", id, { archived: false });
   });
 
-  socket.on(
-    "REGISTER_STARRED_MESSAGES",
-    async (req: { conversationId: string; messageIds: string[] }) => {
-      produceMessage(req, "REGISTER_STARRED_MESSAGES");
-    }
-  );
+  socket.on("REGISTER_STARRED_MESSAGES", async (req: { conversationId: string; messageIds: string[] }) => {
+    produceMessage(req, "REGISTER_STARRED_MESSAGES");
+  });
 
-  socket.on(
-    "UNREGISTER_STARRED_MESSAGES",
-    async (req: { conversationId: string; messageIds: string[] }) => {
-      produceMessage(req, "UNREGISTER_STARRED_MESSAGES");
-    }
-  );
-  
+  socket.on("UNREGISTER_STARRED_MESSAGES", async (req: { conversationId: string; messageIds: string[] }) => {
+    produceMessage(req, "UNREGISTER_STARRED_MESSAGES");
+  });
 }

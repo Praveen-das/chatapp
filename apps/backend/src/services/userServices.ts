@@ -1,12 +1,54 @@
+import { IUBlockReq } from "@repo/interfaces/userInterface.js";
+import { handleGeneratingConversation } from "@repo/utils/index.js";
 import { Types } from "mongoose";
-import { IUBlockReq, IUser } from "../interfaces/userInterface.js";
+import { IUser } from "../interfaces/userInterface.js";
 import User from "../models/UserModal.js";
 import BlockedUsersModel from "../models/blockedConnectionModal.js";
+import { z } from "zod";
+import { updateUserSchema } from "../schemas/userSchema.js";
+import conversationServices from "./conversationServices.js";
+import messageServices from "./messageServices.js";
 
-async function createUser(user: IUser) {
+async function generateSystemConversation(userId: Types.ObjectId) {
+  const MESSAGE_STRING = `Welcome to ChatSpace.
+We’re pleased to have you here. This platform is built to support secure, real-time communication that keeps teams connected and information flowing.
+Whether you're starting new conversations or continuing existing ones, ChatSpace offers a focused, intuitive environment designed for clarity and collaboration.
+Start chatting — your space is ready.
+`;
+
+  const conversation = await conversationServices.createConversation({
+    id: new Types.ObjectId(),
+    host: "system",
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
+  await conversationServices.createUserConversation([
+    {
+      id: new Types.ObjectId(),
+      conversationId: conversation.id,
+      userId: userId,
+    },
+  ]);
+
+  await messageServices.saveUserMessage([
+    {
+      id: new Types.ObjectId(),
+      conversationId: conversation.id,
+      to: userId,
+      from: "system",
+      type: "service_message",
+      message: MESSAGE_STRING,
+      timestamp: Date.now(),
+    },
+  ]);
+}
+
+async function createUser(payload: IUser) {
   try {
-    const result = await User.create(user);
-    return result;
+    const user = await User.create(payload);
+    generateSystemConversation(user?.id);
+    return user;
   } catch (error) {
     console.error("Error:", error);
     throw error; // Rethrow the error if needed
@@ -35,8 +77,9 @@ async function queryUser(query: string) {
 
 async function getUserByPhoneNumber(phoneNumber: string) {
   try {
-    const result = await User.findOne({ phoneNumber });
-    return result;
+    const user = await User.findOne({ phoneNumber });
+    // generateSystemConversation(user?.id);
+    return user;
   } catch (error) {
     console.error("Error:", error);
     throw error; // Rethrow the error if needed
@@ -53,10 +96,9 @@ async function getUserById(userId: Types.ObjectId) {
   }
 }
 
-async function updateUser(_userId: string, updates: Partial<IUser>) {
+async function updateUser({ id, updates }: z.infer<typeof updateUserSchema>) {
   try {
-    const userId = new Types.ObjectId(_userId);
-    const result = await User.findOneAndUpdate({ id: userId }, { ...updates }, { new: true });
+    const result = await User.findOneAndUpdate({ id }, updates, { new: true });
 
     return result;
   } catch (error) {

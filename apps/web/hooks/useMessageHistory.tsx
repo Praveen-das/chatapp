@@ -1,4 +1,4 @@
-import { IMessage } from "@interfaces/messageInterface";
+import { IImageAttachment, IMessage, IUrlAttachment } from "@repo/interfaces/messageInterface";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useConversationStore } from "store/conversationStore";
 import { useMessageStore } from "store/messageStore";
@@ -6,6 +6,9 @@ import { shallow } from "zustand/shallow";
 import useAxios from "./useAxios";
 import config from "../config/config";
 import { useStore } from "store/global";
+import { decrypt } from "@lib/e2e";
+import { parseAttachments } from "@lib/messages";
+import { useAttachments } from "store/attachments";
 
 const { PAGINATION_LIMIT } = config;
 
@@ -38,19 +41,30 @@ function useMessageHistory() {
   const fetchOlderMessages = useCallback(async () => {
     if (!messageHistory.length) return;
 
+    const { setMediaStore } = useAttachments.getState();
     const conversationId = selectedConversation?.conversationId!;
     const timestamp = messageHistory[0]?.timestamp;
     const users = useStore.getState().users;
+    const mediaStore: { images: IImageAttachment[]; link: IUrlAttachment[] } = { images: [], link: [] };
 
     const response = await fetchMessages(conversationId, timestamp?.toString());
+    
     if (!response) return;
 
     response.forEach((message) => {
-      if (message) message.user = users.find((u) => u.id === message.from);
+      if (message) {
+        const attachment = parseAttachments(message);
+
+        attachment?.imageAttachment && mediaStore.images.push(attachment?.imageAttachment!);
+        attachment?.urlAttachment && mediaStore.link.push(attachment?.urlAttachment!);
+
+        if (message.message) message.message = decrypt(message.message);
+        message.user = users.find((u) => u.id === message.from);
+      }
     });
 
     hasNextPage.current[selectedConversation?.id!] = response.length > PAGINATION_LIMIT;
-
+    setMediaStore(selectedConversation?.id!, mediaStore);
     useMessageStore.getState().appendMessageHistory(selectedConversation?.id!, response);
   }, [messageHistory, selectedConversation]);
 
@@ -62,7 +76,7 @@ function useMessageHistory() {
       if (cursor) params.append("c", cursor);
 
       const res = await axios.get<IMessage[]>(`/db/messages/fetch?${params.toString()}`);
-      return res.data
+      return res.data;
     } catch (error) {
       console.log(error);
       return;

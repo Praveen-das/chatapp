@@ -1,17 +1,5 @@
+import { Override } from "@repo/interfaces/type";
+import { IUser as _IUser } from "@repo/interfaces/userInterface";
 import { Types } from "mongoose";
 
-export interface IUser {
-  id: Types.ObjectId;
-  username: string;
-  phoneNumber: string;
-  bio: string;
-  profilePicture?: string;
-  createdAt: number;
-  updatedAt: number;
-}
-
-export interface IUBlockReq {
-  id: Types.ObjectId;
-  userId: Types.ObjectId;
-  blockedId: Types.ObjectId;
-}
+export type IUser = Override<_IUser, { id: Types.ObjectId }>;

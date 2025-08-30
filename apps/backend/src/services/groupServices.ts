@@ -1,28 +1,16 @@
 import { Types } from "mongoose";
-import { IGroup } from "../interfaces/groupInterface";
+import { IGroup } from "@repo/interfaces/groupInterface";
 import Group from "../models/groupModel";
-import { IDeleteConversationRequest } from "../interfaces/conversationInterface";
 import GroupConversation from "../models/GroupConversation";
+import { IDeleteConversationRequest } from "@repo/interfaces/conversationInterface";
+import {z} from 'zod'
+import { groupSchema } from "../schemas/groupSchema";
 
 // createGroup
-async function createGroup(data: IGroup) {
+async function createGroup(data: z.infer<typeof groupSchema>) {
   try {
     const group = new Group(data);
     await group.save();
-
-    // const populatedGroup = await Group.aggregate([
-    //   {
-    //     $match: { id: group.id },
-    //   },
-    //   {
-    //     $lookup: {
-    //       from: "users",
-    //       localField: "members.id",
-    //       foreignField: "id",
-    //       as: "members",
-    //     },
-    //   },
-    // ]);
 
     return group
   } catch (error) {
@@ -84,9 +72,8 @@ async function fetchGroupById(groupId: string) {
   }
 }
 
-async function fetchGroupsByUserId(id: string) {
+async function fetchGroupsByUserId(userId: Types.ObjectId) {
   try {
-    const userId = new Types.ObjectId(id);
     const groups = await GroupConversation.aggregate([
       {
         $match: { userId },

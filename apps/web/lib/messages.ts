@@ -1,39 +1,46 @@
-import useAuth from "@hooks/useAuth";
-import { IConversation, INewConversation } from "@interfaces/conversationInterface";
+import { IConversation, INewConversation } from "@repo/interfaces/conversationInterface";
 import {
   IAttachment,
   IImageAttachment,
-  IMessage, IReadReceiptUpdatesCollection, IUrlAttachment
-} from "@interfaces/messageInterface";
+  IReadReceiptUpdatesCollection,
+  IUpdates,
+  IUrlAttachment,
+} from "@repo/interfaces/messageInterface";
 import ObjectID from "bson-objectid";
 import { IMessageReadReceipt } from "enums/enums";
 import { useMessageStore } from "store/messageStore";
 import { decrypt } from "./e2e";
-import { IUser } from "@interfaces/userInterface";
+import { IUser } from "@repo/interfaces/userInterface";
 import { useStore } from "store/global";
 import { getReceiver } from "./conversation";
+import { getSession } from "next-auth/react";
+import { IMessage } from "@interfaces/messageInterface";
+import { APP_NAME } from "config/constants";
 
-const createMessageTemplate = (
+const createMessageTemplate = async (
   conversation: IConversation | INewConversation,
   messageData: {
     message: string;
     attachment?: IAttachment | null;
     replyRequest?: IMessage["reply"] | null;
   }
-): IMessage => {
-  const user = useAuth.getState().user;
+): Promise<IMessage> => {
+  const { user } = (await getSession())!;
 
   const host = conversation.host;
   const conversationId = (conversation as IConversation).conversationId || conversation?.id;
   const from = user?.id;
   const to = host === "group" ? conversation?.channelId! : getReceiver(conversation as IConversation)?.id!;
 
-  const readReceipt = conversation.members
-    .filter((member) => member.id !== user?.id)
-    .map((member) => ({
-      userId: member.id,
-      status: IMessageReadReceipt.sent,
-    }));
+  const readReceipt =
+    conversation.host !== "system"
+      ? conversation.members
+          .filter((member) => member.id !== user?.id)
+          .map((member) => ({
+            userId: member.id,
+            status: IMessageReadReceipt.sent,
+          }))
+      : [];
 
   return {
     id: new ObjectID().toHexString(),
@@ -42,11 +49,12 @@ const createMessageTemplate = (
     conversationId,
     message: messageData.message,
     attachment: messageData.attachment,
-    reply: messageData.replyRequest!,
+    reply: messageData.replyRequest ?? undefined,
     timestamp: Date.now(),
     readReceipt,
     deleted: false,
     user: conversation.host === "group" ? user! : undefined,
+    type: "message",
   };
 };
 
@@ -71,9 +79,8 @@ export const regenerateMessageTemplate = (
   return createMessageTemplate(conversation, { message, attachment });
 };
 
-export function processMessagesForUser(user: IUser, status: IMessageReadReceipt, messages: IMessage[] = []) {
+export function processMessagesForUser(user: IUser, status: IMessageReadReceipt, messages: IMessage[] = [],updatesCollection:IUpdates) {
   const users = useStore.getState().users;
-  const updates: { key: any; value: any }[] = [];
   const unreadMessages: IMessage[] = [];
   const imageAttachments: IImageAttachment[] = [];
   const urlAttachments: IUrlAttachment[] = [];
@@ -82,65 +89,95 @@ export function processMessagesForUser(user: IUser, status: IMessageReadReceipt,
 
   if (!messages || messages.length === 0) {
     return {
-      updates,
       unreadMessages,
       imageAttachments: [],
       urlAttachments,
       messages,
+      updatesCollection,
     };
   }
 
   for (let message of messages) {
-    if(message.message)message.message=  decrypt(message.message)
-    if(message.reply?.message) message.reply.message = decrypt(message.reply.message)
-      
+    const isUserMessage = message.type === "message";
+    const isPlaceholder = message.type === "placeholder";
+
+    if (isUserMessage) {
+      if (message?.message) message.message = decrypt(message.message);
+      if (message?.reply?.message) message.reply.message = decrypt(message.reply.message);
+    }
+
     message.user = users.find((u) => u.id === message.from);
 
-    if (message.isPlaceholder) {
-      message.isPlaceholder = false;
+    if (isPlaceholder) {
+      message.type = "message";
       placeholders.push(message);
     } else newMessages.push(message);
 
-    if (message.attachment) {
-      let attachment = message.attachment;
+    if (isUserMessage)
+      message.readReceipt.forEach((readReceipt) => {
+        if (readReceipt.userId === user.id) {
+          if (readReceipt?.status === IMessageReadReceipt.sent) {
+            const update: IReadReceiptUpdatesCollection = {
+              id: message.id,
+              readReceipt: [{ userId: user.id, status }],
+            };
 
-      if (attachment.type === "images") {
-        attachment.sender = message.from;
-        imageAttachments.push(attachment);
-      }
+            let key = {
+              conversationId: message.conversationId!,
+              to: message.from!,
+            };
 
-      if (attachment.type === "link") urlAttachments.push(attachment);
+            updatesCollection.upsert(key, update);
+          }
+          if (readReceipt?.status < IMessageReadReceipt.seen) {
+            unreadMessages.push(message);
+          }
+        }
+      });
+
+    const attachment = parseAttachments(message);
+
+    if (attachment) {
+      attachment.imageAttachment && imageAttachments.push(attachment.imageAttachment);
+      attachment.urlAttachment && urlAttachments.push(attachment.urlAttachment);
     }
-
-    message.readReceipt.forEach((readReceipt) => {
-      if (readReceipt.userId === user.id) {
-        if (readReceipt?.status === IMessageReadReceipt.sent) {
-          const update: IReadReceiptUpdatesCollection = {
-            id: message.id,
-            readReceipt: [{ userId: user.id, status }],
-          };
-
-          let key = {
-            conversationId: message.conversationId!,
-            to: message.from!,
-          };
-
-          updates.push({ key, value: update });
-        }
-
-        if (readReceipt?.status < IMessageReadReceipt.seen) {
-          unreadMessages.push(message);
-        }
-      }
-    });
   }
 
   return {
-    updates,
     unreadMessages,
     imageAttachments,
     urlAttachments,
     messages: newMessages,
     placeholders,
   };
+}
+
+export function parseAttachments(message: IMessage) {
+  if (message.attachment) {
+    let attachment = message.attachment;
+
+    if (attachment.type === "images") {
+      attachment.sender =
+        message.type === "message"
+          ? message.user?.username || message.user?.phoneNumber
+          : message.type === "service_message"
+            ? APP_NAME
+            : "";
+      return { imageAttachment: attachment };
+    }
+
+    if (attachment.type === "link") return { urlAttachment: attachment };
+  }
+}
+
+export function getReadReceiptChanges(messages: { key: any; value: any }[] = []) {
+  const updatesCollection: IUpdates = new Map();
+
+  if (!!messages.length) {
+    messages.forEach(({ key, value }) => {
+      updatesCollection.upsert(key, value);
+    });
+  }
+
+  return updatesCollection;
 }

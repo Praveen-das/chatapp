@@ -1,5 +1,6 @@
 import mongoose, { Schema, model } from "mongoose";
-import { IAttachment, IImageAttachment, IMessage, IUrlAttachment } from "../interfaces/messageInterface";
+import { IAttachment, IImageAttachment, IUrlAttachment } from "@repo/interfaces/messageInterface";
+import { IMessage } from "../interfaces/messageInterface";
 
 const readReceiptSchema = new Schema({
   userId: Schema.Types.ObjectId,
@@ -9,7 +10,7 @@ const readReceiptSchema = new Schema({
 const imageAttachmentSchema = new mongoose.Schema<IImageAttachment>({
   id: Schema.Types.ObjectId,
   type: String,
-  
+
   fileId: String,
   name: String,
   size: Number,
@@ -34,7 +35,7 @@ const urlAttachmentSchema = new Schema<IUrlAttachment>({
 
 const urlAttachmentModal = model("UrlAttachmentModal", urlAttachmentSchema);
 
-const imageAttachmentModal = model("ImageAttachmentModal",imageAttachmentSchema);
+const imageAttachmentModal = model("ImageAttachmentModal", imageAttachmentSchema);
 
 function validator(_: any, v: any) {
   if (!v) return true;
@@ -51,21 +52,24 @@ const replyMessageSchema = new Schema({
     type: Schema.Types.Mixed as unknown as IAttachment,
     validate: { validator },
   },
-})
+});
 
 export const messageSchema = new Schema<IMessage>({
   id: Schema.Types.ObjectId,
   conversationId: Schema.Types.ObjectId,
-  from: Schema.Types.ObjectId,
+  from: Schema.Types.Mixed,
   to: Schema.Types.ObjectId,
   message: String,
   timestamp: Number,
+  type: {
+    type: String,
+    enum: ["message", "placeholder", "service_message", "notification"],
+  },
 
   attachment: {
     type: Schema.Types.Mixed as unknown as IAttachment,
     validate: { validator },
   },
-  hasAttachment:{ type: Boolean, default: false },
   reply: replyMessageSchema,
   readReceipt: [readReceiptSchema],
   deleted: {
@@ -80,7 +84,7 @@ const messageDeleteFlagSchema = new Schema<IMessageDeleteFlag>({
   deleted: Boolean,
 });
 
-messageSchema.index({ "hasAttachment": 1,"timestamp":1 });
+messageSchema.index({ hasAttachment: 1, timestamp: 1 });
 
 const Messages = model("messages", messageSchema);
 const MessageDeleteFlag = model("messageDeleteFlag", messageDeleteFlagSchema);

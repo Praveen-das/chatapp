@@ -1,18 +1,16 @@
 import { Types } from "mongoose";
 
 import Conversations from "../models/ConversationModel.js";
-import {
-  IUserConversation,
-  IDeleteConversationRequest,
-  IConversation,
-  IUpdateBlockReq,
-  IGroupConversation,
-} from "../interfaces/conversationInterface.js";
-import Archive from "../models/ArchiveModel.js";
+import { IUserConversation, IConversation, IGroupConversation } from "../interfaces/conversationInterface.js";
+import { IUpdateBlockReq, IDeleteConversationRequest } from "@repo/interfaces/conversationInterface.js";
 import UserConversation from "../models/UserConversation.js";
 import GroupConversation from "../models/GroupConversation.js";
+import { z } from "zod";
+import { conversationSchema, systemConversationSchema, userConversationsSchema } from "../schemas/conversationSchema";
+import { groupConversationsSchema } from "../schemas/groupSchema";
+import SystemConversation from "../models/SystemConversation.js";
 
-async function createConversation(conversation: IConversation) {
+async function createConversation(conversation: z.infer<typeof conversationSchema>) {
   try {
     const result = await Conversations.create(conversation);
 
@@ -23,7 +21,18 @@ async function createConversation(conversation: IConversation) {
   }
 }
 
-async function createUserConversation(userConversations: IUserConversation[]) {
+async function createSystemConversation(conversation: z.infer<typeof systemConversationSchema>) {
+  try {
+    const result = await SystemConversation.create(conversation);
+
+    return result;
+  } catch (error) {
+    console.error("Error:", error);
+    throw error; // Rethrow the error if needed
+  }
+}
+
+async function createUserConversation(userConversations: z.infer<typeof userConversationsSchema>) {
   try {
     const result = await UserConversation.insertMany(userConversations);
 
@@ -34,7 +43,7 @@ async function createUserConversation(userConversations: IUserConversation[]) {
   }
 }
 
-async function createGroupConversation(groupConversations: IGroupConversation[]) {
+async function createGroupConversation(groupConversations: z.infer<typeof groupConversationsSchema>) {
   try {
     const result = await GroupConversation.insertMany(groupConversations);
 
@@ -59,15 +68,11 @@ async function fetchAllConversations() {
   return res;
 }
 
-async function getUserConversation(userIdString: string) {
+async function getUserConversation(userId: Types.ObjectId) {
   try {
-    const userId = new Types.ObjectId(userIdString);
-
     const res = await UserConversation.aggregate([
       {
-        $match: {
-          userId: userId,
-        },
+        $match: { userId },
       },
       {
         $lookup: {
@@ -139,7 +144,7 @@ async function getUserConversation(userIdString: string) {
 
             { $sort: { timestamp: -1 } },
             {
-              $limit:10,
+              $limit: 10,
             },
             { $sort: { timestamp: 1 } },
 
@@ -189,15 +194,15 @@ async function getUserConversation(userIdString: string) {
           as: "messages",
         },
       },
-      
+
       // starred messages
       {
-        $lookup:{
-          from:'messages',
-          localField:'starred',
-          foreignField:'id',
-          as:'starred'
-        }
+        $lookup: {
+          from: "messages",
+          localField: "starred",
+          foreignField: "id",
+          as: "starred",
+        },
       },
       {
         $project: {
@@ -212,10 +217,7 @@ async function getUserConversation(userIdString: string) {
   }
 }
 
-async function updateUserConversationById(
-  id: Types.ObjectId,
-  updates: Partial<IUserConversation>
-) {
+async function updateUserConversationById(id: Types.ObjectId, updates: Partial<IUserConversation>) {
   try {
     const res = await UserConversation.findOneAndUpdate({ id }, updates);
     return res;
@@ -224,10 +226,7 @@ async function updateUserConversationById(
   }
 }
 
-async function updateGroupConversationById(
-  id: Types.ObjectId,
-  updates: Partial<IGroupConversation>
-) {
+async function updateGroupConversationById(id: Types.ObjectId, updates: Partial<IGroupConversation>) {
   try {
     const res = await GroupConversation.findOneAndUpdate({ id }, updates);
     return res;
@@ -236,18 +235,7 @@ async function updateGroupConversationById(
   }
 }
 
-async function updateUserConversationBlockStatus({
-  conversationId,
-  userId,
-  requestedUserId,
-  value,
-}: IUpdateBlockReq) {
-  console.log({
-    conversationId,
-    userId,
-    requestedUserId,
-    value,
-  });
+async function updateUserConversationBlockStatus({ conversationId, userId, requestedUserId, value }: IUpdateBlockReq) {
   try {
     const res = await UserConversation.bulkWrite([
       {
@@ -269,10 +257,7 @@ async function updateUserConversationBlockStatus({
   }
 }
 
-async function updateConversationById(
-  id: string,
-  updates: Partial<IUserConversation>
-) {
+async function updateConversationById(id: string, updates: Partial<IUserConversation>) {
   try {
     const res = await Conversations.findOneAndUpdate({ id }, updates);
     return res;
@@ -322,10 +307,7 @@ async function addToArchive(id: Types.ObjectId) {
   console.log({ id });
 
   try {
-    const res = await UserConversation.findOneAndUpdate(
-      { id },
-      { archived: true }
-    );
+    const res = await UserConversation.findOneAndUpdate({ id }, { archived: true });
 
     return res;
   } catch (error) {
@@ -335,10 +317,7 @@ async function addToArchive(id: Types.ObjectId) {
 
 async function removeFromArchive(id: Types.ObjectId) {
   try {
-    const res = await UserConversation.findOneAndUpdate(
-      { id },
-      { archived: false }
-    );
+    const res = await UserConversation.findOneAndUpdate({ id }, { archived: false });
 
     return res;
   } catch (error) {
@@ -346,36 +325,24 @@ async function removeFromArchive(id: Types.ObjectId) {
   }
 }
 
-async function registerStarredMessages(id: Types.ObjectId,messageIds:Types.ObjectId[],host:string) {
+async function registerStarredMessages(id: Types.ObjectId, messageIds: Types.ObjectId[], host: string) {
   try {
-    if(host === 'user'){
-      const res = await UserConversation.findOneAndUpdate(
-        { id },
-        { $push:{starred:messageIds} }
-      );
-    }else{
-      const res = await GroupConversation.findOneAndUpdate(
-        { id },
-        { $push:{starred:messageIds} }
-      );
+    if (host === "user") {
+      const res = await UserConversation.findOneAndUpdate({ id }, { $push: { starred: messageIds } });
+    } else {
+      const res = await GroupConversation.findOneAndUpdate({ id }, { $push: { starred: messageIds } });
     }
   } catch (error) {
     console.log("registerStarredMessages------->", error);
   }
 }
 
-async function unregisterStarredMessages(id: Types.ObjectId,messageId:Types.ObjectId,host:string) {
+async function unregisterStarredMessages(id: Types.ObjectId, messageId: Types.ObjectId, host: string) {
   try {
-    if(host === 'user'){
-      const res = await UserConversation.findOneAndUpdate(
-        { id },
-        { $pull:{starred:messageId} }
-      );
-    }else{
-      const res = await GroupConversation.findOneAndUpdate(
-        { id },
-        { $pull:{starred:messageId} }
-      );
+    if (host === "user") {
+      const res = await UserConversation.findOneAndUpdate({ id }, { $pull: { starred: messageId } });
+    } else {
+      const res = await GroupConversation.findOneAndUpdate({ id }, { $pull: { starred: messageId } });
     }
   } catch (error) {
     console.log("unregisterStarredMessages------->", error);
@@ -384,6 +351,7 @@ async function unregisterStarredMessages(id: Types.ObjectId,messageId:Types.Obje
 
 export default {
   createConversation,
+  createSystemConversation,
   createUserConversation,
   createGroupConversation,
   deleteGroupConversation,

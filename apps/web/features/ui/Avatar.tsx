@@ -3,6 +3,7 @@ import { CameraIcon, UserIcon } from "@heroicons/react/24/outline";
 import Image from "next/image";
 import { ChangeEvent, MouseEvent, memo, useRef } from "react";
 import { useStore } from "store/global";
+import { CustomImage } from "./CustomImage";
 
 interface IAvatar {
   id?: string;
@@ -44,7 +45,7 @@ function Avatar({
   }
 
   const profilePicture = url && !profileHidden;
-
+ 
   function openUploadProfilePictureModal(file: File) {
     setModal({
       activeModal: "uploadProfilePictureModal",
@@ -52,11 +53,11 @@ function Avatar({
       open: true,
     });
   }
-
+ 
   return (
     <div
       onClick={!enableOptions ? onClick : undefined}
-      className={`self-center flex justify-center items-center relative ${profilePicture ? "" : "bg-base-100"} rounded-full`}
+      className={`self-center flex justify-center items-center relative ${profilePicture ? "" : "bg-[--avatarBg]"} text-white rounded-full`}
       style={{
         minWidth: size,
         minHeight: size,
@@ -69,8 +70,16 @@ function Avatar({
           <span className="loading loading-spinner loading-lg"></span>
         </span>
       )}
+      
       {profilePicture ? (
-        <Image className="w-full h-full rounded-full" width={100} height={100} src={url} alt="profile picture" />
+        <CustomImage
+          className="w-full h-full rounded-full"
+          width={100}
+          height={100}
+          href={url}
+          placeHolder={url + "?tr=w-1"}
+          alt="profile picture"
+        />
       ) : (
         <UserIcon className="size-2/4 duration-200" />
       )}
@@ -78,7 +87,7 @@ function Avatar({
       {enableOptions && (
         <div
           onClick={url ? onClick : handleInput}
-          className="hover:opacity-100 opacity-0 duration-200 absolute flex flex-col gap-2 z-10 justify-center items-center text-xs p-2 text-center w-full h-full bg-base-200 rounded-full cursor-pointer"
+          className="hover:opacity-100 opacity-0 duration-200 absolute flex flex-col gap-2 z-10 justify-center items-center text-xs p-2 text-center w-full h-full bg-black/50 backdrop-blur-md rounded-full cursor-pointer"
         >
           <input
             id={id}

@@ -8,6 +8,8 @@ export const encrypt = (message:string) => {
 };
 
 export const decrypt = (encryptedMessage:string) => {
+  if(process.env.NEXT_PUBLIC_CLIENT_ONLY) return encryptedMessage;
+
   const bytes = CryptoJS.AES.decrypt(encryptedMessage, SHARED_KEY);
   const originalMessage = bytes.toString(CryptoJS.enc.Utf8);
   return originalMessage;

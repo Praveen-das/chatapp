@@ -2,8 +2,8 @@
 
 import { Tab, Tabs } from "@features/ui/Tab";
 import { useConversationStore } from "store/conversationStore";
-import { IConversation } from "../../interfaces/conversationInterface";
-import { IUser } from "../../interfaces/userInterface";
+import { IConversation } from "@repo/interfaces/conversationInterface";
+import { IUser } from "@repo/interfaces/userInterface";
 import { useStore } from "../../store/global";
 import GroupProfile from "./ProfileTabs/GroupProfileTabs/GroupProfile";
 import LinkManagement from "./ProfileTabs/GroupProfileTabs/LinkManagement";
@@ -12,14 +12,14 @@ import UserMedia from "./ProfileTabs/UserMedia";
 import UserProfile from "./ProfileTabs/UserProfileTabs/UserProfile";
 import { useMemo } from "react";
 import { getReceiver } from "@lib/conversation";
+import SystemProfile from "./ProfileTabs/SystemProfile";
 
 function DisplayProfile(TransitionComponent: React.FC<{ children: React.ReactNode }>) {
   return () => {
     const selectedUser = useStore((s) => s.selectedUser);
     const selectedConversation = useConversationStore((s) => s.selectedConversation);
 
-    const users = useStore((s) => s.users);
-    const user = selectedUser ?? users.find((u) => u.id === getReceiver(selectedConversation!)?.id);
+    const user = selectedUser ?? getReceiver(selectedConversation!);
 
     return useMemo(
       () => (
@@ -41,14 +41,16 @@ export function Profile({ conversation, selectedUser }: IProfile) {
   const profileTab = useStore((s) => s.profileTab);
 
   return (
-    <div className={`relative w-full h-full sm:rounded-2xl overflow-hidden`}>
+    <div className={`relative w-full h-full bg-[--base-200-300] pt-4`}>
       <Tabs activeTab={profileTab.getTab()} direction="rtl">
         <Tab component="conversation">
           {conversation?.host === "group" ? (
             <GroupProfile conversationId={conversation.id} />
-          ) : (
-            <UserProfile user={selectedUser} showChatOption />
-          )}
+          ) : conversation?.host === "user" ? (
+            <UserProfile user={selectedUser} />
+          ) : conversation?.host === "system" ? (
+            <SystemProfile />
+          ) : null}
         </Tab>
         <Tab component="user">
           <UserProfile user={selectedUser} showChatOption />

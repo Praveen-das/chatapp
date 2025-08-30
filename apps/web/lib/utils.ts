@@ -1,4 +1,5 @@
-import { IImagePayload } from "@interfaces/messageInterface";
+'use client'
+import { IImagePayload } from "@repo/interfaces/messageInterface";
 import moment from "moment";
 
 export async function getImages(files: FileList) {
@@ -45,13 +46,19 @@ export async function getImages(files: FileList) {
   }
 }
 
-export function downloadFromUrl(url: string) {
+export async function downloadFromUrl(url: string) {
+  const response = await fetch(url, { mode: "cors" }); // or "no-cors" if you don't need the body
+  const blob = await response.blob();
+  const blobUrl = URL.createObjectURL(blob);
+
   const link = document.createElement("a");
-  link.href = url;
-  link.setAttribute("download", "fileName"); // Only works for same-origin URLs
+  link.href = blobUrl;
+  link.download = 'fileName';
+
   document.body.appendChild(link);
   link.click();
-  link.remove();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(blobUrl);
 }
 
 export function parseUrl(url: string) {

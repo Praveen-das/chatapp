@@ -4,9 +4,10 @@ import { useState } from "react";
 import { useAttachments } from "../../../store/attachments";
 import { useStore } from "../../../store/global";
 import LinkPreview from "../../ui/LinkPreview";
-import { IImageAttachment, IUrlAttachment } from "../../../interfaces/messageInterface";
+import { IImageAttachment, IUrlAttachment } from "@repo/interfaces/messageInterface";
 import Image from "next/image";
 import useSelectedConversation from "@hooks/useSelectedConversation";
+import { CustomImage } from "@features/ui/CustomImage";
 
 function UserMedia({ conversationId }: { conversationId: string }) {
   const conversation = useSelectedConversation(conversationId);
@@ -39,16 +40,21 @@ function UserMedia({ conversationId }: { conversationId: string }) {
       </div>
       <div role="tablist" className="tabs tabs-bordered">
         {media &&
-          mediaList.map((key) => (
-            <a
-              key={key}
-              onClick={() => setTab(key)}
-              role="tab"
-              className={`tab ${tab === key ? "tab-active" : ""} capitalize`}
-            >
-              {key}
-            </a>
-          ))}
+          mediaList.map((k) => {
+            let key = k as keyof typeof media;
+            let haveMedia = !!media[key]!.length;
+            if (!haveMedia) return;
+            return (
+              <a
+                key={key}
+                onClick={() => setTab(key)}
+                role="tab"
+                className={`tab ${tab === key ? "tab-active" : ""} capitalize`}
+              >
+                {key}
+              </a>
+            );
+          })}
       </div>
       <div className="w-full h-full bg-gradient-to-t from-base-200">
         {tab === "images" && <ImagePreviews media={media[tab]!} />}
@@ -77,21 +83,19 @@ function Links({ links }: { links: IUrlAttachment[] }) {
 }
 
 function ImagePreviews({ media }: { media: IImageAttachment[] }) {
-  const setSelectedAttachment = useAttachments((s) => s.setSelectedAttachment);
-
   const handleClick = (image: IImageAttachment) => {
-    // document?.querySelector<HTMLDialogElement>("#my_modal_2")?.showModal();
-    setSelectedAttachment(image);
+    useStore.getState().setModal({ activeModal: "imageViewer", state: image, open: true });
   };
 
   return (
     <div className="grid grid-cols-4 gap-1 w-full overflow-y-scroll no-scrollbar">
       {media.map((image) => (
-        <Image
+        <CustomImage
           onClick={() => handleClick(image)}
           width={100}
           height={100}
-          src={image.url}
+          href={image.url}
+          placeHolder={image.url + "?tr=w-5"}
           className="w-full aspect-square object-cover cursor-pointer"
           alt={image.name}
         />

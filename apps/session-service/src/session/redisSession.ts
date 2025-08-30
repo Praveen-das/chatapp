@@ -1,3 +1,4 @@
+import { ISession } from "@repo/interfaces/sessionInterface";
 import client from "../redis/client";
 
 class SessionService {
@@ -54,7 +55,7 @@ class SessionService {
       const sessions = await Promise.all(
         sessionIds.map(async (id) => {
           const session = await this.findSession(id);
-          if (session) session.data = JSON.parse(session.data);
+          if (session) session.data = JSON.parse(session.data!);
           return session;
         })
       );

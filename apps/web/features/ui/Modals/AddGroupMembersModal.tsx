@@ -7,9 +7,11 @@ import SearchUser from "../Searchbar";
 import { useStore } from "../../../store/global";
 import { User } from "./components/User";
 import useSelectedConversation from "../../../hooks/useSelectedConversation";
-import { IGroupConversation } from "../../../interfaces/conversationInterface";
-import { IUser } from "@interfaces/userInterface";
+import { IGroupConversation } from "@repo/interfaces/conversationInterface";
+import { IUser } from "@repo/interfaces/userInterface";
 import { XCircleIcon } from "@heroicons/react/24/solid";
+import ModalTitle from "./components/ModalTitle";
+import FramerWrapper from "../MotionWrapper";
 
 export const AddGroupMembersModal = () => {
   const setModal = useStore((s) => s.setModal);
@@ -41,7 +43,7 @@ export const AddGroupMembersModal = () => {
 
   function onSubmit() {
     addMembersToGroup(selectedConversation as IGroupConversation, selectedUsers);
-    setModal(null);
+    setModal(false);
   }
 
   const container = {
@@ -60,15 +62,10 @@ export const AddGroupMembersModal = () => {
   };
 
   return (
-    <div className="modal-box max-sm:max-w-full max-sm:max-h-full max-sm:rounded-none max-sm:pt-4 max-sm:w-full max-sm:h-full h-full px-0 pb-0 relative flex flex-col max-w-[450px] bg-[--modal]">
-      <div className="flex max-sm:px-4 px-6 justify-between items-center w-full ">
-        <h3 className="font-medium text-lg">Select Contact</h3>
-        <form method="dialog">
-          <button className="btn btn-circle btn-sm btn-ghost">
-            <XCircleIcon className="size-6" />
-          </button>
-        </form>
-      </div>
+    <FramerWrapper
+      className={`modal-box max-sm:max-w-full max-sm:max-h-full max-sm:rounded-none max-sm:pt-4 max-sm:w-full max-sm:h-full h-full px-0 pb-0 relative flex flex-col max-w-[450px] bg-[--modal]`}
+    >
+      <ModalTitle>Select Contact</ModalTitle>
       <div className="max-sm:px-4 px-6 mt-4">
         <SearchUser onChange={setQuery} />
       </div>
@@ -90,7 +87,7 @@ export const AddGroupMembersModal = () => {
           >
             <div
               onClick={onSubmit}
-              className="btn btn-circle btn-primary text-white grid place-items-center size-14 bg-primary rounded-full overflow-hidden"
+              className="btn btn-circle btn-primary text-[--black-white] grid place-items-center size-14 bg-primary rounded-full overflow-hidden"
             >
               <motion.svg
                 initial={item.hidden}
@@ -110,6 +107,6 @@ export const AddGroupMembersModal = () => {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </FramerWrapper>
   );
 };

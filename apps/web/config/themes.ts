@@ -1,8 +1,7 @@
 const COLORS = {
-  purple: "#7b11fd",
-  blue: "#352aff",
-  orange: "#ff5107",
-  radicalRed: "#f10042",
+  lightPurple: "#9b3ff3",
+  blue: "#6580fb",
+  orange: "#ff6726",
   default:''
 };
 

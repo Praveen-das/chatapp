@@ -20,7 +20,7 @@ interface ITextInput {
 
 function TextInput({
   text,
-  className = '',
+  className = "",
   label,
   onSubmit,
   onDelete,
@@ -43,9 +43,7 @@ function TextInput({
     setOpen((s) => (s !== value ? value : ""));
   }
 
-  function handleChange(
-    e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>
-  ) {
+  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) {
     setValue(e.target.value);
   }
 
@@ -79,15 +77,12 @@ function TextInput({
             >
               <EmojiPicker open={!!open} onEmojiSelect={handleEmojiInput} />
             </motion.div>
-            <div
-              onClick={() => toggleEmojiPicker("")}
-              className="fixed inset-0 z-20"
-            ></div>
+            <div onClick={() => toggleEmojiPicker("")} className="fixed inset-0 z-20"></div>
           </>
         )}
       </AnimatePresence>
       {/* max-sm:px-0 px-4 */}
-      
+
       <div className="flex flex-col relative gap-2">
         {label && (
           <label className="text-sm text-primary" htmlFor="About">
@@ -102,11 +97,7 @@ function TextInput({
               {autoRaw ? (
                 <TextArea onChange={handleChange} value={value} />
               ) : (
-                <input
-                  className="w-full bg-transparent outline-none"
-                  onChange={handleChange}
-                  value={value}
-                />
+                <input className="w-full bg-transparent outline-none" onChange={handleChange} value={value} />
               )}
               <div className={`flex gap-1 ml-auto`}>
                 <div
@@ -117,11 +108,7 @@ function TextInput({
                 >
                   <Emoji />
                 </div>
-                <div
-                  onClick={handleSubmit}
-                  tabIndex={0}
-                  className="btn btn-circle btn-ghost btn-xs "
-                >
+                <div onClick={handleSubmit} tabIndex={0} className="btn btn-circle btn-ghost btn-xs ">
                   <Check />
                 </div>
               </div>
@@ -132,33 +119,22 @@ function TextInput({
               {canEdit && (
                 <div className="flex gap-1 items-center mb-auto">
                   {onDelete && (
-                    <div
-                      onClick={() => onDelete("")}
-                      tabIndex={0}
-                      className="btn btn-circle btn-ghost btn-xs"
-                    >
+                    <div onClick={() => onDelete("")} tabIndex={0} className="btn btn-circle btn-ghost btn-xs">
                       <Trash />
                     </div>
                   )}
-                  <div
-                    onClick={() => toggleEdit((s) => !s)}
-                    tabIndex={0}
-                    className="btn btn-circle btn-ghost btn-xs"
-                  >
+                  <div onClick={() => toggleEdit((s) => !s)} tabIndex={0} className="btn btn-circle btn-ghost btn-xs">
                     <EditPencil />
                   </div>
                 </div>
               )}
             </>
-          ) : (
-            <div
-              onClick={() => toggleEdit((s) => !s)}
-              className="flex items-center gap-2 cursor-pointer"
-            >
+          ) : canEdit ? (
+            <div onClick={() => toggleEdit((s) => !s)} className="flex items-center gap-2 cursor-pointer">
               <Plus />
               {placeholderText}
             </div>
-          )}
+          ) : null}
         </label>
       </div>
     </>

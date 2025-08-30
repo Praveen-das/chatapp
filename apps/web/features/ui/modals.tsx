@@ -29,3 +29,4 @@ export default {
     allMembers: <AllMembers />,
     viewSessionModal: <ViewSessionModal />,
   };
+

@@ -1,7 +1,7 @@
+import { useTheme } from "@hooks/useTheme";
 import { generateRelatedColors } from "@lib/theme";
 import COLORS from "config/themes";
 import { Check, Plus, Xmark } from "iconoir-react";
-import { useTheme } from "next-themes";
 import React, { useState } from "react";
 
 interface ITags {
@@ -13,7 +13,7 @@ interface ITags {
 }
 
 function TagInput({ tags, onSubmit, onDelete, showLabel = true, canEdit = false }: ITags) {
-  const { theme } = useTheme();
+  const { bgcolor } = useTheme();
   const [editTags, toggleEditTags] = useState(false);
   const [tag, setTag] = useState("");
 
@@ -28,8 +28,6 @@ function TagInput({ tags, onSubmit, onDelete, showLabel = true, canEdit = false 
   function handleRemovingTag(t: string) {
     onDelete?.(t);
   }
-
-  const color = theme !== "system" ? `#${theme?.split("-")[1]}` : COLORS.default;
 
   return (
     <div className="grid relative gap-2">
@@ -72,12 +70,12 @@ function TagInput({ tags, onSubmit, onDelete, showLabel = true, canEdit = false 
           ))}
 
         {tags?.map((tag, index) => {
-          const bg = generateRelatedColors(color, 5)[index];
+          const bg = generateRelatedColors(bgcolor, 5)[index];
           return (
             <div
               key={tag + index}
               style={{ background: bg }}
-              className={`px-2 py-1 rounded-lg text-xs ${canEdit ? "cursor-pointer hover:line-through" : ""}`}
+              className={`px-2 py-1 rounded-lg text-white text-xs ${canEdit ? "cursor-pointer hover:line-through" : ""}`}
               onClick={() => canEdit && handleRemovingTag(tag)}
             >
               {tag}

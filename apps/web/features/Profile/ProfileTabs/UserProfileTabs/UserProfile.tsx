@@ -2,10 +2,10 @@
 
 import TagInput from "@features/ui/TagInput";
 import { ChevronRightIcon } from "@heroicons/react/24/solid";
-import { memo, useCallback } from "react";
+import { PropsWithChildren, memo, useCallback } from "react";
 import useSocket from "../../../../context/SocketProvider";
-import { IConversation, IGroupConversation, IUserConversation } from "../../../../interfaces/conversationInterface";
-import { IUser } from "../../../../interfaces/userInterface";
+import { IConversation, IGroupConversation, IUserConversation } from "@repo/interfaces/conversationInterface";
+import { IUser } from "@repo/interfaces/userInterface";
 import { useConversationStore } from "../../../../store/conversationStore";
 import { useStore } from "../../../../store/global";
 import { useMessageStore } from "../../../../store/messageStore";
@@ -21,18 +21,17 @@ function UserProfile({ user, showChatOption = false }: { user: IUser; showChatOp
   const setModal = useStore((s) => s.setModal);
   const setSelectedUser = useStore((s) => s.setSelectedUser);
   const conversations = useConversationStore((s) => s.conversations);
-  const updateConversation = useConversationStore((s) => s.updateConversation);
-  const conversation = conversations.find(
+  const { updateConversation, setSelectedConversation } = useConversationStore((s) => s.conversationActions);
+  const userConversation = conversations.find(
     (c) => c.host === "user" && c.members.find((m) => m.id === user.id)
   ) as IUserConversation;
-  const setSelectedConversation = useConversationStore((s) => s.setSelectedConversation);
   const toggleProfile = useStore((s) => s.toggleProfile);
   const profileTab = useStore((s) => s.profileTab);
   const setDeviceTab = useStore((s) => s.setDeviceTab);
   const clearChat = useMessageStore((s) => s.clearChat);
-  const {startConversation} = useConversation()
+  const { startConversation } = useConversation();
 
-  const blockedConversation = conversation?.blocked;
+  const blockedConversation = userConversation?.blocked;
 
   function closeProfile() {
     profileTab.back();
@@ -40,13 +39,13 @@ function UserProfile({ user, showChatOption = false }: { user: IUser; showChatOp
   }
 
   function handleStartingConversation() {
-    startConversation(user)
+    startConversation(user);
     toggleProfile(false);
   }
 
   const handleDeletingConversation = () => {
-    if (!conversation) return;
-    let conversationId = conversation.id;
+    if (!userConversation) return;
+    let conversationId = userConversation.id;
 
     sendConversationDeleteRequest(conversationId);
     updateConversation(conversationId, { active: false, archived: false });
@@ -57,8 +56,8 @@ function UserProfile({ user, showChatOption = false }: { user: IUser; showChatOp
   };
 
   const handleBlockingUser = () => {
-    if (blockedConversation) sendUserUnBlockRequest(conversation);
-    else sendUserBlockRequest(conversation);
+    if (blockedConversation) sendUserUnBlockRequest(userConversation);
+    else sendUserBlockRequest({ userConversation });
   };
 
   function openViewProfilePictureModal() {
@@ -92,7 +91,7 @@ function UserProfile({ user, showChatOption = false }: { user: IUser; showChatOp
       </div>
 
       {/* Profile details */}
-      <div className="flex h-full gap-8 max-sm:pt-2 pt-4 bg-gradient-to-t from-base-200 text-sm flex-col overflow-y-scroll max-sm:pb-3 pb-10 no-scrollbar">
+      <div className="flex h-full gap-8 max-sm:pt-2 pt-4 text-sm flex-col overflow-y-scroll max-sm:pb-3 pb-10 no-scrollbar">
         {/* profile */}
         <div className="flex gap-8 items-center max-sm:px-4 px-8">
           <Avatar
@@ -124,10 +123,10 @@ function UserProfile({ user, showChatOption = false }: { user: IUser; showChatOp
           </div>
         )}
 
-        <div className="space-y-1 divide-y-2 divide-base-300 max-sm:mt-2 sm:mt-4 max-sm:px-4 px-8 [&>div]:h-16">
+        <div className="space-y-1 divide-y-[1.75px] divide-[--base-300-400] max-sm:mt-2 sm:mt-4 max-sm:px-4 px-8 [&>div]:h-16">
           <NotificationToggle id={user.id} />
-          <StarredMessages conversationId={conversation?.id!} />
-          <MediaSelection conversationId={conversation?.id!} />
+          <StarredMessages conversationId={userConversation?.id!} />
+          <MediaSelection conversationId={userConversation?.id!} />
         </div>
 
         {/* Groups */}
@@ -148,15 +147,23 @@ function UserProfile({ user, showChatOption = false }: { user: IUser; showChatOp
         {/* Actions */}
         <div className="flex flex-col gap-2 mt-auto max-sm:px-4 px-8">
           {showChatOption && (
-            <div onClick={handleStartingConversation} tabIndex={0} className="btn btn-block bg-base-100">
+            <div
+              onClick={handleStartingConversation}
+              tabIndex={0}
+              className="btn btn-block bg-base-100 text-error"
+            >
               Chat
             </div>
           )}
-          <div onClick={handleBlockingUser} tabIndex={0} className="btn btn-block bg-base-100">
+          <div onClick={handleBlockingUser} tabIndex={0} className="btn btn-block bg-base-100 text-error">
             {blockedConversation ? "Unblock" : "Block"} {user?.username}
           </div>
-          {conversation?.host === "user" && conversation.active && (
-            <div onClick={handleDeletingConversation} tabIndex={0} className="btn btn-block bg-base-100">
+          {userConversation?.host === "user" && userConversation.active && (
+            <div
+              onClick={handleDeletingConversation}
+              tabIndex={0}
+              className="btn btn-block btn-error !text-[--black-white]"
+            >
               Delete chat
             </div>
           )}
@@ -168,14 +175,13 @@ function UserProfile({ user, showChatOption = false }: { user: IUser; showChatOp
 
 function Group({ group }: { group: IGroupConversation }) {
   const profileTab = useStore((s) => s.profileTab);
-  
+  const { setSelectedConversation } = useConversationStore((s) => s.conversationActions);
+
   function handleSelectedGroup() {
-    const setSelectedConversation = useConversationStore.getState().setSelectedConversation;
     const setSelectedUser = useStore.getState().setSelectedUser;
-    
     setSelectedConversation(group.id);
     setSelectedUser(null);
-    profileTab.back()
+    profileTab.back();
   }
 
   return (

@@ -1,0 +1,1 @@
+export const BOX_CLASSES = `bg-base-200`

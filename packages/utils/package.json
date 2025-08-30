@@ -1,0 +1,16 @@
+{
+  "name": "@repo/utils",
+  "version": "0.1.1",
+  "main": "dist/index.js",
+  "files": [
+    "dist/**"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "dotenv -- tsc-watch --onSuccess \"node dist/index.js\""
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "*",
+    "tsc-watch": "^6.2.1"
+  }
+}

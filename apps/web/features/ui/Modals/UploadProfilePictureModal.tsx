@@ -3,15 +3,14 @@ import { useStore } from "../../../store/global";
 import Cropper from "cropperjs";
 
 import "./style.css";
-import { CheckCircleIcon, XCircleIcon } from "@heroicons/react/24/solid";
-import { CheckIcon } from "@heroicons/react/16/solid";
+import { XCircleIcon } from "@heroicons/react/24/solid";
 import useAuth from "@hooks/useAuth";
-import { IModal } from "@interfaces/modalInterface";
-import { uploadImage } from "@lib/imageKit";
 import useMediaQuery from "@hooks/useMediaQuery";
+import { IModal } from "@interfaces/modalInterface";
+import FramerWrapper from "../MotionWrapper";
 
 const closeModal = () => {
-  useStore.getState().setModal(null);
+  useStore.getState().setModal(false);
 };
 
 export const UploadProfilePictureModal = () => {
@@ -71,12 +70,8 @@ export const UploadProfilePictureModal = () => {
   }, [isMobile]);
 
   return (
-    <div
-      // variants={container}
-      // initial="hidden"
-      // animate="visible"
-      // exit="hidden"
-      className="modal-box max-sm:max-w-full max-sm:max-h-full max-sm:rounded-none max-sm:pt-4 max-sm:w-full max-sm:h-full px-0 py-6 relative flex flex-col items-center max-w-full max-h-full w-auto gap-4 bg-[--modal]"
+    <FramerWrapper
+      className={`modal-box max-sm:max-w-full max-sm:max-h-full max-sm:rounded-none max-sm:pt-4 max-sm:w-full max-sm:h-full px-0 py-6 relative flex flex-col items-center max-w-full max-h-full w-auto gap-4 bg-[--modal]`}
     >
       {/* Header----------------- */}
       <div className="flex px-6 justify-between items-center w-full">
@@ -102,7 +97,7 @@ export const UploadProfilePictureModal = () => {
       <div
         onClick={cropImage}
         tabIndex={0}
-        className="absolute bottom-6 right-6 btn btn-circle btn-primary text-white grid place-items-center size-14 bg-primary rounded-full overflow-hidden"
+        className="absolute bottom-6 right-6 btn btn-circle btn-primary text-[--black-white] grid place-items-center size-14 bg-primary rounded-full overflow-hidden"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -117,6 +112,6 @@ export const UploadProfilePictureModal = () => {
           />
         </svg>
       </div>
-    </div>
+    </FramerWrapper>
   );
 };

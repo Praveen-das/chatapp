@@ -1,4 +1,4 @@
-import { IImagePayload } from "../../interfaces/messageInterface";
+import { IImagePayload } from "@repo/interfaces/messageInterface";
 import { getAuthenticationParameters } from "./";
 import imagekit from "./IKClient";
 

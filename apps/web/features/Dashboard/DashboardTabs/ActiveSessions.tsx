@@ -6,18 +6,18 @@ import useSocket from "context/SocketProvider";
 import { useStore } from "store/global";
 import moment from "moment";
 import BrowserAvatar from "@features/ui/BrowserAvatar";
-import { ISession } from "@interfaces/sessionInterface";
+import { ISession } from "@repo/interfaces/sessionInterface";
 import useAxios from "@hooks/useAxios";
 
 function ActiveSessions() {
   const [currentSession, ...activeSessions] = useSessionStore((s) => s.activeSessions);
-  const { clearAllSessions } = useSessionStore.getState();
+  const { clearAllSessions } = useSessionStore((s) => s.actions);
   const axios = useAxios();
 
   async function terminateAllSessions() {
     try {
       clearAllSessions(currentSession?.sessionId!);
-      
+
       const body = {
         sessionIds: activeSessions.map((session) => session.sessionId),
         userId: currentSession?.userId,
@@ -49,7 +49,7 @@ function ActiveSessions() {
               Terminate other sessions
             </div>
             <div className="flex flex-col gap-4 h-full mt-4">
-              <span className="text-sm max-sm:px-0 px-4">Active sessions</span>
+              <span className="text-sm max-sm:px-0 px-4">Active sessions - {activeSessions.length}</span>
               <div className="flex flex-col pb-2 gap-2">
                 {activeSessions.map((session) => (
                   <Session key={session.sessionId} session={session} />
@@ -66,7 +66,7 @@ function ActiveSessions() {
 function Session({ session }: { session: ISession }) {
   const setModal = useStore((s) => s.setModal);
 
-  const device = session.data.deviceData;
+  const device = session.data;
 
   function onClick() {
     setModal({ open: true, activeModal: "viewSessionModal", state: session });

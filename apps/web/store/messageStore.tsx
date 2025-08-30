@@ -11,44 +11,53 @@ import {
   IReadReceiptUpdatesCollection,
   IUnreadMessageMeta,
   IUpdatesCollection,
-} from "../interfaces/messageInterface";
-import { IDeleteForUserRequest } from "../interfaces/conversationInterface";
+} from "@repo/interfaces/messageInterface";
+import { IDeleteForUserRequest } from "@repo/interfaces/conversationInterface";
 
-interface IMessageStore {
+interface State {
   selectedChats: IMessage[];
-  setSelectedChats: (chat: IMessage | null) => void;
-
   messageHistory: IMessages;
-  setMessageHistory: (messageHistory: Map<string, IMessage[]>) => void;
+  messageStore: IMessages;
+  unreadMessages: IMessages;
+  replyRequest: IMessageReply | null;
+}
+
+interface Actions {
+  setSelectedChats: (chat: IMessage | null) => void;
+  setMessageHistory: (messageHistory: IMessages) => void;
   appendMessageHistory: (conversationId: string, messages: IMessage[]) => void;
   updateUserMessageHistory: (conversationId: string, updates: IUpdatesCollection[]) => void;
   deleteUserMessageHistory: (conversationId: string) => void;
-
-  messageStore: IMessages;
   getUserMessages: (userId: string) => IMessage[];
-  setMessages: (messageStore: Map<string, IMessage[]>) => void;
+  setMessages: (messageStore: IMessages) => void;
   setMessageStore: (conversationId: string, message: IMessage[] | null) => void;
   updateUserMessages: (conversationId: string, updates: IUpdatesCollection[]) => void;
   deleteUserMessages: (conversationId: string, collection: IDeleteForUserRequest["collection"]) => void;
-
-  unreadMessages: Map<string, IMessage[]>;
   getUnreadMessages: (userId: string) => IMessage[];
   setUnreadMessages: (userId: string, message: IMessage[] | null) => void;
   clearUnreadMessages: (userId?: string) => void;
-
   updateReadReceipt: (conversationId: string, readReceipts: IReadReceiptUpdatesCollection[]) => void;
-
-  replyRequest: IMessageReply | null;
   setReplyRequest: (reply: IMessageReply | null) => void;
-
   clearChat: (conversationId: string) => void;
   deleteChat: (conversationId: string) => void;
+  reset: () => void;
 }
+
+type IMessageStore = State & Actions;
+
+const getInitialState = (): State => ({
+  selectedChats: [],
+  messageHistory: new Map(),
+  unreadMessages: new Map(),
+  messageStore: new Map(),
+  replyRequest: null,
+});
 
 export const useMessageStore = create(
   subscribeWithSelector<IMessageStore>((set, get) => {
     return {
-      selectedChats: [],
+      ...getInitialState(),
+      reset: () => set(getInitialState()),
       setSelectedChats: (chat) =>
         chat
           ? set(({ selectedChats }) => ({
@@ -57,8 +66,7 @@ export const useMessageStore = create(
                 : [...selectedChats, chat],
             }))
           : set({ selectedChats: [] }),
-      messageHistory: new Map(),
-      setMessageHistory: (messageHistory: Map<string, IMessage[]>) =>
+      setMessageHistory: (messageHistory: IMessages) =>
         set((s) => ({
           messageHistory: new Map([...s.messageHistory, ...messageHistory]),
         })),
@@ -88,7 +96,6 @@ export const useMessageStore = create(
         set({ messageStore: new Map(messageStore) });
       },
 
-      unreadMessages: new Map(),
       getUnreadMessages: (userId) => {
         const unreadMessages = get().unreadMessages;
         return unreadMessages.get(userId) || [];
@@ -116,7 +123,6 @@ export const useMessageStore = create(
         set({ unreadMessages: new Map() });
       },
 
-      messageStore: new Map(),
       getUserMessages: (conversationId) => {
         const messages = get().messageStore;
         return messages.get(conversationId) || [];
@@ -128,12 +134,12 @@ export const useMessageStore = create(
           set({ messageStore: new Map(messages).set(conversationId, []) });
           return;
         }
-
+        console.log(messages.get(conversationId))
         messages.get(conversationId)?.push(...newMessages) || messages.set(conversationId, newMessages);
 
         set({ messageStore: new Map(messages) });
       },
-      setMessages: (messageStore: Map<string, IMessage[]>) => {
+      setMessages: (messageStore: IMessages) => {
         set({ messageStore });
       },
 
@@ -215,6 +221,7 @@ export const useMessageStore = create(
         set({ messageStore: new Map().set(conversationId, updatedMessages) });
       },
       deleteUserMessages: (conversationId, updatesCollection) => {
+        const { updateConversation } = useConversationStore.getState().conversationActions;
         const messageStore = get().messageStore;
         const messageHistory = get().messageHistory;
 
@@ -225,7 +232,7 @@ export const useMessageStore = create(
         if (messages && messages?.length !== updatedMessages.length) {
           messageStore.set(conversationId, updatedMessages);
           const recentMessage = updatedMessages.at(-1);
-          useConversationStore.getState().updateConversation(conversationId, {
+          updateConversation(conversationId, {
             recentMessage,
             updatedAt: recentMessage?.timestamp,
           });
@@ -236,7 +243,7 @@ export const useMessageStore = create(
               .get(conversationId)
               ?.filter(({ id }) => !updatesCollection.some((s) => s.messageId === id)) || [];
 
-          useConversationStore.getState().updateConversation(conversationId, {
+          updateConversation(conversationId, {
             recentMessage: history.at(-1),
           });
           messageHistory.set(conversationId, history);
@@ -244,7 +251,6 @@ export const useMessageStore = create(
         }
       },
 
-      replyRequest: null,
       setReplyRequest: (reply) => set({ replyRequest: reply }),
     };
   })

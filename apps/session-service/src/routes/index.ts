@@ -10,6 +10,8 @@ router.get("/", sessionServices.getAllSessions);
 
 router.get('/fetch', sessionController._getSession)
 
+router.get('/token', sessionController._refreshtoken)
+
 router.post("/", sessionServices.saveSession);
 
 router.patch("/", sessionServices.updateSession);

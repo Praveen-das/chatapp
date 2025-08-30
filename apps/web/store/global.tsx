@@ -1,52 +1,62 @@
 import { create } from "zustand";
-import { IUser } from "../interfaces/userInterface";
-import { IGroupConversation } from "../interfaces/conversationInterface";
+import { IUser, IUserRules } from "@repo/interfaces/userInterface";
+import { IGroupConversation } from "@repo/interfaces/conversationInterface";
 import modals from "@features/ui/modals";
 import { IModal } from "@interfaces/modalInterface";
 
-interface IGlobalStore {
+interface State {
   users: IUser[];
+  selectedUser: IUser | null;
+  fetchedUser: IUser | null;
+  selectedGroupMembers: IUser[];
+  modal: IModal | null;
+  profile: boolean;
+  deviceTab: string;
+  dashboardTab: string;
+  uploadProgress: Map<string, number>;
+}
+
+interface Actions {
   setUsers: (users: IUser[]) => void;
   addNewUser: (user: IUser) => void;
   updateUserRule: (userId: string, rule: IUserRules) => void;
   updateUserStatus: (userId: string, status: "online" | "offline", lastSeen?: number) => void;
-
-  selectedUser: IUser | null;
   setSelectedUser: (user: IUser | null) => void;
-  
-  fetchedUser: IUser | null;
   setFetchedUserUser: (user: IUser | null) => void;
-
-  selectedGroupMembers: IUser[];
   setSelectedGroupMembers: (id: IUser | null) => void;
-
-  modal: IModal | null;
-  setModal: (modal: IModal | null) => void;
-
-  profile: boolean;
+  setModal: (modal: IModal | boolean | null) => void;
+  setDeviceTab: (value: string) => void;
+  setDashboardTab: (value: string) => void;
+  setUploadProgress: (fileId: string, progress: number) => void;
   toggleProfile: (value: boolean) => void;
-
   profileTab: {
     push: (value: string) => void;
     back: () => void;
     getTab: () => string;
-    clearHistory: ()=>void;
+    clearHistory: () => void;
     history: string[];
   };
-
-  deviceTab: string;
-  setDeviceTab: (value: string) => void;
-
-  dashboardTab: string;
-  setDashboardTab: (value: string) => void;
-
-  uploadProgress: Map<string, number>;
-  setUploadProgress: (fileId: string, progress: number) => void;
+  reset: () => void;
 }
+
+type IGlobalStore = State & Actions;
+
+const getInitialState = (): State => ({
+  users: [],
+  selectedUser: null,
+  fetchedUser: null,
+  selectedGroupMembers: [],
+  modal: null,
+  profile: false,
+  deviceTab: "",
+  dashboardTab: "",
+  uploadProgress: new Map(),
+});
 
 export const useStore = create<IGlobalStore>((set, get) => {
   return {
-    users: [],
+    ...getInitialState(),
+    reset: () => set((s) => ({ ...getInitialState(), profileTab: { ...s.profileTab, history: [] } })),
     setUsers: (users) => set({ users }),
     addNewUser: (user) => {
       const users = get().users;
@@ -69,14 +79,8 @@ export const useStore = create<IGlobalStore>((set, get) => {
       );
       set({ users: newUsers });
     },
-
-    selectedUser: null,
     setSelectedUser: (selectedUser) => set({ selectedUser }),
-
-    fetchedUser:  null,
     setFetchedUserUser: (fetchedUser) => set({ fetchedUser }),
-
-    selectedGroupMembers: [],
     setSelectedGroupMembers: (user) => {
       const _selectedGroupMembers = get().selectedGroupMembers;
 
@@ -89,13 +93,17 @@ export const useStore = create<IGlobalStore>((set, get) => {
 
       set((s) => ({ selectedGroupMembers: [user, ...s.selectedGroupMembers] }));
     },
-
-    modal: null,
-    setModal: (modal) => set({ modal }),
-
-    profile: false,
+    setModal: (modal) => {
+      if (typeof modal === "boolean") set((s) => ({ modal: { ...s.modal!, open: modal } }));
+      else set({ modal });
+    },
     toggleProfile: (value) => set((s) => ({ profile: value })),
-
+    setDeviceTab: (value) => set({ deviceTab: value }),
+    setDashboardTab: (value) => set({ dashboardTab: value }),
+    setUploadProgress: (fileId, progress) =>
+      set((s) => ({
+        uploadProgress: new Map(s.uploadProgress).set(fileId, progress),
+      })),
     profileTab: {
       push: (value) =>
         set((s) => {
@@ -113,20 +121,8 @@ export const useStore = create<IGlobalStore>((set, get) => {
         set((s) => ({ profileTab: { ...s.profileTab, history } }));
       },
       getTab: () => get().profileTab.history.at(-1)!,
-      clearHistory:()=> set((s) => ({ profileTab: { ...s.profileTab, history:[] } })),
+      clearHistory: () => set((s) => ({ profileTab: { ...s.profileTab, history: [] } })),
       history: [],
     },
-
-    deviceTab: "",
-    setDeviceTab: (value) => set({ deviceTab: value }),
-
-    dashboardTab: "",
-    setDashboardTab: (value) => set({ dashboardTab: value }),
-
-    uploadProgress: new Map(),
-    setUploadProgress: (fileId, progress) =>
-      set((s) => ({
-        uploadProgress: new Map(s.uploadProgress).set(fileId, progress),
-      })),
   };
 });

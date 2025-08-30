@@ -64,16 +64,13 @@ const kafkaMessageController = async ({
     case "DELETE_GROUP_CONVERSATION":
       conversationController._deleteGroupConversation(message, callback);
       break;
-    case "REMOVE_MEMBER":
-      conversationController._deleteGroupConversation(message, callback);
-      break;
     case "CREATE_USER_CONVERSATION":
       conversationController._createUserConversation(message, callback);
       break;
     case "CREATE_GROUP_CONVERSATION":
       conversationController._createGroupConversation(message, callback);
       break;
-      break;
+      
     case "UPDATE_MESSAGES":
       messageController._updateUserMessages(message, callback);
       break;

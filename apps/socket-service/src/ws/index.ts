@@ -1,10 +1,12 @@
 import { Server } from "socket.io";
 import Redis from "ioredis";
-import authMiddleware from "../middleware/authMiddleware";
+import mainAuthMiddleware from "../middleware/mainAuthMiddleware";
 import { createAdapter } from "@socket.io/redis-adapter";
-import { IHttpServer, ISocketService } from "../interfaces/socketInterfaces";
 
 import { onConnection } from "./registerConnectionHandler";
+import { IHttpServer, ISocketService } from "../interfaces/socketInterfaces";
+import otpAuthMiddleware from "../middleware/otpAuthMiddleware";
+import { onOTPConnection } from "./registerOTPConnectionHandler";
 
 class SocketService implements ISocketService {
   io;
@@ -38,8 +40,14 @@ class SocketService implements ISocketService {
 
   initListeners() {
     console.log("Socket Listener initailized...");
-    this.io.use(authMiddleware);
+    // const main = this.io.of("/main");
+    // const otp = this.io.of("/otp");
+    
+    // otp.use(otpAuthMiddleware);
+    
+    this.io.use(mainAuthMiddleware);
     this.io.on("connection", (socket) => onConnection(this.io, socket));
+    // otp.on("connection", (socket) => onOTPConnection(main, socket));
   }
 }
 

@@ -1,4 +1,4 @@
-import { Server } from "socket.io";
+import { Namespace, Server } from "socket.io";
 import { ISocket } from "../interfaces/socketInterfaces";
 
 export default function registerSessionHandler(io:Server,socket: ISocket) {

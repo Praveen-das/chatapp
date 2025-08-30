@@ -1,21 +1,22 @@
 import { create } from "zustand";
-import { IUser } from "../interfaces/userInterface";
-import { IGroupConversation, IQueryResult } from "../interfaces/conversationInterface";
-import modals from "@features/ui/modals";
-import { IModal } from "@interfaces/modalInterface";
+import { IQueryResult } from "@repo/interfaces/conversationInterface";
 
 interface IStore {
   searchQuery: string;
-  setSearchQuery: (value: string) => void;
-
   queryResult: IQueryResult;
+
+  setSearchQuery: (value: string) => void;
   setQueryResult: (value: IQueryResult) => void;
+  reset: () => void;
 }
+
+const queryResult = { chats: [], groups: [], contacts: [] };
 
 export const useSearch = create<IStore>((set, get) => ({
   searchQuery: "",
-  setSearchQuery: (searchQuery) => set({ searchQuery }),
+  queryResult,
 
-  queryResult: {chats: [],groups: []},
+  setSearchQuery: (searchQuery) => set({ searchQuery }),
   setQueryResult: (queryResult) => set({ queryResult }),
+  reset: () => set({ searchQuery: "", queryResult }),
 }));

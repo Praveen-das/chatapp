@@ -1,64 +1,55 @@
-import { Server } from "socket.io";
-import { ISocket } from "../interfaces/socketInterfaces";
+import { Namespace, Server } from "socket.io";
 import produceMessage from "../kafka/kafka";
-import { Types } from "mongoose";
+import { ISocket } from "../interfaces/socketInterfaces";
+import { IUpdateBlockReq, IUserBlockRequest } from "@repo/interfaces/conversationInterface";
+import { IUserRuleChangeRequest } from "@repo/interfaces/userInterface";
 
 export default async function registerUserHandlers(io: Server, socket: ISocket) {
   io.emit("user connected", { userId: socket.userId });
 
   produceMessage({ id: socket.userId, updates: { status: "online", lastSeen: Date.now() } }, "UPDATE_USER");
 
-  socket.on("UPDATE_USER_BLOCK_STATUS", (conversation: IUserConversation, value: boolean, create: boolean) => {
-    if (create) {
-      const userConversations: any[] = [];
+  socket.on(
+    "UPDATE_USER_BLOCK_STATUS",
+    ({ userConversation, conversation, userConversations, value }: { value: boolean } & IUserBlockRequest) => {
+      if (!!userConversations?.length) {
+        const members: string[] = [];
 
-      conversation.members.forEach((member) => {
-        const userConversation = {
-          id: new Types.ObjectId().toHexString(),
-          userId: member.id,
-          conversationId: conversation.id,
-          members: conversation.members,
-          host: "user",
-          active: true,
+        userConversations.forEach((c) => {
+          members.push(c.userId);
+          io.to(c.userId).emit("CREATE_USER_CONVERSATION", c);
+        });
 
-          blocked: member.id === socket.userId,
-          blockedByUser: member.id !== socket.userId,
+        produceMessage({ userConversations }, "CREATE_USER_CONVERSATION");
+        produceMessage({ ...conversation, members }, "CREATE_CONVERSATION");
+        return;
+      }
 
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
+      if (userConversation) {
+        const req: Partial<IUpdateBlockReq> = {
+          conversationId: userConversation.conversationId,
+          value,
         };
 
-        userConversations.push(userConversation);
-        io.to(member.id).emit("CREATE_USER_CONVERSATION", userConversation);
-      });
+        userConversation.members.forEach(({ id }) => {
+          if (id === socket.userId) req["requestedUserId"] = id;
+          else req["userId"] = id;
+        });
 
-      produceMessage({ userConversations }, "CREATE_USER_CONVERSATION");
-      produceMessage({ conversation }, "CREATE_CONVERSATION");
-      return;
+        io.to(req.userId as string).emit("UPDATE_USER_BLOCK_STATUS", req.conversationId, {
+          blockedByUser: value,
+        });
+
+        socket.emit("UPDATE_USER_BLOCK_STATUS", req.conversationId, {
+          blocked: value,
+        });
+
+        produceMessage(req, "UPDATE_USER_BLOCK_STATUS");
+      }
     }
+  );
 
-    const req: Partial<IUpdateBlockReq> = {
-      conversationId: conversation.conversationId,
-      value,
-    };
-
-    conversation.members.forEach(({ id }) => {
-      if (id === socket.userId) req["requestedUserId"] = id;
-      else req["userId"] = id;
-    });
-
-    io.to(req.userId!).emit("UPDATE_USER_BLOCK_STATUS", req.conversationId, {
-      blockedByUser: value,
-    });
-
-    socket.emit("UPDATE_USER_BLOCK_STATUS", req.conversationId, {
-      blocked: value,
-    });
-
-    produceMessage(req, "UPDATE_USER_BLOCK_STATUS");
-  });
-
-  socket.on("updateUser", (req: IUserUpdateRequest) => {
+  socket.on("UPDATE_USER", (req: IUserUpdateRequest) => {
     const body = {
       id: req.userId,
       updates: req.updates,
@@ -67,17 +58,13 @@ export default async function registerUserHandlers(io: Server, socket: ISocket) 
     produceMessage(body, "UPDATE_USER");
   });
 
-  socket.on("updateUserRule", (req: IUserRuleChangeRequest, channels: string[]) => {
-    let key = Object.keys(req.rules)[0];
-
-    let value = req.rules[key as keyof typeof req.rules].isVisible;
-
+  socket.on("UPDATE_USER_RULE", (req: IUserRuleChangeRequest, channels: string[], callback) => {
     const body = {
       id: req.userId,
-      updates: { [`rules.${key}.isVisible`]: value },
+      updates: req.updates,
     };
 
-    io.to(channels).emit("updateUserRule", req);
+    callback(req);
 
     produceMessage(body, "UPDATE_USER");
   });

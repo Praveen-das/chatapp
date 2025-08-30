@@ -1,14 +1,8 @@
-import { IMessage } from "@interfaces/messageInterface";
+import { IMessage } from "@repo/interfaces/messageInterface";
 import React, { useEffect, useRef, useState } from "react";
 import { useConversationStore } from "store/conversationStore";
 import { useMessageStore } from "store/messageStore";
 import { shallow } from "zustand/shallow";
-
-function getInitialData(conversationId: string) {
-  const messageHistory =
-    useMessageStore.getState().messageStore.get(conversationId!) || [];
-  return [messageHistory];
-}
 
 function useMessages() {
   const selectedConversation = useConversationStore(

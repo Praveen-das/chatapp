@@ -15,6 +15,11 @@
     display: none;
   }
 
+  .disable-animations * {
+    animation: none !important;
+    transition: none !important;
+  }
+
   .no-scrollbar {
     -ms-overflow-style: none;
     /* IE and Edge */

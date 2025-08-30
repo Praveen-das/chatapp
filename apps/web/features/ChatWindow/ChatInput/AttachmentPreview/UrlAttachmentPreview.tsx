@@ -1,5 +1,5 @@
 import { PhotoIcon } from "@heroicons/react/16/solid";
-import { IMessageReply, IUrlAttachment } from "@interfaces/messageInterface";
+import { IMessageReply, IUrlAttachment, IUrlMetadata } from "@repo/interfaces/messageInterface";
 import { decrypt } from "@lib/e2e";
 import React from "react";
 
@@ -8,7 +8,7 @@ function UrlAttachmentPreview({
   receiver,
   text,
 }: {
-  metadata?: IUrlMetadata;
+  metadata?: IUrlMetadata | null;
   receiver: string;
   text: string | null;
 }) {

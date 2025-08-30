@@ -1,12 +1,10 @@
 "use client";
 
-// import Menu from "@features/ui/Menu";
-import { memo, useEffect, useMemo } from "react";
+import { memo, useMemo } from "react";
 import useSocket from "../../../../context/SocketProvider";
-import { IGroupConversation, IGroupMember } from "../../../../interfaces/conversationInterface";
+import { IGroupConversation, IGroupMember } from "@repo/interfaces/conversationInterface";
 import { useStore } from "../../../../store/global";
 import MediaSelection from "../SharedComponents/MediaSelection";
-import { IModalKey } from "@interfaces/modalInterface";
 import Menu from "@features/ui/Menu";
 import { ChevronRightIcon, LinkIcon } from "@heroicons/react/24/solid";
 import NotificationToggle from "../SharedComponents/NotificationToggle";
@@ -17,14 +15,24 @@ import useSelectedConversation from "@hooks/useSelectedConversation";
 import { UserPlusIcon } from "@heroicons/react/24/outline";
 import { Member } from "./components/Member";
 import { AvatarWrapper } from "./components/AvatarWrapper";
+import { IModalKey } from "@interfaces/modalInterface";
+import useAuth from "@hooks/useAuth";
 
 function GroupProfile({ conversationId }: { conversationId: string }) {
   const conversation = useSelectedConversation<IGroupConversation>(conversationId);
+  const { user } = useAuth();
 
   if (!conversation) return;
 
-  const { removeMemberFromGroup, makeAdmin, removeFromAdmin, sendGroupInfoUpdateRequest, addGroupTag, removeGroupTag } =
-    useSocket();
+  const {
+    removeMemberFromGroup,
+    deleteGroupConversation,
+    makeAdmin,
+    removeFromAdmin,
+    sendGroupInfoUpdateRequest,
+    addGroupTag,
+    removeGroupTag,
+  } = useSocket();
 
   const setModal = useStore((s) => s.setModal);
   const profileTab = useStore((s) => s.profileTab);
@@ -35,7 +43,9 @@ function GroupProfile({ conversationId }: { conversationId: string }) {
 
   const members = useMemo(() => sortGroupMembers([...conversation.members]), [conversation]);
 
-  const userIsAdmin = conversation.admins.includes(conversation.userId);
+  const userIsAdmin = conversation.admins.includes(user?.id!);
+  const userIsMember = conversation.members.some((m) => m.id === user?.id!);
+  const userCanEdit = userIsAdmin && userIsMember;
   const totalMembers = conversation.members.length;
 
   function sortGroupMembers(members: IGroupMember[]) {
@@ -66,6 +76,10 @@ function GroupProfile({ conversationId }: { conversationId: string }) {
       state: conversation,
       open: true,
     });
+  }
+
+  function handleDeletingGroup() {
+    deleteGroupConversation(conversation!);
   }
 
   function handleAdmin(userId: string, action: string) {
@@ -102,58 +116,55 @@ function GroupProfile({ conversationId }: { conversationId: string }) {
       </div>
 
       {/* Profile details */}
-      <div className="flex relative h-full gap-8 max-sm:pt-2 pt-4 bg-gradient-to-t from-base-200 text-sm flex-col overflow-y-scroll max-sm:pb-3 pb-10 no-scrollbar">
-        <Menu<IGroupMember> id="groupProfile">
-          {(member) => (
-            <>
-              <Menu.Item onClick={() => handleAdmin(member.id!, member.isAdmin ? "remove" : "add")}>
-                {member.isAdmin ? "Remove Admin" : "Make Admin"}
-              </Menu.Item>
-              <Menu.Item onClick={() => handleRemovingMember(member)}>Remove</Menu.Item>
-            </>
-          )}
-        </Menu>
-        
+      <div className="flex relative h-full gap-8 max-sm:pt-2 pt-4 text-sm flex-col overflow-y-scroll max-sm:pb-3 pb-10 no-scrollbar">
         {/* profile */}
         <div className="flex gap-8 items-center max-sm:px-4 px-8">
-          <AvatarWrapper conversation={conversation} userIsAdmin={userIsAdmin} />
+          <AvatarWrapper conversation={conversation} userIsAdmin={userCanEdit} />
 
-          <div className="grid">
+          <div className="grid gap-1">
             <TextInput
               text={conversation?.displayName!}
               className="text-base"
               placeholderText="Add group description"
               onSubmit={handleEditGroupName}
-              canEdit={userIsAdmin}
+              canEdit={userCanEdit}
             />
-            <div>{`Group - ${totalMembers} members`}</div>
+            <label className="text-xs text-base-content/50" htmlFor="">
+              {"Created By " + conversation.createdBy}
+            </label>
           </div>
         </div>
 
-        <div className="flex flex-col gap-4">
-          <div className="max-sm:px-4 px-8">
-            <TextInput
-              autoRaw
-              placeholderText="Add group description"
-              text={conversation?.desc!}
-              onSubmit={handleEditGroupDescription}
-              canEdit={userIsAdmin}
-            />
-          </div>
+        {(conversation.desc || !!conversation.tags.length) && (
+          <div className="flex flex-col gap-4">
+            {(conversation.desc || userCanEdit) && (
+              <div className="max-sm:px-4 px-8">
+                <TextInput
+                  autoRaw
+                  placeholderText="Add group description"
+                  text={conversation?.desc!}
+                  onSubmit={handleEditGroupDescription}
+                  canEdit={userCanEdit}
+                />
+              </div>
+            )}
 
-          <div className="max-sm:px-4 px-8">
-            <TagInput
-              tags={conversation.tags}
-              showLabel={false}
-              canEdit={userIsAdmin}
-              onSubmit={handleAddingTag}
-              onDelete={handleRemovingTag}
-            />
+            {(!!conversation.tags.length || userCanEdit) && (
+              <div className="max-sm:px-4 px-8">
+                <TagInput
+                  tags={conversation.tags}
+                  showLabel={false}
+                  canEdit={userCanEdit}
+                  onSubmit={handleAddingTag}
+                  onDelete={handleRemovingTag}
+                />
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
         {/* Media */}
-        <div className="space-y-1 divide-y-2 divide-base-300 max-sm:mt-2 sm:mt-4 max-sm:px-4 px-8 [&>div]:h-16">
+        <div className="space-y-1 divide-y-[1.75px] divide-[--base-300-400] max-sm:mt-2 sm:mt-4 max-sm:px-4 px-8 [&>div]:h-16">
           <NotificationToggle id={conversation.id} />
           <StarredMessages conversationId={conversation?.id!} />
           <MediaSelection conversationId={conversation?.id!} />
@@ -161,40 +172,52 @@ function GroupProfile({ conversationId }: { conversationId: string }) {
 
         {/* conversation members */}
         <div className="w-full flex flex-col ">
+          <Menu<IGroupMember> id="groupProfile">
+            {(member) => (
+              <>
+                <Menu.Item onClick={() => handleAdmin(member.id!, member.isAdmin ? "remove" : "add")}>
+                  {member.isAdmin ? "Remove Admin" : "Make Admin"}
+                </Menu.Item>
+                <Menu.Item onClick={() => handleRemovingMember(member)}>Remove</Menu.Item>
+              </>
+            )}
+          </Menu>
+
           <div className="flex gap-4 max-sm:px-4 px-8">
             <label className="text-sm text-primary mb-2 " htmlFor="">
               Group members
             </label>
             {totalMembers}
           </div>
+
           <div className="flex gap-1 flex-col w-full ">
-            {userIsAdmin && (
-              <div
-                tabIndex={0}
-                onClick={() => toggleModal("addGroupMembersModal")}
-                className="hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-8 py-3 cursor-pointer"
-              >
-                <div className="flex items-center justify-center w-[40px] h-[40px] bg-base-100 rounded-full">
-                  <UserPlusIcon className="size-5" />
+            {userCanEdit && (
+              <>
+                <div
+                  tabIndex={0}
+                  onClick={() => toggleModal("addGroupMembersModal")}
+                  className="hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-8 py-3 cursor-pointer"
+                >
+                  <div className="flex items-center justify-center w-[40px] h-[40px] bg-[--100-primary] text-white rounded-full">
+                    <UserPlusIcon className="size-5" />
+                  </div>
+                  Add Member
                 </div>
-                Add Member
-              </div>
+                <div
+                  onClick={() => profileTab.push("inviteLink")}
+                  tabIndex={0}
+                  className="hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-8 py-3 cursor-pointer"
+                >
+                  <div className="flex items-center justify-center w-[40px] h-[40px] bg-[--100-primary] text-white rounded-full">
+                    <LinkIcon className="size-5" />
+                  </div>
+                  Invite via link
+                </div>
+                <div className="max-sm:px-4 px-8 py-2">
+                  <div className="w-full h-[1.25px] bg-[--base-300-400]"></div>
+                </div>
+              </>
             )}
-
-            <div
-              onClick={() => profileTab.push("inviteLink")}
-              tabIndex={0}
-              className="hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-8 py-3 cursor-pointer"
-            >
-              <div className="flex items-center justify-center w-[40px] h-[40px] bg-base-100 rounded-full">
-                <LinkIcon className="size-5" />
-              </div>
-              Invite via link
-            </div>
-
-            <div className="max-sm:px-4 px-8 py-2">
-              <div className="w-full h-[2px] bg-base-300"></div>
-            </div>
 
             <div>
               {members.map(
@@ -213,13 +236,14 @@ function GroupProfile({ conversationId }: { conversationId: string }) {
 
         {/* Actions */}
         <div className="flex flex-col gap-2 max-sm:px-4 px-8 mt-auto">
-          <div onClick={handleExitingGroup} tabIndex={0} className="btn btn-block btn-outline btn-error">
-            Exit Group
+          <div
+            onClick={userIsMember ? handleExitingGroup : handleDeletingGroup}
+            tabIndex={0}
+            className="btn btn-block btn-error !text-[--black-white]"
+          >
+            {userIsMember ? "Exit Group" : "Delete chat"}
           </div>
         </div>
-        <label className="text-xs text-center text-base-content/50 px-8" htmlFor="">
-          {"Created By " + conversation.createdBy}
-        </label>
       </div>
     </div>
   );

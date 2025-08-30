@@ -2,120 +2,112 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Conversation from "../SharedComponents/Conversation/Conversation";
 import { useConversationStore } from "../../../../store/conversationStore";
-import SearchUser from "../../../ui/Searchbar";
 import MainHeader from "./Header";
 import Menu_Conversation from "../SharedComponents/MenuContext";
-import { debounce } from "@lib/query";
-import useAxios from "@hooks/useAxios";
-import { IGroupConversation, IQueryResult, IUserConversation } from "@interfaces/conversationInterface";
-import { MagnifyingGlassIcon } from "@heroicons/react/24/solid";
-import { IUser } from "@interfaces/userInterface";
-import Avatar from "@features/ui/Avatar";
-import { useStore } from "store/global";
+import { IQueryResult } from "@repo/interfaces/conversationInterface";
 import { useSearch } from "@hooks/useSearch";
+import SearchPrompt from "../SharedComponents/SearchPrompt";
+import Searchbar from "@features/ui/Searchbar";
+import { useStore } from "store/global";
+import { AnimatePresence, motion } from "framer-motion";
+import MotionWrapper from "../SharedComponents/Conversation/MotionWrapper";
 
 export default function Conversations() {
   return (
     <div className="flex flex-col max-sm:gap-2 sm:gap-4 h-full">
       <MainHeader />
-      <Menu_Conversation />
-      <DisplaySearchbar />
       <DisplayConversations />
     </div>
   );
 }
 
-function DisplaySearchbar() {
-  const setSearchQuery = useSearch((s) => s.setSearchQuery);
-  return <SearchUser onChange={setSearchQuery} />;
-}
-
 function DisplayConversations() {
   const selectedConversation = useConversationStore((s) => s.selectedConversation);
-  const searchQuery = useSearch((s) => s.searchQuery);
+  const { updateConversation } = useConversationStore.getState().conversationActions;
+  const [searchQuery, setSearchQuery] = useState("");
   const queryResult = useSearch((s) => s.queryResult);
   const setQueryResult = useSearch((s) => s.setQueryResult);
-  const setQueriedUser = useStore.getState().setFetchedUserUser;
-  const conversations = useConversationStore((s) => s.conversations);
-  const axios = useAxios();
+  const resetSearch = useSearch((s) => s.reset);
+  let conversations = useConversationStore((s) => s.conversations);
+  let users = useStore((s) => s.users);
 
   useEffect(() => {
-    let res: IQueryResult = { chats: [], groups: [] };
+    let res: IQueryResult = { chats: [], groups: [], contacts: [] };
 
     conversations.forEach((c) => {
-      let haveMember =
-        c.active && c.members.find((m) => m.username?.includes(searchQuery) || m.phoneNumber?.includes(searchQuery));
+      if (c.host === "system") return;
+
+      let haveMember = c.members.find((m) => m.username?.includes(searchQuery) || m.phoneNumber?.includes(searchQuery));
 
       if (haveMember) {
-        if (c.host === "user") res.chats.push(c);
+        if (c.host === "user") {
+          if (!c.active) res.contacts.push(c);
+          else res.chats.push(c);
+        }
         if (c.host === "group") res.groups.push(c);
       }
-
-      setQueryResult(res);
     });
-  }, [searchQuery, conversations]);
+
+    setQueryResult(res);
+  }, [searchQuery, conversations, users]);
 
   useMemo(() => conversations.sort((a, b) => b.updatedAt - a.updatedAt), [conversations]);
 
-  const handleSearchQuery = debounce(async () => {
-    const res = await axios.get(`/db/user/search?q=${searchQuery}`).then((res) => res.data);
-    setQueriedUser(res);
-    useStore.getState().setDashboardTab("fetchedUser");
-  }, 300);
+  useEffect(() => {
+    return () => resetSearch();
+  }, []);
 
   return (
-    <div className="flex flex-col overflow-hidden">
-      <div className="flex flex-1 h-full w-full flex-col mt-4 gap-2 overflow-y-scroll no-scrollbar">
-        {
-          searchQuery
-            ? Object.keys(queryResult).map((key) => {
-                let k = key as keyof typeof queryResult;
+    <>
+      <Searchbar onChange={setSearchQuery} />
+      <div className="flex flex-col overflow-hidden h-full">
+        <Menu_Conversation />
+        <div className="flex flex-1 h-full w-full flex-col mt-4 gap-6 overflow-y-scroll no-scrollbar [&>:first-child]:z-20">
+          {searchQuery ? (
+            Object.keys(queryResult).map((key) => {
+              let k = key as keyof typeof queryResult;
 
-                if (!queryResult[k].length) {
-                  if (key === "chats")
-                    return (
-                      <div
-                        key={key}
-                        onClick={handleSearchQuery}
-                        className="group hover:cursor-pointer bg-base-200 outline-2 mb-8 rounded-2xl p-4 flex justify-center items-center gap-2 text-sm"
-                      >
-                        <MagnifyingGlassIcon className="size-5" />
-                        Search for <span className="group-hover:underline text-primary">{searchQuery}</span>
-                      </div>
-                    );
-                  return;
-                }
+              if (!queryResult[k].length) {
+                if (key === "chats") return <SearchPrompt key="SearchPrompt" query={searchQuery} />;
+                return;
+              }
 
-                return (
-                  <Fragment key={key}>
-                    <div className="capitalize text-sm">{key}</div>
-                    {queryResult[k]?.map(
-                      (conversation) =>
-                        !conversation.archived &&
-                        conversation.active && (
-                          <Conversation
-                            key={conversation.id}
-                            conversation={conversation}
-                            isSelected={selectedConversation?.conversationId === conversation.conversationId}
-                          />
-                        )
-                    )}
-                  </Fragment>
-                );
-              })
-            : conversations.map(
-                (conversation) =>
-                  !conversation.archived &&
-                  conversation.active && (
+              return (
+                <Fragment key={key}>
+                  <div className="capitalize text-sm">{key}</div>
+                  {queryResult[k]?.map((conversation) => (
                     <Conversation
                       key={conversation.id}
                       conversation={conversation}
-                      isSelected={selectedConversation?.conversationId === conversation.conversationId}
+                      isSelected={selectedConversation?.id === conversation.id}
                     />
+                  ))}
+                </Fragment>
+              );
+            })
+          ) : !conversations.length ? (
+            <>
+              <div className="skeleton h-[75px] w-full"></div>
+              <div className="skeleton h-[75px] w-full"></div>
+            </>
+          ) : (
+            <AnimatePresence initial={false}>
+              {conversations.map(
+                (conversation) =>
+                  !conversation.archived &&
+                  conversation.active && (
+                    <MotionWrapper isSelected={selectedConversation?.id === conversation.id} key={conversation.id}>
+                      <Conversation
+                        conversation={conversation}
+                        isSelected={selectedConversation?.id === conversation.id}
+                      />
+                    </MotionWrapper>
                   )
-              )
-        }
+              )}
+            </AnimatePresence>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

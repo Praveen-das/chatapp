@@ -1,8 +1,8 @@
 import _EmojiPicker from "@emoji-mart/react";
 import { getEmojies } from "../../lib/emojies";
 import chroma from "chroma-js";
-import { useTheme } from "next-themes";
 import COLORS from "config/themes";
+import { useTheme } from "@hooks/useTheme";
 
 export default function EmojiPicker({
   open,
@@ -11,11 +11,9 @@ export default function EmojiPicker({
   open: boolean;
   onEmojiSelect: (emoji: any) => void;
 }) {
-  const { theme } = useTheme();
+  const { bgcolor } = useTheme();
 
-  const themeColor = theme?.split("-")[1];
-  const hex = themeColor ? `#${themeColor}` : COLORS.default;
-  const rgb = chroma(hex).rgb().join(",");
+  const rgb = chroma(bgcolor).rgb().join(",");
 
   return (
     <div

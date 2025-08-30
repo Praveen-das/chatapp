@@ -2,8 +2,10 @@ import { Types } from "mongoose";
 import { MessageDeleteFlag, Messages } from "../models/MessageModel";
 import client from "../redis/client";
 import { IMessage } from "../interfaces/messageInterface";
+import z from "zod";
+import { messagesSchema } from "../schemas/userMessageSchema";
 
-async function saveUserMessage(messages: IMessage[]) {
+async function saveUserMessage(messages: z.infer<typeof messagesSchema>) {
   try {
     //   if (!messages.length) return { message: "No messages to insert" };
 
@@ -160,13 +162,13 @@ const updateUserMessages = async (updates: Partial<IMessage>[]) => {
     updates.forEach((update) => {
       let { id, ...items } = update;
       let messageId = new Types.ObjectId(id);
-      let userId = new Types.ObjectId(items.readReceipt?.[0].userId);
+      let userId = new Types.ObjectId(items.readReceipt?.[0]?.userId);
       let updateObj;
 
       if (!!items.readReceipt?.length) {
         updateObj = {
           $set: {
-            "readReceipt.$[element].status": items.readReceipt[0].status,
+            "readReceipt.$[element].status": items.readReceipt[0]?.status,
           },
         };
 

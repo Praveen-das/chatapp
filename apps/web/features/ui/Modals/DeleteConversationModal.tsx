@@ -1,28 +1,25 @@
 import useSocket from "../../../context/SocketProvider";
 import { useMessageStore } from "../../../store/messageStore";
 import { useStore } from "../../../store/global";
-import { IModal } from "@interfaces/modalInterface";
-import { IConversation } from "@interfaces/conversationInterface";
+import { IConversation } from "@repo/interfaces/conversationInterface";
 import { useConversationStore } from "store/conversationStore";
 import socket from "@lib/ws";
+import { IModal } from "@interfaces/modalInterface";
+import FramerWrapper from "../MotionWrapper";
 
 export const DeleteConversationModal = () => {
-  const updateConversation = useConversationStore((s) => s.updateConversation);
+  const { updateConversation, setSelectedConversation } = useConversationStore((s) => s.conversationActions);
   const clearChat = useMessageStore((s) => s.clearChat);
   const toggleProfile = useStore((s) => s.toggleProfile);
   const modal = useStore<IModal<IConversation> | null>((s) => s.modal);
   const setModal = useStore((s) => s.setModal);
   const { sendConversationDeleteRequest } = useSocket();
-  const setSelectedConversation = useConversationStore(
-    (s) => s.setSelectedConversation
-  );
   const conversation = modal?.state;
 
   function handleDeletingConversation() {
-    if (!conversation) return setModal(null);
+    if (!conversation) return setModal(false);
 
-    const selectedConversation =
-      useConversationStore.getState().selectedConversation;
+    const selectedConversation = useConversationStore.getState().selectedConversation;
     let conversationId = conversation?.id!;
 
     sendConversationDeleteRequest(conversationId);
@@ -34,32 +31,26 @@ export const DeleteConversationModal = () => {
       setSelectedConversation(null);
       socket.selectedConversation = null;
     }
-    setModal(null);
+    setModal(false);
   }
 
   return (
-    <div className="modal-box flex flex-col justify-between p-8 h-44 gap-4 w-full max-w-xs bg-[--modal]">
+    <FramerWrapper className={`modal-box flex flex-col justify-between p-8 h-44 gap-4 w-full max-w-xs bg-[--modal]`}>
       <div className="flex items-center justify-between">
         <label htmlFor="">Delete this conversation ?</label>
       </div>
       <div className="flex w-full justify-stretch gap-4 mx-auto ">
         <div className="w-full">
-          <button
-            onClick={() => setModal(null)}
-            className={`btn btn-outline btn-ghost btn-secondary  btn-sm w-full`}
-          >
+          <button onClick={() => setModal(false)} className={`btn btn-sm [--b2:--b1] btn-block`}>
             Cancel
           </button>
         </div>
         <div className="w-full">
-          <button
-            onClick={handleDeletingConversation}
-            className="btn btn-sm btn-secondary w-full"
-          >
+          <button onClick={handleDeletingConversation} className="btn btn-sm btn-error btn-block">
             Delete
           </button>
         </div>
       </div>
-    </div>
+    </FramerWrapper>
   );
 };

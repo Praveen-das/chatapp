@@ -1,6 +1,6 @@
-import { Server } from "socket.io";
-import { ISocket } from "../interfaces/socketInterfaces";
+import { Namespace, Server } from "socket.io";
 import produceMessage from "../kafka/kafka";
+import { ISocket } from "../interfaces/socketInterfaces";
 
 export default function handleDisconnection(io: Server, socket: ISocket) {
     socket.on('disconnect', async (reason) => {

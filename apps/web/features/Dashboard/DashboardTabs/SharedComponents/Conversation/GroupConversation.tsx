@@ -1,19 +1,12 @@
 "use client";
-import React, {
-  MouseEvent,
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { MouseEvent, memo, useCallback, useEffect, useMemo, useState } from "react";
 import { useMessageStore } from "../../../../../store/messageStore";
 import moment from "moment";
 import { useStore } from "../../../../../store/global";
 import socket from "../../../../../lib/ws";
 import Avatar from "../../../../ui/Avatar";
 import { useConversationStore } from "../../../../../store/conversationStore";
-import { IGroupConversation } from "../../../../../interfaces/conversationInterface";
+import { IGroupConversation } from "@repo/interfaces/conversationInterface";
 import { useMenu } from "store/menu";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
 import { DisplayRecentMessage } from "./DisplayRecentMessage";
@@ -24,16 +17,11 @@ interface IGroupProps {
   isSelectedGroup?: boolean;
 }
 
-function GroupConversation({
-  conversation,
-  isSelectedGroup,
-}: IGroupProps): React.JSX.Element {
+function GroupConversation({ conversation, isSelectedGroup }: IGroupProps): React.JSX.Element {
   const { user } = useAuth();
   const unreadMessagesStore = useMessageStore((s) => s.unreadMessages);
   const [unreadMessages, setUnreadMessages] = useState(0);
-  const setSelectedConversation = useConversationStore(
-    (s) => s.setSelectedConversation
-  );
+  const { setSelectedConversation } = useConversationStore((s) => s.conversationActions);
   const setSelectedUser = useStore((s) => s.setSelectedUser);
   const toggleProfile = useStore((s) => s.toggleProfile);
   const setDeviceTab = useStore((s) => s.setDeviceTab);
@@ -48,8 +36,7 @@ function GroupConversation({
   }, [conversation]);
 
   useEffect(() => {
-    let _unreadMessages =
-      unreadMessagesStore.get(conversation.conversationId!)?.length || 0;
+    let _unreadMessages = unreadMessagesStore.get(conversation.conversationId!)?.length || 0;
 
     if (isSelectedGroup) {
       setUnreadMessages(0);
@@ -59,7 +46,7 @@ function GroupConversation({
   }, [unreadMessagesStore, isSelectedGroup]);
 
   const recentMessage = conversation.recentMessage;
-  
+
   const handleOpeningMenu = (e: MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
     setMenu({
@@ -69,7 +56,7 @@ function GroupConversation({
     });
   };
 
-  /////////////////////////////////////////// 
+  ///////////////////////////////////////////
 
   const from = conversation.members.find((m) => m.id === recentMessage?.from)!;
 
@@ -91,10 +78,7 @@ function GroupConversation({
             )}
           </div>
           <div className="flex justify-between items-center h-5 ">
-            <DisplayRecentMessage
-              recentMessage={conversation.recentMessage!}
-              sender={sender}
-            />
+            <DisplayRecentMessage recentMessage={conversation.recentMessage!} sender={sender} />
             <div className="flex items-center duration-100">
               {unreadMessages > 0 && (
                 <h1 className="flex justify-center items-center text-xs bg-primary w-5 h-5 rounded-full duration-100 group-hover:opacity-0">

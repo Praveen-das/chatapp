@@ -1,10 +1,9 @@
 import cache from "../redis/client";
 import { Response, Request } from "express";
 import messageServices from "../services/messageServices";
-import { IAttachment, IMessage } from "../interfaces/messageInterface";
-import { IUserConversation } from "../interfaces/conversationInterface";
-import { Types } from "mongoose";
-import conversationServices from "../services/conversationServices";
+import { IUserConversation } from "@repo/interfaces/conversationInterface";
+import { IMessage } from "../interfaces/messageInterface";
+import { messagesSchema } from "../schemas/userMessageSchema";
 
 const TIME_TO_EXPIRE = 60 * 60 * 24;
 
@@ -15,28 +14,11 @@ interface IReq {
 
 const _saveUserMessage = async (req: string, reset: () => void) => {
   try {
-    const { messages }: IReq = JSON.parse(req);
+    const { messages:body }: IReq = JSON.parse(req);
 
-    // if (!!conversation?.deletedUsers?.length) {
-    //   console.log('reset conversation');
-
-    //   await conversationServices.unsetConversationDeletion(conversation.id);
-    // }
-
-    const _messages = messages.map((message) => {
-      let newMessage = {
-        ...message,
-        hasAttachment: !!message.attachment,
-        id: new Types.ObjectId(message.id),
-        conversationId: new Types.ObjectId(message.conversationId),
-        from: new Types.ObjectId(message.from),
-        to: message.to ? new Types.ObjectId(message.to) : undefined,
-      };
-      if (!message.to) delete message.to;
-      return newMessage;
-    });
-
-    await messageServices.saveUserMessage(_messages);
+    const messages  = messagesSchema.parse(body)
+    
+    await messageServices.saveUserMessage(messages);
   } catch (error) {
     console.log("MESSAGES error--->", error);
     reset();

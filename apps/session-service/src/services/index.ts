@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import sessionStore from "../session";
+import { ISession } from "@repo/interfaces/sessionInterface";
 
 async function getAllSessions(req: Request, res: Response) {
   const sessions = await sessionStore.findAllSessions();
@@ -24,8 +25,14 @@ async function updateSession(req: Request, res: Response) {
 
 async function getSession(sessionId: string) {
   const response = await sessionStore.findSession(sessionId);
-  if (response) response.data = JSON.parse(response.data);
-  return response;
+  if (!response) return null;
+  try {
+    const session = JSON.parse(response.data!) as ISession;
+    return response;
+  } catch (error) {
+    console.error("Error parsing session data:", error);
+    return null;   
+  }
 }
 
 async function getUserSessions(userId: string) {
@@ -35,7 +42,7 @@ async function getUserSessions(userId: string) {
 
 async function deleteSession(req: Request, res: Response) {
   const sessionId = req.params.id;
-  const response = await sessionStore.deleteSession(sessionId);
+  const response = await sessionStore.deleteSession(sessionId!);
   res.json(response);
 }
 

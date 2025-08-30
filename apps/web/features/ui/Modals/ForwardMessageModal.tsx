@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import useSocket from "../../../context/SocketProvider";
-import { generateConversation, generateUserConversations } from "@lib/conversation";
+import { generateConversation, generateUserConversations } from "@repo/utils/index";
 import { useConversationStore } from "../../../store/conversationStore";
 import { useMessageStore } from "../../../store/messageStore";
 import SearchUser from "../Searchbar";
@@ -11,30 +11,29 @@ import { useStore } from "../../../store/global";
 import { User } from "./components/User";
 import { Conversation } from "./components/Conversation";
 import useAuth from "../../../hooks/useAuth";
-import { IConversation } from "../../../interfaces/conversationInterface";
-import { IMessage } from "../../../interfaces/messageInterface";
-import { IUser } from "../../../interfaces/userInterface";
-import { IModal } from "@interfaces/modalInterface";
+import { IConversation } from "@repo/interfaces/conversationInterface";
+import { IMessage } from "@repo/interfaces/messageInterface";
+import { IUser } from "@repo/interfaces/userInterface";
 import { regenerateMessageTemplate } from "@lib/messages";
 import { XCircleIcon } from "@heroicons/react/24/solid";
+import { IModal } from "@interfaces/modalInterface";
+import { SendSolid } from "iconoir-react";
+import ModalTitle from "./components/ModalTitle";
+import FramerWrapper from "../MotionWrapper";
 
 export const ForwardMessageModal = ({ title }: { title: string }) => {
   const { sendMessage } = useSocket();
   const conversations = useConversationStore((s) => s.conversations);
-  const _users = useStore((s) => s.users);
+  const users = useStore((s) => s.users);
   const modal = useStore<IModal<IMessage[]> | null>((s) => s.modal);
 
   const [selectedUsers, setSelectedUsers] = useState<IUser[]>([]);
   const [selectedConversations, setSelectedConversations] = useState<IConversation[]>([]);
   const [query, setQuery] = useState("");
 
-  const users = _users.filter(
-    (u) => !conversations.find((c) => c.host === "user" && c.members.find((m) => m.id === u.id))
-  );
-
   const conversationsQueryResult = useMemo(() => {
     if (!query) return [];
-    return conversations.filter((c) => c.displayName?.includes(query));
+    return conversations.filter((c) => c.host !== "system" && c.displayName?.includes(query));
   }, [query, conversations]);
 
   const usersQueryResult = useMemo(() => {
@@ -50,23 +49,25 @@ export const ForwardMessageModal = ({ title }: { title: string }) => {
 
   const handleSelectedConversation = (conversation: IConversation) => {
     setSelectedConversations((s) =>
-      s.includes(conversation) ? s.filter((u) => u.id !== conversation.conversationId) : [conversation, ...s]
+      s.includes(conversation) ? s.filter((u) => u.id !== conversation.id) : [conversation, ...s]
     );
   };
 
   const handleMessageForward = () => {
-    selectedConversations.forEach((conversation) => {
-      let messages = selectedChats.map((message) => {
-        let newMessage = regenerateMessageTemplate(conversation, message);
-        return newMessage;
-      });
+    selectedConversations.forEach(async (conversation) => {
+      let messages = await Promise.all(
+        selectedChats.map((message) => {
+          let newMessage = regenerateMessageTemplate(conversation, message);
+          return newMessage;
+        })
+      );
 
       sendMessage(conversation, messages);
     });
 
     setSelectedUsers([]);
     setSelectedConversations([]);
-    useStore.getState().setModal(null);
+    useStore.getState().setModal(false);
   };
 
   const container = {
@@ -85,25 +86,23 @@ export const ForwardMessageModal = ({ title }: { title: string }) => {
   };
 
   return (
-    <div className="modal-box max-sm:max-w-full max-sm:max-h-full max-sm:rounded-none max-sm:pt-4 pb-0 max-sm:w-full max-sm:h-full h-full px-0 relative flex flex-col max-w-[450px] bg-[--modal]">
-      <div className="flex max-sm:px-4 px-6 justify-between items-center w-full">
-        <h3 className="font-medium text-lg">{title}</h3>
-        <form method="dialog">
-          <button className="btn btn-circle btn-sm btn-ghost">
-            <XCircleIcon className="size-6" />
-          </button>
-        </form>
-      </div>
+    <FramerWrapper
+      className={`modal-box max-sm:max-w-full max-sm:max-h-full max-sm:rounded-none max-sm:pt-4 pb-0 max-sm:w-full max-sm:h-full h-full px-0 relative flex flex-col max-w-[450px] bg-[--modal]`}
+    >
+      <ModalTitle>{title}</ModalTitle>
       <div className="max-sm:px-4 px-6 mt-4">
         <SearchUser onChange={setQuery} />
       </div>
       <div className="w-full h-full space-y-2 overflow-y-scroll no-scrollbar mt-4">
         <span className="flex w-full max-sm:px-4 pl-6 pt-2 pb-1 text-sm">Recents Chats</span>
-        {(query ? conversationsQueryResult : conversations).map((conversation) => (
-          <div key={conversation.id} onClick={() => handleSelectedConversation(conversation)}>
-            <Conversation isSelected={selectedConversations.includes(conversation)} conversation={conversation} />
-          </div>
-        ))}
+        {(query ? conversationsQueryResult : conversations).map(
+          (conversation) =>
+            conversation.host !== "system" && (
+              <div key={conversation.id} onClick={() => handleSelectedConversation(conversation)}>
+                <Conversation isSelected={selectedConversations.includes(conversation)} conversation={conversation} />
+              </div>
+            )
+        )}
         <span className="flex w-full max-sm:px-4 pl-6 pt-2 pb-1 text-sm">All Contacts</span>
         {(query ? usersQueryResult : users).map((person) => (
           <div key={person.id} onClick={() => handleSelectedUsers(person)}>
@@ -111,23 +110,6 @@ export const ForwardMessageModal = ({ title }: { title: string }) => {
           </div>
         ))}
       </div>
-      {/* <div className="flex items-center w-full h-20 bg-base-200 px-4 gap-2">
-                <div className="flex items-center text-xs w-full h-full whitespace-nowrap overflow-hidden">
-                    {placeholder.map((string, idx) => (
-                        <Fragment key={string}>
-                            <label className="truncate" htmlFor="">{string}</label>
-                            {selectedUsers.length > 0 && selectedUsers.length !== idx + 1 ? ' , ' : ''}
-                        </Fragment>
-                    ))}
-                </div>
-                <form method="dialog">
-                    <button disabled={!(selectedConversations.length + selectedUsers.length)} onClick={handleMessageForward}>
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                            <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
-                        </svg>
-                    </button>
-                </form>
-            </div> */}
 
       <AnimatePresence>
         {(!!selectedUsers.length || !!selectedConversations.length) && (
@@ -140,11 +122,12 @@ export const ForwardMessageModal = ({ title }: { title: string }) => {
           >
             <div
               onClick={handleMessageForward}
-              className="btn btn-circle btn-primary text-white grid place-items-center size-14 bg-primary rounded-full overflow-hidden"
+              className="btn btn-circle btn-primary text-[--black-white] grid place-items-center size-14 bg-primary rounded-full overflow-hidden"
             >
-              <motion.svg
-                initial={item.hidden}
-                animate={item.visible}
+              <motion.span initial={item.hidden} animate={item.visible}>
+                <SendSolid className="size-5" />
+              </motion.span>
+              {/* <motion.svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 16 16"
                 fill="currentColor"
@@ -155,11 +138,11 @@ export const ForwardMessageModal = ({ title }: { title: string }) => {
                   d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z"
                   clipRule="evenodd"
                 />
-              </motion.svg>
+              </motion.svg> */}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </FramerWrapper>
   );
 };

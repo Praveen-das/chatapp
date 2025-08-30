@@ -1,13 +1,12 @@
 import { ChangeEvent, MouseEvent, useState } from "react";
 import EmojiPicker from "../../ui/EmojiPicker";
 import { useAttachments } from "../../../store/attachments";
-import InputButton from "../../ui/InputButton";
 import Image from "next/image";
 import { useMessageStore } from "../../../store/messageStore";
 import { getImages } from "@lib/utils";
 import useSocket from "../../../context/SocketProvider";
 import { useConversationStore } from "../../../store/conversationStore";
-import { IImageAttachment, IImagePayload, IMessage } from "../../../interfaces/messageInterface";
+import { IImageAttachment, IImagePayload, IMessage } from "@repo/interfaces/messageInterface";
 import ObjectID from "bson-objectid";
 import { uploadImage } from "@lib/imageKit";
 import { useStore } from "../../../store/global";
@@ -27,28 +26,36 @@ function ImageSelector() {
 
   const handleSendingAttachment = async () => {
     const selectedUser = useStore.getState().selectedUser;
-    const { selectedConversation, conversations, setSelectedConversation } = useConversationStore.getState();
+    const {
+      selectedConversation,
+      conversations,
+      conversationActions: { setSelectedConversation },
+    } = useConversationStore.getState();
 
     let conversation =
       selectedConversation ||
-      conversations.find((c) => c.members.find((m) => m.id === selectedUser?.id!) && c.host === "user");
+      conversations.find(
+        (c) => c?.host !== "system" && c.members.find((m) => m.id === selectedUser?.id!) && c.host === "user"
+      );
 
     const conversationId = conversation?.id!;
 
-    const messages = images.map((image, i) => {
-      let caption = captions[i];
+    const messages = await Promise.all(
+      images.map(async (image, i) => {
+        let caption = captions[i];
 
-      let attachment: IImageAttachment = {
-        id: new ObjectID().toHexString(),
-        type: "images",
-        status: "uploading",
-        ...image,
-      };
+        let attachment: IImageAttachment = {
+          id: new ObjectID().toHexString(),
+          type: "images",
+          status: "uploading",
+          ...image,
+        };
 
-      const message = generateMessageTemplate(conversation!, caption, attachment);
-      message.isPlaceholder = true;
-      return message;
-    });
+        const message = await generateMessageTemplate(conversation!, caption, attachment);
+        message.type = 'placeholder';
+        return message;
+      })
+    );
 
     clearImages();
     setCaptions([]);
@@ -86,39 +93,40 @@ function ImageSelector() {
   };
 
   return (
-    <>
-      <div className="flex flex-col gap-6 items-center h-full bg-gradient-to-t from-base-200 px-4 mt-2 sm:rounded-2xl overflow-hidden">
-        <ImagePreview src={images[selectedIndex]?.url!} />
-        <Input
+    <div className="flex flex-col gap-6 items-center h-full bg-[--base-200-300] px-4 mt-4 sm:rounded-2xl overflow-hidden">
+      <ImagePreview src={images[selectedIndex]?.url!} />
+      <Input
+        {...{
+          index: selectedIndex,
+          captions,
+          setCaptions,
+        }}
+      />
+      <div
+        className="grid gap-2 items-center w-full px-4 max-sm:my-6 my-10"
+        style={{ gridTemplateColumns: "1fr min-content" }}
+      >
+        <SelectedImages
           {...{
-            index: selectedIndex,
+            images,
             captions,
             setCaptions,
+            selectedIndex,
+            setSelectedIndex,
           }}
         />
-        <div
-          className="grid gap-2 items-center w-full px-4 max-sm:my-6 my-10"
-          style={{ gridTemplateColumns: "1fr min-content" }}
-        >
-          <SelectedImages
-            {...{
-              images,
-              captions,
-              setCaptions,
-              selectedIndex,
-              setSelectedIndex,
-            }}
-          />
-          <div className="flex justify-center items-center h-full ml-4">
-            <button className="btn btn-circle btn-md btn-primary  justify-self-end" onClick={handleSendingAttachment}>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
-              </svg>
-            </button>
-          </div>
+        <div className="flex justify-center items-center h-full ml-4">
+          <button
+            className="btn btn-circle btn-md btn-primary text-[--black-white] justify-self-end"
+            onClick={handleSendingAttachment}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+              <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
+            </svg>
+          </button>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -191,10 +199,8 @@ function SelectedImages({
           </div>
         ))}
       </div>
-      <InputButton
-        className="btn btn-square btn-outline flex items-center justify-center size-16 border-2 rounded-md cursor-pointer mr-auto"
-        onInputChange={handleAddingImages}
-      >
+      <label className="btn btn-square btn-outline flex items-center justify-center size-16 border-2 rounded-md cursor-pointer mr-auto">
+        <input onChange={handleAddingImages} type="file" multiple hidden accept="image/png, image/gif, image/jpeg" />
         <svg
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
@@ -205,7 +211,7 @@ function SelectedImages({
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
         </svg>
-      </InputButton>
+      </label>
     </div>
   );
 }
@@ -242,7 +248,7 @@ function Input({ index, captions, setCaptions }: { index: number; captions: any;
           <div onClick={() => setOpen(false)} className="fixed inset-0 z-20 " />
         </>
       )}
-      <div className="flex items-center px-2 gap-1 w-full max-w-sm h-[40px] rounded-md bg-base-200">
+      <div className="flex items-center px-2 gap-1 w-full max-w-sm h-[40px] rounded-md bg-[--base-300-400]">
         <div ref={refs.setReference} onClick={() => setOpen((s) => !s)} className="btn btn-circle btn-ghost btn-sm">
           <svg
             xmlns="http://www.w3.org/2000/svg"

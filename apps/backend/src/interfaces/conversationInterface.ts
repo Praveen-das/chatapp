@@ -1,62 +1,19 @@
+import {
+  IConversation as _IConversation,
+  IUserConversation as _IUserConversation,
+  IGroupConversation as _IGroupConversation,
+} from "@repo/interfaces/conversationInterface";
+import { Override } from "@repo/interfaces/type";
 import { Types } from "mongoose";
-import { IUser } from "./userInterface";
 
-export interface IMember {
-  id: Types.ObjectId;
-  timeOfDeletion?: Number;
-  deletedForUser?: Boolean;
-}
+export type IConversation = Override<_IConversation, { id: Types.ObjectId; members: Types.ObjectId[] }>;
 
-export interface IConversation {
-  id: Types.ObjectId;
-  host: "user";
-  members: Types.ObjectId[];
-  createdAt: number;
-  updatedAt: number;
-}
+export type IUserConversation = Override<
+  _IUserConversation,
+  { id: Types.ObjectId; userId: Types.ObjectId; conversationId: Types.ObjectId }
+>;
 
-export interface IUserConversation {
-  id: Types.ObjectId;
-  userId: Types.ObjectId;
-  conversationId: Types.ObjectId;
-  host: "user";
-
-  active?: boolean;
-  archived?: boolean;
-  starred?: Types.ObjectId;
-  blocked: boolean;
-  blockedByUser: boolean;
-
-  deletedAt: number;
-  createdAt: number;
-  updatedAt: number;
-}
-
-export interface IGroupConversation {
-  id: Types.ObjectId;
-  userId: Types.ObjectId;
-  conversationId: Types.ObjectId;
-
-  active?: boolean;
-  archived?: boolean;
-  starred: Types.ObjectId[],
-
-  joinedAt: number;
-  deletedAt: number;
-  createdAt: number;
-  updatedAt: number;
-}
-
-export interface IDeleteConversationRequest {
-  conversationId: Types.ObjectId;
-  userId: Types.ObjectId;
-  deletedForUser?: boolean;
-  timeOfDeletion?: number;
-}
-
-export interface IUpdateBlockReq {
-  conversationId: Types.ObjectId;
-  userId: Types.ObjectId;
-  requestedUserId: Types.ObjectId;
-  value: boolean;
-}
+export type IGroupConversation = Override<
+  _IGroupConversation,
+  { id: Types.ObjectId; userId: Types.ObjectId; conversationId: Types.ObjectId }
+>;

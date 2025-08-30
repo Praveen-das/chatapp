@@ -1,79 +1,76 @@
 "use client";
-
-import React, { createContext, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { IUser } from "../interfaces/userInterface";
-import axiosClient from "@lib/axiosClient";
-import { useRouter } from "next/navigation";
-import { verifyAccessToken, verifyRefreshToken } from "@actions/jwt";
-import { refreshToken as _refreshToken, getRefreshToken, saveSession, updateSession } from "@actions/session";
-import { ISession } from "@interfaces/sessionInterface";
 import useAxios from "@hooks/useAxios";
-
-export type IContext = ReturnType<typeof useContextData>;
-
-export const Context = createContext<IContext | null>(null);
+import { useSearch } from "@hooks/useSearch";
+import socket from "@lib/ws";
+import { IUser } from "@repo/interfaces/userInterface";
+import { signOut as _signOut, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { PropsWithChildren, createContext, useCallback } from "react";
+import { toast } from "react-toastify";
+import { useAttachments } from "store/attachments";
+import { useStore } from "store/global";
+import { useMenu } from "store/menu";
+import { useSessionStore } from "store/sessionStore";
 
 const useContextData = () => {
-  const [user, setUser] = useState<IUser | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [session, setSession] = useState<ISession | null>(null);
-  const userRef = useRef<IUser | null>(null);
+  const axios = useAxios();
+  const { data, update } = useSession();
+  const user = data?.user;
   const router = useRouter();
 
-  useLayoutEffect(() => {
-    (async () => {
+  const updateSession = async (updatedUser: IUser) => {
+    await update({ user: updatedUser });
+  };
+
+  const updateUser = useCallback(
+    async (key: string, value: any) => {
       try {
-        const {refresh_token} = (await refreshToken())!;
-        const session = (await verifyRefreshToken(refresh_token))!;
-        const user = session.data.userData;
-        userRef.current = user;
-        setUser(user);
-        setSession(session);
+        const updatedUser = await axios
+          .put(`/db/user`, { id: user?.id, updates: { [key]: value } })
+          .then((res) => res.data);
+
+        if (!updatedUser.errors) {
+          await updateSession(updatedUser);
+          toast.success(`${key} updated successfully`);
+          return;
+        }
+
+        updatedUser.errors.forEach((error: any) => {
+          toast.error(error.message);
+        });
       } catch (error) {
-        console.log({ "auth context error": error });
-        return null;
+        console.log(error);
       }
-    })();
+    },
+    [axios, user]
+  );
 
-    return () => {
-      setUser(null);
-    };
-  }, []);
-
-  const refreshToken = async () => {
-    const session = await _refreshToken();
-    if (!session) return router.push("/register");
-    const access_token = session.access_token;
-    setAccessToken(access_token);
-    return session;
-  };
-
-  const updateUser = async (key: string, value: any) => {
-    try {
-      const updatedUser = await axiosClient
-        .put(`/db/user/${userRef.current?.id}`, { [key]: value })
-        .then((res) => res.data);
-
-      const access_token = await updateSession(updatedUser);
-      setAccessToken(access_token!);
-      setUser((s) => ({ ...updatedUser }));
-    } catch (error) {
-      console.log(error);
-    }
-  };
+  async function signOut() {
+    const response = await _signOut({ callbackUrl: "/register", redirect: false });
+    router.replace(response.url);
+    useStore.getState().reset();
+    useAttachments.getState().reset();
+    useMenu.getState().reset();
+    useSessionStore.getState().reset();
+    useSearch.getState().reset();
+    socket.disconnect();
+  }
 
   return {
     user,
-    setUser,
     updateUser,
-    session,
-    accessToken,
-    setAccessToken,
-    refreshToken,
+    updateSession,
+    signOut,
   };
 };
 
-export default function AuthContext({ children }: { children: React.ReactNode }) {
+type AuthContextType = ReturnType<typeof useContextData>;
+
+export const Context = createContext<AuthContextType | null>(null);
+
+function AuthContext({ children }: PropsWithChildren) {
   const value = useContextData();
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
+
+export default AuthContext;

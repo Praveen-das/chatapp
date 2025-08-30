@@ -1,11 +1,11 @@
-import { Server } from "socket.io";
-import { ISocket } from "../interfaces/socketInterfaces";
+import { Namespace, Server } from "socket.io";
 import handleDisconnection from "./handleDisconnection";
 import registerGroupHandlers from "./registerGroupHandlers";
 import registerMessageHandlers from "./registerMessageHandlers";
 import registerUserHandlers from "./registerUserHandlers";
 import registerConversationHandlers from "./registerConversationHandlers";
 import registerSessionHandler from "./registerSessionHandler";
+import { ISocket } from "../interfaces/socketInterfaces";
 
 export async function onConnection(io: Server, socket: ISocket) {
     console.log(`Socket ${socket.id} connected connected to ${process.pid}`);

@@ -1,23 +1,24 @@
 import { deleteSessionFromDb } from "@actions/session";
 import { useStore } from "../../../store/global";
-import { IModal } from "@interfaces/modalInterface";
 import useSocket from "context/SocketProvider";
 import moment from "moment";
 import { MouseEvent } from "react";
 import { useSessionStore } from "store/sessionStore";
 import { ClockIcon, MapPinIcon } from "@heroicons/react/24/outline";
 import BrowserAvatar from "../BrowserAvatar";
-import { ISession } from "@interfaces/sessionInterface";
+import { ISession } from "@repo/interfaces/sessionInterface";
 import { browserIcons } from "config/browserIcons";
+import { IModal } from "@interfaces/modalInterface";
+import FramerWrapper from "../MotionWrapper";
 
 const ViewSessionModal = () => {
   const setModal = useStore((s) => s.setModal);
   const modal = useStore<IModal<ISession> | null>((s) => s.modal);
   const { sendRequestToEndSession } = useSocket();
-  const { removeSession } = useSessionStore.getState();
+  const { removeSession } = useSessionStore(s=>s.actions)
 
   const session = modal?.state!;
-  const device = session.data.deviceData
+  const device = session.data
 
   async function terminateSession(e: MouseEvent<HTMLDivElement>) {
     if (!session.sessionId) return console.error("SessionId not found");
@@ -25,7 +26,7 @@ const ViewSessionModal = () => {
     deleteSessionFromDb(sessionId);
     removeSession(sessionId);
     sendRequestToEndSession(sessionId);
-    setModal(null);
+    setModal(false);
   }
 
   const lastActive = moment(new Date(device.timestamp)).format(
@@ -33,7 +34,7 @@ const ViewSessionModal = () => {
   );
 
   return (
-    <div className="modal-box flex flex-col items-center gap-8 px-8 py-12 w-full max-w-xs bg-[--modal]">
+    <FramerWrapper className={`modal-box flex flex-col items-center gap-8 px-8 py-12 w-full max-w-xs bg-[--modal]`}>
       <BrowserAvatar
         browser={device.browser as keyof typeof browserIcons}
         className="size-20"
@@ -54,20 +55,20 @@ const ViewSessionModal = () => {
       <div className="flex w-full justify-stretch gap-4 mx-auto">
         <form className="w-full" method="dialog">
           <div className="w-full">
-            <button className={`btn btn-sm w-full`}>Cancel</button>
+            <button className={`btn btn-sm [--b2:--b1] btn-block`}>Cancel</button>
           </div>
         </form>
         <div className="w-full">
           <div
             tabIndex={0}
             onClick={terminateSession}
-            className="btn btn-sm btn-secondary w-full"
+            className="btn btn-sm btn-error btn-block"
           >
             Logout
           </div>
         </div>
       </div>
-    </div>
+    </FramerWrapper>
   );
 };
 
