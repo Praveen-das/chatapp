@@ -23,7 +23,6 @@ export default function Conversations() {
 
 function DisplayConversations() {
   const selectedConversation = useConversationStore((s) => s.selectedConversation);
-  const { updateConversation } = useConversationStore.getState().conversationActions;
   const [searchQuery, setSearchQuery] = useState("");
   const queryResult = useSearch((s) => s.queryResult);
   const setQueryResult = useSearch((s) => s.setQueryResult);
@@ -85,12 +84,7 @@ function DisplayConversations() {
                 </Fragment>
               );
             })
-          ) : !conversations.length ? (
-            <>
-              <div className="skeleton h-[75px] w-full"></div>
-              <div className="skeleton h-[75px] w-full"></div>
-            </>
-          ) : (
+          ) : conversations.length ? (
             <AnimatePresence initial={false}>
               {conversations.map(
                 (conversation) =>
@@ -105,7 +99,7 @@ function DisplayConversations() {
                   )
               )}
             </AnimatePresence>
-          )}
+          ) : null}
         </div>
       </div>
     </>

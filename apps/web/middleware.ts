@@ -8,19 +8,18 @@ export default async function middleware(req: NextRequest, event: NextResponse) 
   const token = await getToken({ req });
   const isAuthenticated = !!token?.user?.id;
   const isPrivateRoute = privateRoutes.includes(pathname);
-  const isApiRoute = pathname.startsWith("/api/");
+  const isApiRoute = pathname.startsWith("/api");
   const isLoginPage = pathname.startsWith("/register");
 
   if (isApiRoute) return NextResponse.next();
-
   if (!isAuthenticated) {
     if (isLoginPage) return NextResponse.next();
     return NextResponse.redirect(new URL("/register", req.nextUrl));
   } else {
     if (!isPrivateRoute) return NextResponse.redirect(new URL("/", req.nextUrl));
     if (isLoginPage) return NextResponse.redirect(new URL("/", req.nextUrl));
-    return NextResponse.next();
   }
+  return NextResponse.next();
 }
 
 export const config = {

@@ -351,12 +351,13 @@ const useContextData = () => {
   };
 
   const handleCreatingUserConversation = (conversation: IUserConversation, select: boolean) => {
-    if (select) {
-      const receiver = getReceiver(conversation);
+    const receiver = getReceiver(conversation);
 
-      setConversation(conversation);
+    setConversation(conversation);
+    addNewUser(receiver!);
+    
+    if (select) {
       setSelectedConversation(conversation.id);
-      addNewUser(receiver!);
       socket.selectedConversation = conversation;
     }
   };

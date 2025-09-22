@@ -14,7 +14,6 @@ const closeModal = () => {
 };
 
 export const UploadProfilePictureModal = () => {
-  const { user } = useAuth();
   const modal = useStore<IModal<{
     file: File;
     callback: (base64: string) => void;
@@ -22,10 +21,7 @@ export const UploadProfilePictureModal = () => {
   const imageRef = useRef<HTMLImageElement | null>(null);
   const cropper = useRef<Cropper | null>(null);
 
-  const img = useMemo(
-    () => URL.createObjectURL(modal?.state?.file!),
-    [modal?.state?.file]
-  );
+  const img = useMemo(() => URL.createObjectURL(modal?.state?.file!), [modal?.state?.file]);
 
   useEffect(() => {
     if (!imageRef.current) return;
@@ -78,33 +74,23 @@ export const UploadProfilePictureModal = () => {
         <h3 className="font-medium text-lg">Upload</h3>
         <form method="dialog">
           <button className="btn btn-circle btn-sm btn-ghost">
-          <XCircleIcon className="size-6" />
+            <XCircleIcon className="size-6" />
           </button>
         </form>
       </div>
 
       <div
         className="block my-auto max-w-[450px] max-h-[450px] sm:w-[450px] sm:h-[450px]"
-        style={isMobile?{ width: `${size}px`, height: `${size}px` }:{}}
+        style={isMobile ? { width: `${size}px`, height: `${size}px` } : {}}
       >
-        <img
-          ref={imageRef}
-          className="block max-w-full"
-          src={img}
-          alt="profile picture"
-        />
+        <img ref={imageRef} className="block max-w-full" src={img} alt="profile picture" />
       </div>
       <div
         onClick={cropImage}
         tabIndex={0}
         className="absolute bottom-6 right-6 btn btn-circle btn-primary text-[--black-white] grid place-items-center size-14 bg-primary rounded-full overflow-hidden"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 16 16"
-          fill="currentColor"
-          className="size-6"
-        >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-6">
           <path
             fillRule="evenodd"
             d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z"

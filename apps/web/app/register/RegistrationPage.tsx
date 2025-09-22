@@ -11,11 +11,9 @@ import "./inputStyle.css";
 import { CountryCode, isValidPhoneNumber } from "libphonenumber-js";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import axiosClient from "@lib/axiosClient";
 import { AnimatePresence, motion } from "framer-motion";
-import useAuth from "@hooks/useAuth";
-import useSocket from "context/SocketProvider";
-import { fetchUser } from "@lib/auth/signIn";
+import { uploadImage } from "@lib/imageKit";
+import ObjectID from "bson-objectid";
 
 type IPhoneNUmber = {
   value: string;
@@ -108,9 +106,7 @@ function PhoneNumberInputForm({ phonenumber, setTab, setPhonenumber }: IPhoneNum
     <div className="flex flex-col items-center gap-6">
       <motion.div layout className="w-full flex flex-col items-center gap-8">
         <h1 className="text-4xl font-bold">Phone number</h1>
-
         <p className="text-center w-full mb-4">Please enter your phone number</p>
-
         <PhoneInput
           inputClass="!h-12 !pl-14 !text-lg !bg-base-300 !rounded-xl "
           dropdownClass="!bg-base-200 [&>.highlight]:!bg-base-100 [&>.country:hover]:!bg-base-100"
@@ -252,17 +248,30 @@ function ProfileInfoForm({ phonenumber }: IProfileInfoForm) {
   const router = useRouter();
 
   async function handleCreatingUser() {
-    setLoading(true);
-    const res = await signIn("credentials", {
-      phoneNumber: phonenumber.value,
-      username,
-      profilePicture,
-      type: "signup",
-      redirect: false,
-    });
+    try {
+      setLoading(true);
 
-    if (res?.ok) return router.replace("/");
-    setLoading(false);
+      const user = {
+        id: new ObjectID().toHexString(),
+        phoneNumber: phonenumber.value,
+        username,
+        profilePicture,
+        type: "signup",
+        redirect: false,
+      };
+
+      if (profilePicture) {
+        const res = await uploadImage(profilePicture, user.id, true);
+        user.profilePicture = res.url;
+      }
+
+      const res = await signIn("credentials", user);
+      if (res?.ok) return router.replace("/");
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
   }
 
   // useEffect(() => {

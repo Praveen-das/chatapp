@@ -1,9 +1,7 @@
 "use client";
 import Avatar from "@features/ui/Avatar";
 import useAuth from "@hooks/useAuth";
-import { useSession } from "next-auth/react";
 import React from "react";
-import BrandLogo from "public/logo.svg";
 import { CreateGroupButton } from "@features/Dashboard/DashboardTabs/Conversations/CreateGroupButton";
 import { NewChatButton } from "@features/Dashboard/DashboardTabs/Conversations/NewChatButton";
 import { ArchiveButton } from "@features/Dashboard/DashboardTabs/Conversations/ArchiveButton";

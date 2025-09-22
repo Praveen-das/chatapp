@@ -30,6 +30,7 @@ export const authOptions: AuthOptions = {
     CredentialsProvider({
       name: "Phone number",
       credentials: {
+        id: { label: "id", type: "text" },
         phoneNumber: { label: "Phonenumber", type: "text" },
         username: { label: "Username", type: "text" },
         profilePicture: { label: "ProfilePicture", type: "text" },
@@ -48,22 +49,21 @@ export const authOptions: AuthOptions = {
           switch (credentials.type) {
             case "signin": {
               const user = await fetchUser(credentials.phoneNumber!);
-              console.log("sigining in existing user");
               if (!user) throw new Error("UNREGISTERED_USER");
+              console.log("sigining in existing user");
               return user;
             }
 
             case "signup": {
               const req = {
+                id: credentials.id,
                 username: credentials.username,
                 phoneNumber: credentials.phoneNumber,
                 profilePicture: credentials.profilePicture,
               };
 
               const newUser = await createUser(req)!;
-
               if (!newUser) throw new Error("USER_CREATION_FAILED");
-
               return newUser;
             }
           }
@@ -71,7 +71,7 @@ export const authOptions: AuthOptions = {
           return null;
         } catch (error: any) {
           console.log("authorize error--------->", error.message);
-          throw error;
+          throw new Error(error.message);
         }
       },
     }),

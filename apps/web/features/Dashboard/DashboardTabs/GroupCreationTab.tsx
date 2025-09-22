@@ -34,21 +34,11 @@ const GroupCreationTab = () => {
   const handleSubmit = async () => {
     setLoading(true);
     const groupId = new ObjectID().toHexString();
-    let profilePictureUrl = "";
-
-    selectedGroupMembers.push(user!);
-
-    if (profilePicture) {
-      const callback = () => {};
-      const res = await uploadImage(profilePicture, groupId, true, callback);
-      profilePictureUrl = res.url;
-    }
-
     const group = {
       id: groupId,
       channelId: new ObjectID().toHexString(),
       displayName,
-      profilePicture: profilePictureUrl,
+      profilePicture,
       admins: [user?.id!],
       host: "group",
       members: selectedGroupMembers,
@@ -56,6 +46,13 @@ const GroupCreationTab = () => {
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
+
+    selectedGroupMembers.push(user!);
+
+    if (profilePicture) {
+      const res = await uploadImage(profilePicture, groupId, true);
+      group.profilePicture = res.url;
+    }
 
     try {
       const res = await axios.post("/db/group/create", JSON.stringify(group));

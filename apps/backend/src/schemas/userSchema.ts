@@ -16,6 +16,7 @@ export const userRules = z
   .partial();
 
 export const userSchema = z.object({
+  id: z.string(),
   username: z.string().min(3).max(20),
   phoneNumber: z.string(),
   profilePicture: z.string(),

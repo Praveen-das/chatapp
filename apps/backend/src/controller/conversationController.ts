@@ -128,7 +128,6 @@ const _updateUserConversationBlockStatus = async (req: string, reset: () => void
     const body = JSON.parse(req);
 
     const updates = conversationBlockRequest.parse(body);
-    console.log({ updates });
     const response = await conversationServices.updateUserConversationBlockStatus(updates);
   } catch (error) {
     console.log(error);

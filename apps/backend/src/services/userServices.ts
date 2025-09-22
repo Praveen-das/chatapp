@@ -10,9 +10,9 @@ import conversationServices from "./conversationServices.js";
 import messageServices from "./messageServices.js";
 
 async function generateSystemConversation(userId: Types.ObjectId) {
-  const MESSAGE_STRING = `Welcome to ChatSpace.
+  const MESSAGE_STRING = `Welcome to Chatvia.
 We’re pleased to have you here. This platform is built to support secure, real-time communication that keeps teams connected and information flowing.
-Whether you're starting new conversations or continuing existing ones, ChatSpace offers a focused, intuitive environment designed for clarity and collaboration.
+Whether you're starting new conversations or continuing existing ones, Chatvia offers a focused, intuitive environment designed for clarity and collaboration.
 Start chatting — your space is ready.
 `;
 

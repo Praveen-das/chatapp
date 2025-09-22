@@ -26,18 +26,18 @@ async function updateSession(req: Request, res: Response) {
 async function getSession(sessionId: string) {
   const response = await sessionStore.findSession(sessionId);
   if (!response) return null;
-  try {
-    const session = JSON.parse(response.data!) as ISession;
-    return response;
-  } catch (error) {
-    console.error("Error parsing session data:", error);
-    return null;   
-  }
+  return response;
+  // try {
+  //   const session = JSON.parse(response.data!) as ISession;
+  // } catch (error) {
+  //   console.error("Error parsing session data:", error);
+  //   return null;
+  // }
 }
 
 async function getUserSessions(userId: string) {
   const response = await sessionStore.findUserSessions(userId);
-  return response;
+  return response as any as ISession[];
 }
 
 async function deleteSession(req: Request, res: Response) {

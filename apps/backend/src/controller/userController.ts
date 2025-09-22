@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import userServices from "../services/userServices";
-import { Types } from "mongoose";
+import { MongooseError, Types } from "mongoose";
 import { IUser } from "../interfaces/userInterface";
 import { verifyUserToken } from "@repo/utils";
 import { updateUserSchema, userSchema } from "../schemas/userSchema";
@@ -15,11 +15,11 @@ type IUserCreationReq = {
 
 const _createUser = async (req: Request<any, any, IUserCreationReq>, res: Response) => {
   try {
-    const data = userSchema.parse(req);
+    const data = userSchema.parse(req.body);
 
     let body: IUser = {
       ...data,
-      id: new Types.ObjectId(),
+      id: new Types.ObjectId(data.id),
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
@@ -63,17 +63,17 @@ const _getUser = async (req: Request, res: Response) => {
 
     if (userId) user = await userServices.getUserById(userId);
     if (phoneNumber) user = await userServices.getUserByPhoneNumber(phoneNumber);
-
     res.json(user);
   } catch (error) {
-    res.json(error);
     console.log("_getUser error--->", error);
+    if (error instanceof MongooseError) return res.json({ error: error.message, status: 500 });
+    if (error instanceof Error) return res.json({ error: error.message });
+    res.json({ error });
   }
 };
 
 const _getUserById = async (req: Request, res: Response) => {
   let userId = new Types.ObjectId(req.params.id);
-  console.log({ userId });
   const user = await userServices.getUserById(userId);
 
   res.json(user);
@@ -82,7 +82,7 @@ const _getUserById = async (req: Request, res: Response) => {
 const _updateUser = async (req: Request, res: Response) => {
   try {
     let updates = updateUserSchema.parse(req.body);
-    
+
     const user = await userServices.updateUser(updates);
     res.json(user);
   } catch (error) {

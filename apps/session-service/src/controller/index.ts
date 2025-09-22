@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import sessionServices from "../services";
 import { verifyRefreshToken } from "@repo/utils";
+import { ISession } from "@repo/interfaces/sessionInterface";
 
 interface IGetSessionReq extends Request {
   query: {
@@ -12,17 +13,30 @@ interface IGetSessionReq extends Request {
 async function _getSession(req: IGetSessionReq, res: Response): Promise<any> {
   const { sessionId, userId } = req.query;
 
-  if (sessionId) {
-    const session = await sessionServices.getSession(sessionId);
-    return res.json(session);
-  }
+  // if (sessionId) {
+  //   const session = await sessionServices.getSession(sessionId);
+  //   return res.json(session);
+  // }
 
   if (userId) {
     const response = await sessionServices.getUserSessions(userId);
-    return res.json(response);
+
+    const activeSessions = response
+      .map(
+        (s: ISession) =>
+          s && {
+            ...s,
+            self: s.sessionId === sessionId,
+          }
+      )
+      .filter((s) => s);
+
+    activeSessions.sort((a: any, b: any) => b.self - a.self);
+
+    return res.json(activeSessions);
   }
 
-  return res.json("no queries found");
+  return res.json("no sessions found");
 }
 
 async function _refreshtoken(req: IGetSessionReq, res: Response): Promise<any> {

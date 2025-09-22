@@ -6,7 +6,7 @@ const router = Router();
 
 router.get("/health", (_, res:any) => res.json({ status: "ok" }));
 
-router.get("/", sessionServices.getAllSessions);
+// router.get("/", sessionServices.getAllSessions);
 
 router.get('/fetch', sessionController._getSession)
 

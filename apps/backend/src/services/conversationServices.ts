@@ -304,8 +304,6 @@ async function unsetConversationDeletion(conversationId: Types.ObjectId) {
 }
 
 async function addToArchive(id: Types.ObjectId) {
-  console.log({ id });
-
   try {
     const res = await UserConversation.findOneAndUpdate({ id }, { archived: true });
 

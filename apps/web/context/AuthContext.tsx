@@ -5,18 +5,39 @@ import socket from "@lib/ws";
 import { IUser } from "@repo/interfaces/userInterface";
 import { signOut as _signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { PropsWithChildren, createContext, useCallback } from "react";
+import { PropsWithChildren, createContext, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import { useAttachments } from "store/attachments";
 import { useStore } from "store/global";
 import { useMenu } from "store/menu";
 import { useSessionStore } from "store/sessionStore";
+import { refreshToken } from "@actions/session";
+import useAccessToken from "@hooks/useAccessToken";
+import LoadingPage from "@features/ui/LoadingPage";
 
 const useContextData = () => {
   const axios = useAxios();
-  const { data, update } = useSession();
-  const user = data?.user;
+  const { data, update, status } = useSession();
+  const user = useMemo(() => data?.user, [data]);
   const router = useRouter();
+  const { setAccessToken } = useAccessToken();
+  const [isMounted,setMounted] = useState(false);
+
+  useEffect(() => {
+    async function init() {
+      try {
+        // check for session revocation
+        const accessToken = await refreshToken();
+        if (!accessToken) await signOut();
+        setMounted(true);
+        setAccessToken(accessToken);
+      } catch (error) {
+        console.log("auth context", error);
+      }
+    }
+
+    init();
+  }, []);
 
   const updateSession = async (updatedUser: IUser) => {
     await update({ user: updatedUser });
@@ -48,6 +69,7 @@ const useContextData = () => {
   async function signOut() {
     const response = await _signOut({ callbackUrl: "/register", redirect: false });
     router.replace(response.url);
+
     useStore.getState().reset();
     useAttachments.getState().reset();
     useMenu.getState().reset();
@@ -57,6 +79,7 @@ const useContextData = () => {
   }
 
   return {
+    isMounted,
     user,
     updateUser,
     updateSession,

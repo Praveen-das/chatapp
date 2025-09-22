@@ -35,7 +35,6 @@ function Avatar({
 
   function handleInputChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    e.target.value = "";
     if (!file) return;
     openUploadProfilePictureModal(file);
   }
@@ -86,7 +85,7 @@ function Avatar({
 
       {enableOptions && (
         <div
-          onClick={url ? onClick : handleInput}
+          onClick={url && onClick ? onClick : handleInput}
           className="hover:opacity-100 opacity-0 duration-200 absolute flex flex-col gap-2 z-10 justify-center items-center text-xs p-2 text-center w-full h-full bg-black/50 backdrop-blur-md rounded-full cursor-pointer"
         >
           <input

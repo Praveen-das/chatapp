@@ -56,12 +56,12 @@ export async function refreshToken() {
   try {
     const res = await validateRefreshToken();
 
-    if (!res?.data) {
+    if (!res) {
       console.log("Invalid session");
       return null;
     }
 
-    const access_token = await createAccessToken({ userId: res.data.userId });
+    const access_token = await createAccessToken({ userId: res.userId });
     return access_token;
   } catch (error) {
     if (error instanceof Error) {

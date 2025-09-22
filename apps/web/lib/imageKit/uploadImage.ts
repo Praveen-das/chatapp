@@ -5,7 +5,7 @@ import imagekit from "./IKClient";
 export async function uploadImage(
   file: File | string | Blob,
   fileName: string,
-  useUniqueFileName: boolean,
+  useUniqueFileName?: boolean,
   callback?: (progress: number) => void
 ): Promise<IImagePayload> {
   const authData = await getAuthenticationParameters();
