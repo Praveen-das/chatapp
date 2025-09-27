@@ -2,7 +2,7 @@ import { IConversation } from "@repo/interfaces/conversationInterface";
 import { IMessage, IUpdates } from "@repo/interfaces/messageInterface";
 import { IUser } from "@repo/interfaces/userInterface";
 import { useConversationStore } from "store/conversationStore";
-import { getReadReceiptChanges, processMessagesForUser } from "./messages";
+import { processMessagesForUser } from "./messages";
 import { IMessageReadReceipt } from "enums/enums";
 import { useMessageStore } from "store/messageStore";
 import { useAttachments } from "store/attachments";
@@ -25,7 +25,7 @@ const { setUnreadMessages, setMessageHistory } = useMessageStore.getState();
 const { setMediaStore } = useAttachments.getState();
 const { addNewUser } = useStore.getState();
 
-export async function registerConversations(conversations: IConversation[], user: IUser) {
+export function registerConversations(conversations: IConversation[], user: IUser) {
   if (!user) return;
 
   const messageStore: Map<string, IMessage[]> = new Map();
@@ -56,7 +56,7 @@ export async function registerConversations(conversations: IConversation[], user
     }
 
     messageStore.set(conversationId, messages || []);
-
+    
     setConversation(conversation);
     setMediaStore(conversationId, mediaStore);
 
@@ -65,7 +65,7 @@ export async function registerConversations(conversations: IConversation[], user
     delete conversation.messages;
   });
 
-  socket.auth = { userId: user?.id, channelIds };
+  // socket.auth = { userId: user?.id, channelIds };
 
   setMessageHistory(messageStore);
 

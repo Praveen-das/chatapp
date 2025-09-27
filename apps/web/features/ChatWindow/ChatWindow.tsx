@@ -3,7 +3,7 @@ import DisplayProfile from "@features/Profile/DisplayProfile";
 import { Tab, Tabs } from "@features/ui/Tab";
 import useMediaQuery from "@hooks/useMediaQuery";
 import { AnimatePresence, motion } from "framer-motion";
-import React, { memo, useEffect } from "react";
+import React, { memo } from "react";
 import { useMessageStore } from "store/messageStore";
 import { useAttachments } from "../../store/attachments";
 import { useConversationStore } from "../../store/conversationStore";

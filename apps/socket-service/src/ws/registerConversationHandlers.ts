@@ -1,6 +1,7 @@
 import { Namespace, Server } from "socket.io";
 import produceMessage from "../kafka/kafka";
 import { ISocket } from "../interfaces/socketInterfaces";
+import { IMessage } from "@repo/interfaces/messageInterface";
 
 export default function registerConversationHandlers(io: Server, socket: ISocket) {
   socket.on("REGISTER_CONVERSATION", (conversation: INewConversation) => {
@@ -24,11 +25,15 @@ export default function registerConversationHandlers(io: Server, socket: ISocket
 
   socket.on("CLEAR_CONVERSATION", (id: string) => {
     const req = { id, updates: { deletedAt: Date.now() } };
+
+    io.to(socket.userId!).emit("CLEAR_CONVERSATION", id);
     produceMessage(req, "UPDATE_USER_CONVERSATION");
   });
 
   socket.on("CLEAR_GROUP_CONVERSATION", (id: string) => {
     const req = { id, updates: { deletedAt: Date.now() } };
+
+    io.to(socket.userId!).emit("CLEAR_CONVERSATION", id);
     produceMessage(req, "UPDATE_GROUP_CONVERSATION");
   });
 
@@ -37,6 +42,8 @@ export default function registerConversationHandlers(io: Server, socket: ISocket
       id,
       updates: { active: false, deletedAt: Date.now(), archived: false },
     };
+
+    io.to(socket.userId!).emit("DELETE_CONVERSATION", id);
 
     produceMessage(req, "UPDATE_USER_CONVERSATION");
   });
@@ -55,7 +62,7 @@ export default function registerConversationHandlers(io: Server, socket: ISocket
       ? produceMessage(req, "UPDATE_GROUP_CONVERSATION")
       : produceMessage(req, "UPDATE_USER_CONVERSATION");
 
-    socket.emit("UPDATE_CONVERSATION", id, { archived: true });
+    io.to(socket.userId!).emit("UPDATE_CONVERSATION", id, { archived: true });
   });
 
   socket.on("UNARCHIVE_CONVERSATION", async (conversation: IConversation) => {
@@ -69,11 +76,33 @@ export default function registerConversationHandlers(io: Server, socket: ISocket
     socket.emit("UPDATE_CONVERSATION", id, { archived: false });
   });
 
-  socket.on("REGISTER_STARRED_MESSAGES", async (req: { conversationId: string; messageIds: string[] }) => {
-    produceMessage(req, "REGISTER_STARRED_MESSAGES");
-  });
+  socket.on(
+    "REGISTER_STARRED_MESSAGES",
+    async ({ message, conversationId, ...rest }: { message: IMessage; conversationId: string }) => {
+      io.to(socket.userId!).emit("REGISTER_STARRED_MESSAGES", conversationId, message, "add");
 
-  socket.on("UNREGISTER_STARRED_MESSAGES", async (req: { conversationId: string; messageIds: string[] }) => {
-    produceMessage(req, "UNREGISTER_STARRED_MESSAGES");
-  });
+      const req = {
+        messageId: message.id,
+        conversationId,
+        ...rest,
+      };
+
+      produceMessage(req, "REGISTER_STARRED_MESSAGES");
+    }
+  );
+
+  socket.on(
+    "UNREGISTER_STARRED_MESSAGES",
+    async ({ message, conversationId, ...rest }: { conversationId: string; message: IMessage }) => {
+      io.to(socket.userId!).emit("REGISTER_STARRED_MESSAGES", conversationId, message, "remove");
+
+      const req = {
+        messageId: message.id,
+        conversationId,
+        ...rest,
+      };
+
+      produceMessage(req, "UNREGISTER_STARRED_MESSAGES");
+    }
+  );
 }

@@ -1,4 +1,4 @@
-import { Namespace, Server } from "socket.io";
+import { Server } from "socket.io";
 import produceMessage from "../kafka/kafka";
 import { ISocket } from "../interfaces/socketInterfaces";
 import { IUpdateBlockReq, IUserBlockRequest } from "@repo/interfaces/conversationInterface";
@@ -26,9 +26,11 @@ export default async function registerUserHandlers(io: Server, socket: ISocket) 
       }
 
       if (userConversation) {
-        const req: Partial<IUpdateBlockReq> = {
+        const req: IUpdateBlockReq = {
           conversationId: userConversation.conversationId,
           value,
+          requestedUserId:'',
+          userId:'',
         };
 
         userConversation.members.forEach(({ id }) => {
@@ -40,7 +42,7 @@ export default async function registerUserHandlers(io: Server, socket: ISocket) 
           blockedByUser: value,
         });
 
-        socket.emit("UPDATE_USER_BLOCK_STATUS", req.conversationId, {
+        io.to(socket.userId!).emit("UPDATE_USER_BLOCK_STATUS", req.conversationId, {
           blocked: value,
         });
 

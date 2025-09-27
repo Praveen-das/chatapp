@@ -13,6 +13,7 @@ import { useStore } from "../../store/global";
 import ActiveSessions from "./DashboardTabs/ActiveSessions";
 import FetchedUser from "./DashboardTabs/FetchedUser";
 import useMediaQuery from "@hooks/useMediaQuery";
+import { useEffect } from "react";
 
 // async function getContactData() {
 //   const supported = "contacts" in navigator && "ContactsManager" in window;

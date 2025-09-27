@@ -5,7 +5,7 @@ import moment from "moment";
 import { useStore } from "../../../../../store/global";
 import socket from "../../../../../lib/ws";
 import { useConversationStore } from "../../../../../store/conversationStore";
-import { IConversation, ISystemConversation } from "@repo/interfaces/conversationInterface";
+import { IConversation } from "@repo/interfaces/conversationInterface";
 import { useMenu } from "store/menu";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
 import { DisplayRecentMessage } from "./DisplayRecentMessage";
@@ -14,8 +14,6 @@ import classNames from "classnames";
 import { useTheme } from "@hooks/useTheme";
 import { RenderAvatar } from "./RenderAvatar";
 import { useAttachments } from "store/attachments";
-import { motion } from "framer-motion";
-import { APP_NAME } from "config/constants";
 
 interface IConve {
   conversation: IConversation;

@@ -134,7 +134,7 @@ export const useMessageStore = create(
           set({ messageStore: new Map(messages).set(conversationId, []) });
           return;
         }
-        console.log(messages.get(conversationId))
+        
         messages.get(conversationId)?.push(...newMessages) || messages.set(conversationId, newMessages);
 
         set({ messageStore: new Map(messages) });

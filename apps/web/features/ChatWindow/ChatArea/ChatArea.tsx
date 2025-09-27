@@ -163,7 +163,7 @@ function UnreadMessageBadge({ count, onClick }: { count: number; onClick?: () =>
 
 function MenuContext() {
   const { sendRequestToUnRegisterStarredMessage, sendRequestToRegisterStarredMessage } = useSocket();
-  const { addToStarred, removeFromStarred } = useConversationStore((s) => s.conversationActions);
+  const { removeFromStarred } = useConversationStore((s) => s.conversationActions);
   const selectedConversation = useConversationStore((s) => s.selectedConversation);
   const setSelectedChats = useMessageStore((s) => s.setSelectedChats);
   const setModal = useStore((s) => s.setModal);
@@ -182,11 +182,10 @@ function MenuContext() {
 
   const handleMarkAsStarred = useCallback(
     (chat: IMessage) => {
-      addToStarred(selectedConversation?.id!, [chat]);
       selectedConversation?.host !== "system" &&
         sendRequestToRegisterStarredMessage({
           conversationId: selectedConversation?.id!,
-          messageIds: [chat.id],
+          message: chat,
           host: selectedConversation?.host!,
         });
     },
@@ -195,11 +194,10 @@ function MenuContext() {
 
   const handleRemoveStarred = useCallback(
     (chat: IMessage) => {
-      removeFromStarred(selectedConversation?.id!, chat.id);
       selectedConversation?.host !== "system" &&
         sendRequestToUnRegisterStarredMessage({
           conversationId: selectedConversation?.id!,
-          messageId: chat.id,
+          message: chat,
           host: selectedConversation?.host!,
         });
     },

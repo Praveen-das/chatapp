@@ -20,20 +20,7 @@ async function _getSession(req: IGetSessionReq, res: Response): Promise<any> {
 
   if (userId) {
     const response = await sessionServices.getUserSessions(userId);
-
-    const activeSessions = response
-      .map(
-        (s: ISession) =>
-          s && {
-            ...s,
-            self: s.sessionId === sessionId,
-          }
-      )
-      .filter((s) => s);
-
-    activeSessions.sort((a: any, b: any) => b.self - a.self);
-
-    return res.json(activeSessions);
+    return res.json(response);
   }
 
   return res.json("no sessions found");
@@ -47,7 +34,7 @@ async function _refreshtoken(req: IGetSessionReq, res: Response): Promise<any> {
   const payload = await verifyRefreshToken(token);
 
   if (payload) {
-    if (payload?.expired) return res.status(401).send("Token expired");
+    if (payload.expired) return res.status(401).send("Token expired");
 
     const session = await sessionServices.getSession(payload.sessionId);
 

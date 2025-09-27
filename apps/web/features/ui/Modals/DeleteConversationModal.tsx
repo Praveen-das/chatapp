@@ -1,5 +1,4 @@
 import useSocket from "../../../context/SocketProvider";
-import { useMessageStore } from "../../../store/messageStore";
 import { useStore } from "../../../store/global";
 import { IConversation } from "@repo/interfaces/conversationInterface";
 import { useConversationStore } from "store/conversationStore";
@@ -8,8 +7,7 @@ import { IModal } from "@interfaces/modalInterface";
 import FramerWrapper from "../MotionWrapper";
 
 export const DeleteConversationModal = () => {
-  const { updateConversation, setSelectedConversation } = useConversationStore((s) => s.conversationActions);
-  const clearChat = useMessageStore((s) => s.clearChat);
+  const { setSelectedConversation } = useConversationStore((s) => s.conversationActions);
   const toggleProfile = useStore((s) => s.toggleProfile);
   const modal = useStore<IModal<IConversation> | null>((s) => s.modal);
   const setModal = useStore((s) => s.setModal);
@@ -23,8 +21,6 @@ export const DeleteConversationModal = () => {
     let conversationId = conversation?.id!;
 
     sendConversationDeleteRequest(conversationId);
-    updateConversation(conversationId, { active: false, archived: false });
-    clearChat(conversation.conversationId);
     toggleProfile(false);
 
     if (selectedConversation?.id === conversationId) {

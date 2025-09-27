@@ -323,12 +323,12 @@ async function removeFromArchive(id: Types.ObjectId) {
   }
 }
 
-async function registerStarredMessages(id: Types.ObjectId, messageIds: Types.ObjectId[], host: string) {
+async function registerStarredMessages(id: Types.ObjectId, messageId: Types.ObjectId, host: string) {
   try {
     if (host === "user") {
-      const res = await UserConversation.findOneAndUpdate({ id }, { $push: { starred: messageIds } });
+      const res = await UserConversation.findOneAndUpdate({ id }, { $push: { starred: messageId } });
     } else {
-      const res = await GroupConversation.findOneAndUpdate({ id }, { $push: { starred: messageIds } });
+      const res = await GroupConversation.findOneAndUpdate({ id }, { $push: { starred: messageId } });
     }
   } catch (error) {
     console.log("registerStarredMessages------->", error);

@@ -4,13 +4,18 @@ import Conversation from "../SharedComponents/Conversation/Conversation";
 import { useConversationStore } from "../../../../store/conversationStore";
 import MainHeader from "./Header";
 import Menu_Conversation from "../SharedComponents/MenuContext";
-import { IQueryResult } from "@repo/interfaces/conversationInterface";
+import { IConversation, IQueryResult } from "@repo/interfaces/conversationInterface";
 import { useSearch } from "@hooks/useSearch";
 import SearchPrompt from "../SharedComponents/SearchPrompt";
 import Searchbar from "@features/ui/Searchbar";
 import { useStore } from "store/global";
 import { AnimatePresence, motion } from "framer-motion";
 import MotionWrapper from "../SharedComponents/Conversation/MotionWrapper";
+import useAxios from "@hooks/useAxios";
+import { registerConversations } from "@lib/conversation";
+import useSocket from "context/SocketProvider";
+import useAuth from "@hooks/useAuth";
+import ConversationSkeleton from "../SharedComponents/Conversation/ConversationSkeleton";
 
 export default function Conversations() {
   return (
@@ -21,14 +26,17 @@ export default function Conversations() {
   );
 }
 
+const Skeleton = () => Array(4).fill(<ConversationSkeleton />);
+
 function DisplayConversations() {
-  const selectedConversation = useConversationStore((s) => s.selectedConversation);
-  const [searchQuery, setSearchQuery] = useState("");
   const queryResult = useSearch((s) => s.queryResult);
   const setQueryResult = useSearch((s) => s.setQueryResult);
   const resetSearch = useSearch((s) => s.reset);
+  const selectedConversation = useConversationStore((s) => s.selectedConversation);
   let conversations = useConversationStore((s) => s.conversations);
+  let isLoaded = useConversationStore((s) => s.isLoaded);
   let users = useStore((s) => s.users);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     let res: IQueryResult = { chats: [], groups: [], contacts: [] };
@@ -84,7 +92,9 @@ function DisplayConversations() {
                 </Fragment>
               );
             })
-          ) : conversations.length ? (
+          ) : !isLoaded ? (
+            <Skeleton />
+          ) : (
             <AnimatePresence initial={false}>
               {conversations.map(
                 (conversation) =>
@@ -99,7 +109,7 @@ function DisplayConversations() {
                   )
               )}
             </AnimatePresence>
-          ) : null}
+          )}
         </div>
       </div>
     </>

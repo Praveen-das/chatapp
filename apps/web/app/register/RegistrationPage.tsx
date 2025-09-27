@@ -14,6 +14,7 @@ import { signIn } from "next-auth/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { uploadImage } from "@lib/imageKit";
 import ObjectID from "bson-objectid";
+import { isProduction } from "config/constants";
 
 type IPhoneNUmber = {
   value: string;
@@ -23,7 +24,7 @@ type IPhoneNUmber = {
 };
 
 const initialPhoneNumber = {
-  value: "918848990353",
+  value: !isProduction ? process.env.NEXT_PUBLIC_TEST_PNONENUMBER! : "",
   fomattedValue: "",
   data: null,
   error: "",

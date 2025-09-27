@@ -178,8 +178,7 @@ function HeaderMenuContext() {
   const setModal = useStore((s) => s.setModal);
   const toggleProfile = useStore((s) => s.toggleProfile);
   const setSelectedChats = useMessageStore((s) => s.setSelectedChats);
-  const clearChat = useMessageStore((s) => s.clearChat);
-  const { updateConversation, setSelectedConversation } = useConversationStore((s) => s.conversationActions);
+  const { setSelectedConversation } = useConversationStore((s) => s.conversationActions);
   const setSelectedUser = useStore((s) => s.setSelectedUser);
 
   const handleBlockingUser = () => {
@@ -205,9 +204,6 @@ function HeaderMenuContext() {
   };
 
   const handleClearChat = () => {
-    clearChat(conversationId);
-    updateConversation(conversationId, { recentMessage: null });
-
     isUserConversation
       ? sendRequestToClearUserConversation(conversationId)
       : sendRequestToClearGroupConversation(conversationId);

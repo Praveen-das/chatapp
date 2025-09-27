@@ -69,7 +69,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
         id: crypto.randomUUID(),
         conversationId: conversation.conversationId,
         from: "system",
-        type:'notification',
+        type: "notification",
         message: messageString,
         timestamp: Date.now(),
       };
@@ -80,15 +80,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
 
   socket.on(
     "JOIN_GROUP",
-    async ({
-      group,
-      user,
-      conversationExist,
-    }: {
-      group: IGroup;
-      user: IUser;
-      conversationExist: boolean;
-    }) => {
+    async ({ group, user, conversationExist }: { group: IGroup; user: IUser; conversationExist: boolean }) => {
       let groupConversation: IGroupConversation | null = null;
       delete group._id;
 
@@ -121,7 +113,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
           id: crypto.randomUUID(),
           conversationId: group.id,
           from: "system",
-          type:'notification',
+          type: "notification",
           message: `You joined the group`,
         },
       ];
@@ -132,7 +124,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
           conversation: !conversationExist ? groupConversation : undefined,
           conversationId: group.id,
           members: [user],
-          self:true
+          self: true,
         },
         userMessage
       );
@@ -142,7 +134,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
           id: crypto.randomUUID(),
           conversationId: group.id,
           from: "system",
-          type:'notification',
+          type: "notification",
           message: `${user.username} joined the group`,
         },
       ];
@@ -166,7 +158,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
         id: crypto.randomUUID(),
         conversationId: conversation.conversationId,
         from: "system",
-        type:'notification',
+        type: "notification",
         message: `${user.username} left the group`,
       },
     ];
@@ -176,7 +168,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
         id: crypto.randomUUID(),
         conversationId: conversation.conversationId,
         from: "system",
-        type:'notification',
+        type: "notification",
         message: `You left the group`,
       },
     ];
@@ -211,7 +203,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
         id: crypto.randomUUID(),
         conversationId: conversation.conversationId,
         from: "system",
-        type:'notification',
+        type: "notification",
         message: `${admin.username} added ${m.username} to the group`,
       }));
 
@@ -224,7 +216,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
         id: crypto.randomUUID(),
         conversationId: conversation.conversationId,
         from: "system",
-        type:'notification',
+        type: "notification",
         message: `You added ${m.username} to the group`,
       }));
 
@@ -239,7 +231,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
           id: crypto.randomUUID(),
           conversationId: conversation.conversationId,
           from: "system",
-          type:'notification',
+          type: "notification",
           message: `${admin.username} added ${m.id === m.id ? "you" : m.username} to the group`,
         }));
 
@@ -292,7 +284,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
           id: crypto.randomUUID(),
           conversationId: conversation.id,
           from: "system",
-          type:'notification',
+          type: "notification",
           message: `${admin.username} removed ${user.username} from the group`,
         },
       ];
@@ -310,7 +302,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
           id: crypto.randomUUID(),
           conversationId: conversation.id,
           from: "system",
-          type:'notification',
+          type: "notification",
           message: `You removed ${user.username} from the group`,
         },
       ];
@@ -326,7 +318,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
           id: crypto.randomUUID(),
           conversationId: conversation.id,
           from: "system",
-          type:'notification',
+          type: "notification",
           message: `${admin.username} removed you from the group`,
         },
       ];
@@ -352,7 +344,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
 
     produceMessage(body, "ADD_GROUP_ADMIN");
 
-    callback()
+    callback();
 
     io.to(conversation.channelId!).emit("SET_GROUP_ADMIN", conversation.conversationId, userId, true);
   });
@@ -379,7 +371,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
           id: crypto.randomUUID(),
           conversationId: conversation.id,
           from: "system",
-          type:'notification',
+          type: "notification",
           message: `${admin.username} added a new group tag "${tag}"`,
         },
       ];
@@ -393,7 +385,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
           id: crypto.randomUUID(),
           conversationId: conversation.id,
           from: "system",
-          type:'notification',
+          type: "notification",
           message: `You added a new group tag "${tag}"`,
         },
       ];
@@ -414,7 +406,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
           id: crypto.randomUUID(),
           conversationId: conversation.id,
           from: "system",
-          type:'notification',
+          type: "notification",
           message: `${admin.username} removed the group tag "${tag}"`,
         },
       ];
@@ -428,7 +420,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
           id: crypto.randomUUID(),
           conversationId: conversation.id,
           from: "system",
-          type:'notification',
+          type: "notification",
           message: `You removed the group tag "${tag}"`,
         },
       ];
@@ -436,4 +428,10 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
       socket.emit("REMOVE_GROUP_TAG", { groupId: conversation.conversationId, tag }, adminMessage);
     }
   );
+
+  socket.on("REGISTER_CHANNELS", (channels: string[]) => {
+    channels.forEach((channel) => {
+      socket.join(channel);
+    });
+  });
 }

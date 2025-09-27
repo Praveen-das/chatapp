@@ -13,17 +13,19 @@ import { IUser, IUserRuleChangeRequest, IUserRules } from "@repo/interfaces/user
 
 type IConversationStore = {
   conversations: IConversation[];
+  isLoaded: boolean;
   selectedConversation?: IConversation | null;
   conversationActions: {
     setConversation: (conversations: IConversation) => void;
     updateConversation: (conversationId: string, updates: Partial<IConversationBase>) => void;
     deleteConversation: (conversationId: string) => void;
     setSelectedConversation: (conversationId: string | null) => void;
-    addToStarred: (id: string, message: IMessage[]) => void;
+    addToStarred: (id: string, message: IMessage) => void;
     removeFromStarred: (id: string, messageId: string) => void;
     clearStarred: (id: string) => void;
     updateConversationRule: (userId: string, rule: IUserRuleChangeRequest["updates"]["rules"]) => void;
     updateUserStatus: (userId: string, status: "online" | "offline", lastSeen?: number) => void;
+    setIsLoaded: (value:boolean) => void;
   };
   groupActions: {
     updateGroupConversation: (conversationId: string, updates: Partial<IGroupConversation>) => void;
@@ -40,6 +42,7 @@ const store = create(
   subscribeWithSelector<IConversationStore>((set, get) => {
     return {
       conversations: [],
+      isLoaded:false,
       selectedConversation: null,
       reset: () => set({ conversations: [], selectedConversation: null }),
       conversationActions: {
@@ -99,10 +102,10 @@ const store = create(
             selectedConversation,
           });
         },
-        addToStarred: (id, messages) => {
+        addToStarred: (id, message) => {
           function getModifiedStarredMessages<T extends IConversation>(c: T) {
             if (c.id === id) {
-              const starred = [...(c.starred ?? []), ...messages];
+              const starred = [...(c.starred ?? []), message];
               return { ...c, starred } as IConversation;
             }
             return c;
@@ -112,15 +115,16 @@ const store = create(
           set({ conversations });
         },
         removeFromStarred: (id: string, messageId: string) => {
-          const conversations = get().conversations.map((c) => {
-            if (c.id !== id) {
-              let starred = { ...c, starred: c.starred?.filter((c) => c.id !== messageId) };
+          const conversations = get().conversations.map((conversation) => {
+            if (conversation.id === id) {
+              let starred = { ...conversation, starred: conversation.starred?.filter((c) => c.id !== messageId) };
               return starred as IConversation;
             }
-            return c;
+            return conversation;
           });
           set({ conversations });
         },
+        setIsLoaded:(value)=> set({isLoaded:value}),
         clearStarred: (id) => {
           const conversations = get().conversations.map((c) => (c.id !== id ? c : { ...c, starred: [] }));
           set({ conversations });

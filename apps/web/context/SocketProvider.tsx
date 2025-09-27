@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, PropsWithChildren, useContext, useEffect, useRef } from "react";
+import React, { createContext, PropsWithChildren, useContext, useEffect, useMemo, useRef } from "react";
 import useAuth from "../hooks/useAuth";
 import socket from "../lib/ws";
 import { useMessageStore } from "../store/messageStore";
@@ -57,6 +57,7 @@ const {
   updateConversationRule,
   deleteConversation,
 } = useConversationStore.getState().conversationActions;
+
 const {
   setAdmin,
   updateGroupConversation,
@@ -89,6 +90,284 @@ const useContextData = () => {
   }, [user]);
 
   useEffect(() => {
+    function onUserConnected({ userId }: { userId: string }) {
+      updateUserStatus(userId, "online");
+    }
+
+    function onUserDisconnected({ userId, lastSeen }: { userId: string; lastSeen: number }) {
+      updateUserStatus(userId, "offline", lastSeen);
+    }
+
+    function onNewUserCreated(user: IUser) {
+      addNewUser(user);
+    }
+
+    async function onMessageReceive({
+      messages: _messages,
+      conversationId: userConversationId,
+    }: {
+      messages: IMessage[];
+      conversationId: string;
+    }) {
+      const conversations = useConversationStore.getState().conversations;
+      const updatesCollection: IUpdates = new Map();
+      let conversation = conversations.find((c) => c.host === "system" || c.conversationId === userConversationId);
+
+      if (!conversation) return;
+
+      const conversationId = conversation.id;
+      const currentUser = conversationId === socket.selectedConversation?.id;
+
+      const status = currentUser
+        ? userRef.current?.rules?.readReceipts.isVisible
+          ? IMessageReadReceipt.seen
+          : IMessageReadReceipt.unseen
+        : IMessageReadReceipt.received;
+
+      const { unreadMessages, messages, imageAttachments, urlAttachments, placeholders } = processMessagesForUser(
+        userRef.current!,
+        status,
+        _messages,
+        updatesCollection
+      );
+
+      const mediaStore = { images: imageAttachments, link: urlAttachments };
+      const recentMessage = _messages.at(-1);
+
+      const conversationUpdates = {
+        recentMessage,
+        updatedAt: recentMessage?.timestamp,
+      };
+
+      if (!conversation.active) {
+        socket.emit("ACTIVATE_CONVERSATION", conversationId);
+        updateConversation(conversationId, { ...conversationUpdates, active: true });
+      } else updateConversation(conversationId, conversationUpdates);
+
+      if (!!placeholders?.length) updateUserMessages(conversationId, placeholders);
+      if (!!messages.length) setMessageStore(conversationId, messages);
+
+      setMediaStore(conversationId, mediaStore);
+      setUnreadMessages(conversationId, unreadMessages);
+      sendReadReceiptChangeRequest(updatesCollection);
+
+      if (!currentUser) {
+        let receiver = { id: "", displayName: "", icon: "" };
+
+        if (conversation.host === "user") {
+          const member = getReceiver(conversation);
+          if (!member) return;
+          receiver.id = member.id;
+          receiver.displayName = member.username;
+          receiver.icon = member.rules?.profilePicture.isVisible ? member.profilePicture : "";
+        } else if (conversation.host === "group") {
+          receiver.id = conversation.id!;
+          receiver.displayName = conversation.displayName!;
+          receiver.icon = conversation.profilePicture;
+        }
+
+        if (!receiver) return;
+
+        const text = recentMessage?.message!;
+        const notificationPermissionGranted = Notification.permission === "granted";
+        let canSendNotification = conversation.host !== "system" && userNotificationPref[conversation.host];
+        let notificationDisabledForConversation = await idb.get(receiver.id);
+
+        notificationPermissionGranted &&
+          canSendNotification &&
+          !notificationDisabledForConversation &&
+          sendBrowserNotification(text, receiver.displayName, receiver.icon);
+      }
+    }
+
+    function onReadReceiptChangeRequest({
+      conversationId,
+      updates,
+    }: {
+      conversationId: string;
+      updates: IReadReceiptUpdatesCollection[];
+    }) {
+      const id = useConversationStore
+        .getState()
+        .conversations.find((c) => c.host !== "system" && c.conversationId === conversationId)?.id!;
+      updateReadReceipt(id, updates);
+    }
+
+    function handleUpdatingBlockStatus(conversationId: string, updates: Partial<IUserConversation>) {
+      const conversation = useConversationStore
+        .getState()
+        .conversations.find((c) => c.host !== "system" && c.conversationId === conversationId);
+
+      updateConversation(conversation?.id!, updates);
+    }
+
+    function handleDeletingMessageForAll({ conversationId, messages }: IDeleteResponse) {
+      const conversation = useConversationStore
+        .getState()
+        .conversations.find((c) => c.host !== "system" && c.conversationId === conversationId)!;
+
+      if (conversation.host === "system") return;
+
+      messages.forEach((m) => {
+        if (m.id === conversation?.recentMessage?.id)
+          updateConversation(conversation.id, {
+            recentMessage: { ...conversation.recentMessage!, deleted: true },
+          });
+      });
+
+      updateUserMessages(conversation.id, messages);
+    }
+
+    function handleCreatingGroup(group: IUserConversation) {
+      setConversation(group);
+    }
+
+    function handleUpdatingGroup({ id, ...updates }: IGroupConversation, systemMessage: IMessage) {
+      const conversationId = useConversationStore
+        .getState()
+        .conversations.find((c) => c.host === "group" && c.conversationId === id)?.id!;
+
+      if (systemMessage) setMessageStore(conversationId, [systemMessage]);
+      updateGroupConversation(conversationId, updates);
+    }
+
+    function handleAddingMembersToGroup(
+      {
+        conversation,
+        conversationId,
+        members,
+        self,
+      }: {
+        conversation: IGroupConversation;
+        conversationId: string;
+        members: IGroupMember[];
+        self: boolean;
+      },
+      systemMessages: IMessage[]
+    ) {
+      const conversations = useConversationStore.getState().conversations;
+      const existingConversation = conversations.find((c) => c.host === "group" && c.conversationId === conversationId);
+
+      if (existingConversation) {
+        addMembers(conversationId, members);
+      } else {
+        setConversation(conversation);
+      }
+
+      if (self) {
+        setSelectedConversation(existingConversation?.id!);
+        useStore.getState().setDeviceTab("chatarea");
+      }
+
+      if (systemMessages) setMessageStore(existingConversation?.id!, systemMessages);
+    }
+
+    function handleRemovingMemberFromGroup(
+      { conversationId, userId }: { conversationId: string; userId: string },
+      systemMessages: IMessage[]
+    ) {
+      const id = useConversationStore
+        .getState()
+        .conversations.find((c) => c.host === "group" && c.conversationId === conversationId)?.id!;
+
+      if (!!systemMessages.length) setMessageStore(id, systemMessages);
+
+      removeMember(id, userId);
+    }
+
+    function handleDeletingConversation(conversationId: string) {
+      updateConversation(conversationId, { active: false, archived: false });
+      useMessageStore.getState().clearChat(conversationId);
+    }
+
+    function handleUpdatingConversation(conversationId: string, update: Partial<IConversationBase>) {
+      updateConversation(conversationId, update);
+    }
+
+    function handleCreatingUserConversation(conversation: IUserConversation, select: boolean) {
+      const receiver = getReceiver(conversation);
+
+      setConversation(conversation);
+      addNewUser(receiver!);
+
+      if (select) {
+        setSelectedConversation(conversation.id);
+        socket.selectedConversation = conversation;
+      }
+    }
+
+    function handleAddingGroupTag(
+      {
+        groupId,
+        tag,
+      }: {
+        groupId: string;
+        tag: string;
+      },
+      systemMessages: IMessage[]
+    ) {
+      const conversations = useConversationStore.getState().conversations;
+
+      const id = conversations.find((c) => c.host === "group" && c.conversationId === groupId)?.id!;
+      _addGroupTag(id, tag);
+      if (systemMessages) setMessageStore(id, systemMessages);
+    }
+
+    function handleRemovingGroupTag(
+      {
+        groupId,
+        tag,
+      }: {
+        groupId: string;
+        tag: string;
+      },
+      systemMessages: IMessage[]
+    ) {
+      const conversations = useConversationStore.getState().conversations;
+
+      const id = conversations.find((c) => c.host === "group" && c.conversationId === groupId)?.id!;
+      _removeGroupTag(id, tag);
+      if (systemMessages) setMessageStore(id, systemMessages);
+    }
+
+    async function handleRemovingSession(expiredSessionId: string) {
+      const sessions = useSessionStore.getState().activeSessions;
+
+      sessions.forEach(async (s) => {
+        if (s.sessionId === expiredSessionId) {
+          await signOut();
+        }
+      });
+    }
+
+    function handleOTPMessage(res: any) {
+      const message: ISystemMessage = {
+        id: crypto.randomUUID(),
+        conversationId: "system",
+        to: user?.id,
+        from: "system",
+        type: "service_message",
+        message: `Use ${res.otp} to log in to your {{APP_NAME}} account. This code will expire in {{VALIDITY_DURATION}} minutes. Keep it secure.`,
+        timestamp: Date.now(),
+      };
+
+      const conversation = useConversationStore.getState().conversations.find((c) => c.host === "system")!;
+      const conversationId = conversation.id!;
+
+      setMessageStore(conversationId, [message as IMessage]);
+      updateConversation(conversationId, { recentMessage: message as IMessage, updatedAt: Date.now() });
+    }
+
+    function handleClearingConversation(conversationId: string) {
+      useMessageStore.getState().clearChat(conversationId);
+      updateConversation(conversationId, { recentMessage: null });
+    }
+
+    function handleRegisteringStarredMessages(conversationId: string, chat: IMessage, action: "add" | "remove") {
+      if (action === "add") useConversationStore.getState().conversationActions.addToStarred(conversationId, chat);
+      else useConversationStore.getState().conversationActions.removeFromStarred(conversationId, chat.id);
+    }
+
     socket.on("user connected", onUserConnected);
     socket.on("new user created", onNewUserCreated);
     socket.on("user disconnected", onUserDisconnected);
@@ -101,12 +380,14 @@ const useContextData = () => {
     socket.on("GROUP_ADD_MEMBERS", handleAddingMembersToGroup);
     socket.on("GROUP_REMOVE_MEMBER", handleRemovingMemberFromGroup);
     socket.on("UPDATE_GROUP", handleUpdatingGroup);
-    socket.on("SET_GROUP_ADMIN", handleSettingGroupAdmin);
+    socket.on("SET_GROUP_ADMIN", setAdmin);
     socket.on("DELETE_CONVERSATION", handleDeletingConversation);
     socket.on("CREATE_USER_CONVERSATION", handleCreatingUserConversation);
     socket.on("UPDATE_CONVERSATION", handleUpdatingConversation);
     socket.on("ADD_GROUP_TAG", handleAddingGroupTag);
     socket.on("REMOVE_GROUP_TAG", handleRemovingGroupTag);
+    socket.on("CLEAR_CONVERSATION", handleClearingConversation);
+    socket.on("REGISTER_STARRED_MESSAGES", handleRegisteringStarredMessages);
 
     socket.on("END_SESSION", handleRemovingSession);
     socket.on("OTP_MESSAGE", handleOTPMessage);
@@ -124,304 +405,26 @@ const useContextData = () => {
       socket.off("GROUP_ADD_MEMBERS", handleAddingMembersToGroup);
       socket.off("GROUP_REMOVE_MEMBER", handleRemovingMemberFromGroup);
       socket.off("UPDATE_GROUP", handleUpdatingGroup);
-      socket.off("SET_GROUP_ADMIN", handleSettingGroupAdmin);
+      socket.off("SET_GROUP_ADMIN", setAdmin);
       socket.off("DELETE_CONVERSATION", handleDeletingConversation);
       socket.off("CREATE_USER_CONVERSATION", handleCreatingUserConversation);
       socket.off("UPDATE_CONVERSATION", handleUpdatingConversation);
       socket.off("ADD_GROUP_TAG", handleAddingGroupTag);
       socket.off("REMOVE_GROUP_TAG", handleRemovingGroupTag);
+      socket.off("CLEAR_CONVERSATION", handleClearingConversation);
 
       socket.off("END_SESSION", handleRemovingSession);
       socket.off("OTP_MESSAGE", handleOTPMessage);
     };
   }, []);
 
-  // receivers///////////////////////////
-
-  const onUserConnected = ({ userId }: { userId: string }) => {
-    updateUserStatus(userId, "online");
-  };
-
-  const onUserDisconnected = ({ userId, lastSeen }: { userId: string; lastSeen: number }) => {
-    updateUserStatus(userId, "offline", lastSeen);
-  };
-
-  const onNewUserCreated = (user: IUser) => {
-    addNewUser(user);
-  };
-
-  const onMessageReceive = async ({
-    messages: _messages,
-    conversationId: userConversationId,
-  }: {
-    messages: IMessage[];
-    conversationId: string;
-  }) => {
-    const conversations = useConversationStore.getState().conversations;
-    const updatesCollection: IUpdates = new Map();
-    let conversation = conversations.find((c) => c.host === "system" || c.conversationId === userConversationId);
-
-    if (!conversation) return;
-
-    const conversationId = conversation.id;
-    const currentUser = conversationId === socket.selectedConversation?.id;
-
-    const status = currentUser
-      ? userRef.current?.rules?.readReceipts.isVisible
-        ? IMessageReadReceipt.seen
-        : IMessageReadReceipt.unseen
-      : IMessageReadReceipt.received;
-
-    const { unreadMessages, messages, imageAttachments, urlAttachments, placeholders } = processMessagesForUser(
-      userRef.current!,
-      status,
-      _messages,
-      updatesCollection
-    );
-
-    const mediaStore = { images: imageAttachments, link: urlAttachments };
-    const recentMessage = _messages.at(-1);
-
-    const conversationUpdates = {
-      recentMessage,
-      updatedAt: recentMessage?.timestamp,
-    };
-
-    if (!conversation.active) {
-      socket.emit("ACTIVATE_CONVERSATION", conversationId);
-      updateConversation(conversationId, { ...conversationUpdates, active: true });
-    } else updateConversation(conversationId, conversationUpdates);
-
-    if (!!placeholders?.length) updateUserMessages(conversationId, placeholders);
-    if (!!messages.length) setMessageStore(conversationId, messages);
-
-    setMediaStore(conversationId, mediaStore);
-    setUnreadMessages(conversationId, unreadMessages);
-    sendReadReceiptChangeRequest(updatesCollection);
-
-    if (!currentUser) {
-      let receiver = { id: "", displayName: "", icon: "" };
-
-      if (conversation.host === "user") {
-        const member = getReceiver(conversation);
-        if (!member) return;
-        receiver.id = member.id;
-        receiver.displayName = member.username;
-        receiver.icon = member.rules?.profilePicture.isVisible ? member.profilePicture : "";
-      } else if (conversation.host === "group") {
-        receiver.id = conversation.id!;
-        receiver.displayName = conversation.displayName!;
-        receiver.icon = conversation.profilePicture;
-      }
-
-      if (!receiver) return;
-
-      const text = recentMessage?.message!;
-      const notificationPermissionGranted = Notification.permission === "granted";
-      let canSendNotification = conversation.host !== "system" && userNotificationPref[conversation.host];
-      let notificationDisabledForConversation = await idb.get(receiver.id);
-
-      notificationPermissionGranted &&
-        canSendNotification &&
-        !notificationDisabledForConversation &&
-        sendBrowserNotification(text, receiver.displayName, receiver.icon);
-    }
-  };
-
-  const handleUpdatingBlockStatus = (conversationId: string, updates: Partial<IUserConversation>) => {
-    const conversation = useConversationStore
-      .getState()
-      .conversations.find((c) => c.host !== "system" && c.conversationId === conversationId);
-
-    updateConversation(conversation?.id!, updates);
-  };
-
-  const handleDeletingMessageForAll = ({ conversationId, messages }: IDeleteResponse) => {
-    const conversation = useConversationStore
-      .getState()
-      .conversations.find((c) => c.host !== "system" && c.conversationId === conversationId)!;
-
-    if (conversation.host === "system") return;
-
-    messages.forEach((m) => {
-      if (m.id === conversation?.recentMessage?.id)
-        updateConversation(conversation.id, {
-          recentMessage: { ...conversation.recentMessage!, deleted: true },
-        });
-    });
-
-    updateUserMessages(conversation.id, messages);
-  };
-
-  const handleDeletingMessageForUser = ({ conversationId, collection }: IDeleteForUserRequest) => {
-    const id = useConversationStore
-      .getState()
-      .conversations.find((c) => c.host === "system" || c.conversationId === conversationId)?.id!;
-
-    deleteUserMessages(id, collection);
-  };
-
-  const handleCreatingGroup = (group: IUserConversation) => {
-    setConversation(group);
-  };
-
   const disconectSocket = () => {
     socket?.disconnect();
-  };
-
-  const handleUpdatingUserRule = ({ userId, updates: { rules } }: IUserRuleChangeRequest) => {
-    if (userId === userRef.current?.id) {
-      let newRules = { ...userRef.current?.rules, ...rules };
-      const newUsers = { ...userRef.current, rules: newRules, updatedAt: Date.now() } as IUser;
-
-      updateSession(newUsers);
-
-      return;
-    }
-
-    updateConversationRule(userId, rules);
-  };
-
-  const handleUpdatingGroup = ({ id, ...updates }: IGroupConversation, systemMessage: IMessage) => {
-    const conversationId = useConversationStore
-      .getState()
-      .conversations.find((c) => c.host === "group" && c.conversationId === id)?.id!;
-
-    if (systemMessage) setMessageStore(conversationId, [systemMessage]);
-    updateGroupConversation(conversationId, updates);
-  };
-
-  const handleAddingMembersToGroup = (
-    {
-      conversation,
-      conversationId,
-      members,
-      self,
-    }: {
-      conversation: IGroupConversation;
-      conversationId: string;
-      members: IGroupMember[];
-      self: boolean;
-    },
-    systemMessages: IMessage[]
-  ) => {
-    const conversations = useConversationStore.getState().conversations;
-    const existingConversation = conversations.find((c) => c.host === "group" && c.conversationId === conversationId);
-
-    if (existingConversation) {
-      addMembers(conversationId, members);
-    } else {
-      setConversation(conversation);
-    }
-
-    if (self) {
-      setSelectedConversation(existingConversation?.id!);
-      useStore.getState().setDeviceTab("chatarea");
-    }
-
-    if (systemMessages) setMessageStore(existingConversation?.id!, systemMessages);
-  };
-
-  const handleRemovingMemberFromGroup = (
-    { conversationId, userId }: { conversationId: string; userId: string },
-    systemMessages: IMessage[]
-  ) => {
-    const id = useConversationStore
-      .getState()
-      .conversations.find((c) => c.host === "group" && c.conversationId === conversationId)?.id!;
-
-    if (!!systemMessages.length) setMessageStore(id, systemMessages);
-
-    removeMember(id, userId);
-  };
-
-  const handleDeletingConversation = (conversationId: string) => {
-    updateConversation(conversationId, { active: false });
   };
 
   const deleteGroupConversation = (conversation: IConversation) => {
     clearConversationData(conversation.id);
     sendGroupConversationDeleteRequest(conversation);
-  };
-
-  const handleSettingGroupAdmin = setAdmin;
-
-  const handleUpdatingConversation = (conversationId: string, update: Partial<IConversationBase>) => {
-    updateConversation(conversationId, update);
-  };
-
-  const handleCreatingUserConversation = (conversation: IUserConversation, select: boolean) => {
-    const receiver = getReceiver(conversation);
-
-    setConversation(conversation);
-    addNewUser(receiver!);
-    
-    if (select) {
-      setSelectedConversation(conversation.id);
-      socket.selectedConversation = conversation;
-    }
-  };
-
-  const handleAddingGroupTag = (
-    {
-      groupId,
-      tag,
-    }: {
-      groupId: string;
-      tag: string;
-    },
-    systemMessages: IMessage[]
-  ) => {
-    const conversations = useConversationStore.getState().conversations;
-
-    const id = conversations.find((c) => c.host === "group" && c.conversationId === groupId)?.id!;
-    _addGroupTag(id, tag);
-    if (systemMessages) setMessageStore(id, systemMessages);
-  };
-
-  const handleRemovingGroupTag = (
-    {
-      groupId,
-      tag,
-    }: {
-      groupId: string;
-      tag: string;
-    },
-    systemMessages: IMessage[]
-  ) => {
-    const conversations = useConversationStore.getState().conversations;
-
-    const id = conversations.find((c) => c.host === "group" && c.conversationId === groupId)?.id!;
-    _removeGroupTag(id, tag);
-    if (systemMessages) setMessageStore(id, systemMessages);
-  };
-
-  const handleRemovingSession = async (expiredSessionId: string) => {
-    const sessions = useSessionStore.getState().activeSessions;
-
-    sessions.forEach(async (s) => {
-      if (s.sessionId === expiredSessionId) {
-        await signOut();
-      }
-    });
-  };
-
-  const handleOTPMessage = (res: any) => {
-    const message: ISystemMessage = {
-      id: crypto.randomUUID(),
-      conversationId: "system",
-      to: user?.id,
-      from: "system",
-      type: "service_message",
-      message: `Use ${res.otp} to log in to your {{APP_NAME}} account. This code will expire in {{VALIDITY_DURATION}} minutes. Keep it secure.`,
-      timestamp: Date.now(),
-    };
-
-    const conversation = useConversationStore.getState().conversations.find((c) => c.host === "system")!;
-    const conversationId = conversation.id!;
-
-    setMessageStore(conversationId, [message as IMessage]);
-    updateConversation(conversationId, { recentMessage: message as IMessage, updatedAt: Date.now() });
   };
 
   //senders///////////////////////////
@@ -447,7 +450,7 @@ const useContextData = () => {
 
   const sendRequestToRegisterStarredMessage = (req: {
     conversationId: string;
-    messageIds: string[];
+    message: IMessage;
     host: "user" | "group";
   }) => {
     socket.emit("REGISTER_STARRED_MESSAGES", req);
@@ -455,7 +458,7 @@ const useContextData = () => {
 
   const sendRequestToUnRegisterStarredMessage = (req: {
     conversationId: string;
-    messageId: string;
+    message: IMessage;
     host: "user" | "group";
   }) => {
     socket.emit("UNREGISTER_STARRED_MESSAGES", req);
@@ -485,8 +488,8 @@ const useContextData = () => {
     socket.emit("CLEAR_GROUP_CONVERSATION", id);
   };
 
-  const sendConversationDeleteRequest = (id: string) => {
-    socket.emit("DELETE_CONVERSATION", id);
+  const sendConversationDeleteRequest = (conversationId: string) => {
+    socket.emit("DELETE_CONVERSATION", conversationId);
   };
 
   const sendGroupConversationDeleteRequest = (conversation: IConversation) => {
@@ -574,7 +577,13 @@ const useContextData = () => {
   };
 
   const deleteMessagesForUser = (req: IDeleteForUserRequest) => {
-    socket.emit("request:delete_message_for_user", req, handleDeletingMessageForUser);
+    socket.emit("request:delete_message_for_user", req, ({ conversationId, collection }: IDeleteForUserRequest) => {
+      const id = useConversationStore
+        .getState()
+        .conversations.find((c) => c.host === "system" || c.conversationId === conversationId)?.id!;
+
+      deleteUserMessages(id, collection);
+    });
   };
 
   const sendGroupCreationRequest = (req: IGroupCreationReq) => {
@@ -597,7 +606,18 @@ const useContextData = () => {
 
   const sendUserRuleChangeRequest = (req: RuleReq) => {
     const channels = getSocketChannels();
-    socket.emit("UPDATE_USER_RULE", req, channels, handleUpdatingUserRule);
+    socket.emit("UPDATE_USER_RULE", req, channels, ({ userId, updates: { rules } }: IUserRuleChangeRequest) => {
+      if (userId === userRef.current?.id) {
+        let newRules = { ...userRef.current?.rules, ...rules };
+        const newUsers = { ...userRef.current, rules: newRules, updatedAt: Date.now() } as IUser;
+
+        updateSession(newUsers);
+
+        return;
+      }
+
+      updateConversationRule(userId, rules);
+    });
   };
 
   const sendGroupInfoUpdateRequest = (conversation: IGroupConversation, updates: Partial<IGroupConversation>) => {
@@ -607,8 +627,6 @@ const useContextData = () => {
       admin: userRef.current,
     });
   };
-
-  //HELPERS///////////////////////////
 
   function clearConversationData(id: string) {
     const { clearChat, clearUnreadMessages } = useMessageStore.getState();
@@ -642,17 +660,8 @@ const useContextData = () => {
     socket.emit("change readReceipt", Array.from(updates));
   };
 
-  const onReadReceiptChangeRequest = ({
-    conversationId,
-    updates,
-  }: {
-    conversationId: string;
-    updates: IReadReceiptUpdatesCollection[];
-  }) => {
-    const id = useConversationStore
-      .getState()
-      .conversations.find((c) => c.host !== "system" && c.conversationId === conversationId)?.id!;
-    updateReadReceipt(id, updates);
+  const registerChannels = (channels: string[]) => {
+    socket.emit("REGISTER_CHANNELS", channels);
   };
 
   return {
@@ -687,9 +696,9 @@ const useContextData = () => {
     sendRequestToUnRegisterStarredMessage,
     addGroupTag,
     removeGroupTag,
-
     sendRequestToEndSession,
     sendOTPVerificationRequest,
+    registerChannels,
   };
 };
 

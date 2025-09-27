@@ -1,6 +1,5 @@
 import cluster from "cluster";
 import http from "http";
-import { cpus } from 'os';
 import { setupMaster } from "@socket.io/sticky";
 
 const WORKERS_COUNT = 2;

@@ -98,7 +98,6 @@ const _getUserConversation = async (req: Request, res: Response) => {
 const _updateUserConversationById = async (req: string, reset: () => void) => {
   try {
     const parsed = JSON.parse(req);
-
     const conversationId = objectId.parse(parsed.id);
     const updates = parsed.updates;
 
@@ -137,11 +136,11 @@ const _updateUserConversationBlockStatus = async (req: string, reset: () => void
 
 const _registerStarredMessages = async (req: string, reset: () => void) => {
   try {
-    const parsed: { conversationId: string; messageIds: string[]; host: string } = JSON.parse(req);
+    const parsed: { conversationId: string; messageId: string; host: string } = JSON.parse(req);
     const conversationId = objectId.parse(parsed.conversationId);
-    const messageIds = parsed.messageIds.map((id) => objectId.parse(id));
+    const messageIdParsed = objectId.parse(parsed.messageId);
 
-    const response = await conversationServices.registerStarredMessages(conversationId, messageIds, parsed.host);
+    const response = await conversationServices.registerStarredMessages(conversationId, messageIdParsed, parsed.host);
   } catch (error) {
     console.log(error);
     reset();

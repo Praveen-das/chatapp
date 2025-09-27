@@ -13,31 +13,47 @@ import { useMenu } from "store/menu";
 import { useSessionStore } from "store/sessionStore";
 import { refreshToken } from "@actions/session";
 import useAccessToken from "@hooks/useAccessToken";
-import LoadingPage from "@features/ui/LoadingPage";
+import { useConversationStore } from "store/conversationStore";
+import { useMessageStore } from "store/messageStore";
 
 const useContextData = () => {
   const axios = useAxios();
-  const { data, update, status } = useSession();
-  const user = useMemo(() => data?.user, [data]);
   const router = useRouter();
+  const { data: session, update } = useSession();
   const { setAccessToken } = useAccessToken();
-  const [isMounted,setMounted] = useState(false);
+
+  const [isMounted, setMounted] = useState(false);
+  const user = useMemo(() => session?.user, [session]);
 
   useEffect(() => {
     async function init() {
       try {
-        // check for session revocation
+        if (!session?.user) return;
+
         const accessToken = await refreshToken();
+
         if (!accessToken) await signOut();
-        setMounted(true);
+
         setAccessToken(accessToken);
       } catch (error) {
         console.log("auth context", error);
+      } finally {
+        setMounted(true);
       }
     }
 
     init();
-  }, []);
+
+    return () => {
+      useStore.getState().reset();
+      useAttachments.getState().reset();
+      useMenu.getState().reset();
+      useSearch.getState().reset();
+      useSessionStore.getState().reset();
+      useConversationStore.getState().reset();
+      useMessageStore.getState().reset();
+    };
+  }, [session]);
 
   const updateSession = async (updatedUser: IUser) => {
     await update({ user: updatedUser });
@@ -69,21 +85,17 @@ const useContextData = () => {
   async function signOut() {
     const response = await _signOut({ callbackUrl: "/register", redirect: false });
     router.replace(response.url);
-
-    useStore.getState().reset();
-    useAttachments.getState().reset();
-    useMenu.getState().reset();
-    useSessionStore.getState().reset();
-    useSearch.getState().reset();
     socket.disconnect();
   }
 
   return {
     isMounted,
+    setMounted,
     user,
     updateUser,
     updateSession,
     signOut,
+    session,
   };
 };
 
