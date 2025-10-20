@@ -1,27 +1,44 @@
-import { Namespace, Server } from "socket.io";
+import { Server } from "socket.io";
 import produceMessage from "../kafka/kafka";
 import { ISocket } from "../interfaces/socketInterfaces";
 import { IMessage } from "@repo/interfaces/messageInterface";
+import { IDeleteForUserRequest, IDeleteRequest } from "@repo/interfaces/conversationInterface";
+
+type RegisterMessageHandlers = {
+  messages: IMessage[];
+  conversationId: string;
+  to: string[] | string;
+  replacePlaceholder: boolean;
+};
 
 export default function registerMessageHandlers(io: Server, socket: ISocket) {
   socket.on(
     "message",
-    async ({
-      messages,
-      conversationId,
-      to,
-    }: {
-      messages: IMessage[];
-      conversationId: string;
-      to: string[] | string;
-    }) => {
-      !!to.length &&
+    async ({ messages, conversationId, to, replacePlaceholder }: RegisterMessageHandlers, callback) => {
+      if (replacePlaceholder) {
+        const messagesWithoutPlaceholder = messages.map((m) => ({ ...m, type: "message" }));
+
+        io.to(to).except(socket.userId!).emit("message receive", {
+          messages: messagesWithoutPlaceholder,
+          conversationId,
+        });
+
+        io.to(socket.userId!).emit("message receive", {
+          messages,
+          conversationId,
+        });
+
+        callback();
+
+        produceMessage({ messages: messagesWithoutPlaceholder }, "MESSAGES");
+      } else {
         io.to(to).emit("message receive", {
           messages,
           conversationId,
         });
 
-      produceMessage({ messages }, "MESSAGES");
+        produceMessage({ messages }, "MESSAGES");
+      }
     }
   );
 
@@ -39,12 +56,14 @@ export default function registerMessageHandlers(io: Server, socket: ISocket) {
   socket.on("request:delete_message", async ({ conversation, messages }: IDeleteRequest) => {
     if (!messages.length) return;
 
-    const receivers = conversation.members.map((m) => m.id);
+    if (conversation.host !== "system") {
+      const receivers = conversation.members.map((m) => m.id);
 
-    io.to(receivers).emit("request:delete_message", {
-      conversationId: conversation.conversationId,
-      messages,
-    });
+      io.to(receivers).emit("request:delete_message", {
+        conversationId: conversation.conversationId,
+        messages,
+      });
+    }
 
     produceMessage({ messages }, "UPDATE_MESSAGES");
   });

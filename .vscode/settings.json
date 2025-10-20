@@ -7,6 +7,6 @@
         "latex",
         "plaintext"
     ],
-    "typescript.tsdk": "\\Users\\voldemort\\AppData\\Roaming\\npm\\node_modules\\typescript\\lib",
+    "typescript.tsdk": "node_modules\\typescript\\lib",
     "typescript.enablePromptUseWorkspaceTsdk": true
 }

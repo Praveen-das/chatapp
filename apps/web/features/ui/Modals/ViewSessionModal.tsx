@@ -1,4 +1,3 @@
-import { deleteSessionFromDb } from "@actions/session";
 import { useStore } from "../../../store/global";
 import useSocket from "context/SocketProvider";
 import moment from "moment";
@@ -23,9 +22,8 @@ const ViewSessionModal = () => {
   async function terminateSession(e: MouseEvent<HTMLDivElement>) {
     if (!session.sessionId) return console.error("SessionId not found");
     const sessionId = session.sessionId;
-    deleteSessionFromDb(sessionId);
     removeSession(sessionId);
-    sendRequestToEndSession(sessionId);
+    sendRequestToEndSession([sessionId]);
     setModal(false);
   }
 

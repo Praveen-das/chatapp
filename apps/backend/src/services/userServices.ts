@@ -8,6 +8,7 @@ import { z } from "zod";
 import { updateUserSchema } from "../schemas/userSchema.js";
 import conversationServices from "./conversationServices.js";
 import messageServices from "./messageServices.js";
+import { MongoServerError } from "mongodb";
 
 async function generateSystemConversation(userId: Types.ObjectId) {
   const MESSAGE_STRING = `Welcome to Chatvia.
@@ -31,14 +32,14 @@ Start chatting — your space is ready.
     },
   ]);
 
-  await messageServices.saveUserMessage([
+  await messageServices.saveSystemMessage([
     {
       id: new Types.ObjectId(),
-      conversationId: conversation.id,
       to: userId,
       from: "system",
-      type: "service_message",
+      conversationId: conversation.id,
       message: MESSAGE_STRING,
+      type: "service_message",
       timestamp: Date.now(),
     },
   ]);
@@ -51,7 +52,12 @@ async function createUser(payload: IUser) {
     return user;
   } catch (error) {
     console.error("Error:", error);
-    throw error; // Rethrow the error if needed
+    if (error instanceof MongoServerError) {
+      console.error("Error:", error.codeName);
+      return { error: { message: error.codeName, code: error.code } };
+    }
+
+    return error; // Rethrow the error if needed
   }
 }
 
@@ -99,11 +105,12 @@ async function getUserById(userId: Types.ObjectId) {
 async function updateUser({ id, updates }: z.infer<typeof updateUserSchema>) {
   try {
     const result = await User.findOneAndUpdate({ id }, updates, { new: true });
-
     return result;
   } catch (error) {
-    console.error("Error:", error);
-    // throw error; // Rethrow the error if needed
+    if (error instanceof MongoServerError) {
+      console.error("Error:", error.codeName);
+      return { error: { message: error.codeName, code: error.code } };
+    }
   }
 }
 

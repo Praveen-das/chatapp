@@ -12,13 +12,13 @@ import { useMessageStore } from "store/messageStore";
 import { decrypt } from "./e2e";
 import { IUser } from "@repo/interfaces/userInterface";
 import { useStore } from "store/global";
-import { getReceiver } from "./conversation";
+import { getParticipant } from "./conversation";
 import { getSession } from "next-auth/react";
 import { IMessage } from "@interfaces/messageInterface";
 import { APP_NAME } from "config/constants";
 
 const createMessageTemplate = async (
-  conversation: IConversation | INewConversation,
+  conversation: IConversation,
   messageData: {
     message: string;
     attachment?: IAttachment | null;
@@ -30,7 +30,7 @@ const createMessageTemplate = async (
   const host = conversation.host;
   const conversationId = (conversation as IConversation).conversationId || conversation?.id;
   const from = user?.id;
-  const to = host === "group" ? conversation?.channelId! : getReceiver(conversation as IConversation)?.id!;
+  const to = host === "group" ? conversation?.channelId! : getParticipant(conversation as IConversation)?.id!;
 
   const readReceipt =
     conversation.host !== "system"
@@ -48,18 +48,17 @@ const createMessageTemplate = async (
     to,
     conversationId,
     message: messageData.message,
+    type: "message",
+    timestamp: Date.now(),
     attachment: messageData.attachment,
     reply: messageData.replyRequest ?? undefined,
-    timestamp: Date.now(),
     readReceipt,
     deleted: false,
-    user: conversation.host === "group" ? user! : undefined,
-    type: "message",
   };
 };
 
 export const generateMessageTemplate = (
-  conversation: IConversation | INewConversation,
+  conversation: IConversation,
   message: string,
   attachment?: IAttachment
 ) => {
@@ -73,19 +72,26 @@ export const generateMessageTemplate = (
 };
 
 export const regenerateMessageTemplate = (
-  conversation: IConversation | INewConversation,
+  conversation: IConversation,
   { message, attachment }: IMessage
 ) => {
   return createMessageTemplate(conversation, { message, attachment });
 };
 
-export function processMessagesForUser(user: IUser, status: IMessageReadReceipt, messages: IMessage[] = [],updatesCollection:IUpdates) {
-  const users = useStore.getState().users;
+export function processMessagesForUser(
+  user: IUser,
+  status: IMessageReadReceipt,
+  messages: IMessage[] = [],
+  updatesCollection: IUpdates,
+  conversation: IConversation
+) {
   const unreadMessages: IMessage[] = [];
   const imageAttachments: IImageAttachment[] = [];
   const urlAttachments: IUrlAttachment[] = [];
   const placeholders: IMessage[] = [];
   const newMessages: IMessage[] = [];
+  const receiver = getParticipant(conversation);
+  const isSystemMessage = conversation.host === "system";
 
   if (!messages || messages.length === 0) {
     return {
@@ -101,17 +107,17 @@ export function processMessagesForUser(user: IUser, status: IMessageReadReceipt,
     const isUserMessage = message.type === "message";
     const isPlaceholder = message.type === "placeholder";
 
-    if (isUserMessage) {
+    if (isUserMessage || isPlaceholder) {
       if (message?.message) message.message = decrypt(message.message);
       if (message?.reply?.message) message.reply.message = decrypt(message.reply.message);
     }
-
-    message.user = users.find((u) => u.id === message.from);
 
     if (isPlaceholder) {
       message.type = "message";
       placeholders.push(message);
     } else newMessages.push(message);
+
+    // if(!isSystemMessage) message.user = receiver;
 
     if (isUserMessage)
       message.readReceipt.forEach((readReceipt) => {
@@ -135,12 +141,10 @@ export function processMessagesForUser(user: IUser, status: IMessageReadReceipt,
         }
       });
 
-    const attachment = parseAttachments(message);
+    const { imageAttachment, urlAttachment } = parseAttachments(message, conversation);
 
-    if (attachment) {
-      attachment.imageAttachment && imageAttachments.push(attachment.imageAttachment);
-      attachment.urlAttachment && urlAttachments.push(attachment.urlAttachment);
-    }
+    if(imageAttachment) imageAttachments.push(imageAttachment);
+    if(urlAttachment) urlAttachments.push(urlAttachment);
   }
 
   return {
@@ -152,22 +156,22 @@ export function processMessagesForUser(user: IUser, status: IMessageReadReceipt,
   };
 }
 
-export function parseAttachments(message: IMessage) {
+export function parseAttachments(message: IMessage, conversation: IConversation) {
   if (message.attachment) {
+    const isSystemMessage = conversation.host === "system";
+    const receiver = !isSystemMessage ? conversation.members.find((m) => m.id === message.from) : undefined;
+
     let attachment = message.attachment;
 
     if (attachment.type === "images") {
-      attachment.sender =
-        message.type === "message"
-          ? message.user?.username || message.user?.phoneNumber
-          : message.type === "service_message"
-            ? APP_NAME
-            : "";
+      attachment.sender = receiver;
       return { imageAttachment: attachment };
     }
 
     if (attachment.type === "link") return { urlAttachment: attachment };
   }
+
+  return { imageAttachment: undefined, urlAttachment: undefined };
 }
 
 export function getReadReceiptChanges(messages: { key: any; value: any }[] = []) {

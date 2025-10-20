@@ -7,8 +7,6 @@ import { useConversationStore } from "../../../store/conversationStore";
 import SearchUser from "../../ui/Searchbar";
 import { IUser } from "@repo/interfaces/userInterface";
 import SecondaryHeader from "./SharedComponents/Header";
-import { getReceiver } from "@lib/conversation";
-import { useSearch } from "@hooks/useSearch";
 import SearchPrompt from "./SharedComponents/SearchPrompt";
 
 const ContactsList = () => {
@@ -20,7 +18,7 @@ const ContactsList = () => {
   const { setSelectedConversation } = useConversationStore((s) => s.conversationActions);
   const conversations = useConversationStore((s) => s.conversations);
   const [query, setQuery] = useState("");
-
+  console.log(users)
   const queryResult = useMemo(() => {
     if (!query) return [];
     return users.filter((user) => user.username.includes(query));
@@ -47,9 +45,10 @@ const ContactsList = () => {
   return (
     <div className="flex flex-col max-sm:gap-2 sm:gap-4 h-full overflow-hidden">
       <SecondaryHeader title="New Chat" mainTab="dashboard" />
-      <SearchUser onChange={setQuery} />
+      <SearchUser query={query} onChange={setQuery} />
       <div className="flex h-full w-full flex-col mt-4 gap-2 overflow-y-scroll no-scrollbar">
         {query && !queryResult.length && <SearchPrompt query={query} />}
+
         {(query ? queryResult : users).map((receiver) => {
           return (
             <Fragment key={receiver?.id}>

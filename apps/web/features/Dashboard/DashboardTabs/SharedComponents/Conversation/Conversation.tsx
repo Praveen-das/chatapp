@@ -9,7 +9,7 @@ import { IConversation } from "@repo/interfaces/conversationInterface";
 import { useMenu } from "store/menu";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
 import { DisplayRecentMessage } from "./DisplayRecentMessage";
-import { getDisplayName, getReceiver } from "@lib/conversation";
+import { getDisplayName, getParticipant } from "@lib/conversation";
 import classNames from "classnames";
 import { useTheme } from "@hooks/useTheme";
 import { RenderAvatar } from "./RenderAvatar";
@@ -22,11 +22,11 @@ interface IConve {
 }
 
 function Conversation({ conversation, isSelected }: IConve): React.JSX.Element {
-  const { setSelectedConversation, updateConversation } = useConversationStore((s) => s.conversationActions);
+  const { isDarkMode, isLightMode } = useTheme();
+  const { setSelectedConversation } = useConversationStore((s) => s.conversationActions);
   const setSelectedUser = useStore((s) => s.setSelectedUser);
   const toggleProfile = useStore((s) => s.toggleProfile);
   const setDeviceTab = useStore((s) => s.setDeviceTab);
-  const { isDarkMode, isLightMode } = useTheme();
   const clearImages = useAttachments((s) => s.clearImages);
 
   const handleSelectedConversation = useCallback(() => {
@@ -40,7 +40,7 @@ function Conversation({ conversation, isSelected }: IConve): React.JSX.Element {
 
   const recentMessage = conversation.recentMessage;
   const isUserConversation = conversation.host === "user";
-  const receiver = isUserConversation ? getReceiver(conversation)! : null;
+  const receiver = isUserConversation ? getParticipant(conversation)! : null;
   const displayName = getDisplayName(conversation)
 
   const class_selected = classNames({

@@ -57,7 +57,7 @@ export function useChats(
       messages.map((chat: IMessage | IMessage, index: number, array: IMessage[]) => {
         if (!chat) return null;
 
-        if (chat.type === "notification") return <SystemMessage text={chat.message} />;
+        if (chat.type === "notification") return <SystemMessage key={chat.id} text={chat.message} />;
 
         const self = chat.from === user?.id;
         const isGroupConversation = selectedConversation?.host === "group";

@@ -14,7 +14,6 @@ export interface IMessage {
   timestamp: number;
   deleted: boolean;
   hasAttachment?: boolean;
-  user?: IUser;
 }
 
 export type ISystemMessage = Omit<IMessage, "readReceipt" | "deleted" | "user" | "reply">;
@@ -76,7 +75,7 @@ export interface IImagePayload {
 export type IImageAttachment = {
   id: string;
   type: "images";
-  sender?: string;
+  sender?: IUser;
   status?: "uploading" | "success";
   loaded?: boolean;
 } & IImagePayload;

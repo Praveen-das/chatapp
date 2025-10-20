@@ -1,11 +1,12 @@
 import { Types } from "mongoose";
 import { IMessage } from "./messageInterface";
 import { IUser } from "./userInterface";
+import { MemberReq } from "./groupInterface";
 
 export interface INewConversation {
   id: string;
   host: "user";
-  members: [IUser, IUser];
+  members: string[];
   createdAt: number;
   updatedAt: number;
 }
@@ -14,6 +15,12 @@ export type IUserBlockRequest = {
   userConversation?: IUserConversation;
   userConversations?: IUserConversation[];
   conversation?: INewConversation | IConversation;
+};
+
+export type GenerateConversationProps = {
+  blocked: {
+    userId: string;
+  };
 };
 
 export type IConversation = IUserConversation | IGroupConversation | ISystemConversation;
@@ -26,7 +33,8 @@ export interface IConversationBase {
 
   messages?: IMessage[];
   recentMessage?: IMessage | null;
-  
+  tags?: string[];
+
   archived?: boolean;
   starred?: IMessage[];
   deletedAt?: number;
@@ -37,38 +45,34 @@ export interface IConversationBase {
 export interface IUserConversation extends IConversationBase {
   host: "user";
   members: [IUser, IUser];
+  displayName?: string;
 
   blocked?: boolean;
   blockedByUser?: boolean;
 }
 
+export type IActivityLog = {
+  conversationId: string;
+  userId: string;
+  joinedAt: number;
+};
+
 export interface IGroupConversation extends IConversationBase {
   host: "group";
-  displayName: string;
+  displayName?: string;
   members: IGroupMember[];
-  tags: string[];
 
   channelId?: string;
   invitationId?: string;
   desc?: string;
   admins: string[];
   createdBy?: string;
-  joinedAt: number;
   profilePicture: string;
+  currentParticipation?:MemberReq
 }
 
-export interface ISystemConversation {
-  id: string;
-  conversationId: string;
+export interface ISystemConversation extends IConversationBase {
   host: "system";
-  userId: string;
-  messages?: IMessage[];
-  recentMessage?: IMessage | null;
-  active?: boolean;
-  archived?: boolean;
-  starred?: IMessage[];
-  createdAt: number;
-  updatedAt: number;
 }
 
 export interface IDeleteRequest {
@@ -78,7 +82,7 @@ export interface IDeleteRequest {
 
 export interface IGroupMember extends IUser {
   isAdmin: boolean;
-  timeOfJoining: number;
+  memberId?: string;
 }
 
 export interface IClearConversationRequest {

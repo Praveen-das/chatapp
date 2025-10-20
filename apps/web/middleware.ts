@@ -1,16 +1,17 @@
 import { getToken } from "next-auth/jwt";
 import { NextRequest, NextResponse } from "next/server";
 
-const privateRoutes = ["/", "/invite", "/api", "/server"];
+const privateRoutes = ["/api", "/server"];
 
 export default async function middleware(req: NextRequest, event: NextResponse) {
   const pathname = req.nextUrl.pathname;
-  const token = await getToken({ req });
+  const token = await getToken({ req:req as any });
   const isAuthenticated = !!token?.user?.id;
-  const isPrivateRoute = privateRoutes.includes(pathname);
+  const isPrivateRoute = privateRoutes.some((route) => pathname.startsWith(route)) || pathname === "/";
   const isApiRoute = pathname.startsWith("/api");
   const isLoginPage = pathname.startsWith("/register");
-
+  
+  if (pathname.startsWith('/invite')) return NextResponse.next();
   if (isApiRoute) return NextResponse.next();
   if (!isAuthenticated) {
     if (isLoginPage) return NextResponse.next();

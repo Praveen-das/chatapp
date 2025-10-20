@@ -1,9 +1,13 @@
 import cache from "../redis/client";
 import { Response, Request } from "express";
 import messageServices from "../services/messageServices";
-import { IUserConversation } from "@repo/interfaces/conversationInterface";
+import { IConversation, IUserConversation } from "@repo/interfaces/conversationInterface";
 import { IMessage } from "../interfaces/messageInterface";
 import { messagesSchema } from "../schemas/userMessageSchema";
+import { LIMIT } from "../../const";
+import { z } from "zod";
+import { memberSchema } from "../schemas/groupSchema";
+import { Types } from "mongoose";
 
 const TIME_TO_EXPIRE = 60 * 60 * 24;
 
@@ -14,10 +18,10 @@ interface IReq {
 
 const _saveUserMessage = async (req: string, reset: () => void) => {
   try {
-    const { messages:body }: IReq = JSON.parse(req);
+    const { messages: body }: IReq = JSON.parse(req);
 
-    const messages  = messagesSchema.parse(body)
-    
+    const messages = messagesSchema.parse(body);
+
     await messageServices.saveUserMessage(messages);
   } catch (error) {
     console.log("MESSAGES error--->", error);
@@ -38,7 +42,6 @@ const _updateUserMessages = async (req: string, reset: () => void) => {
 const _deleteMessagesForUser = async (req: string, reset: () => void) => {
   try {
     const { collection } = JSON.parse(req);
-    console.log(collection);
 
     await messageServices.deleteMessagesForUser(collection);
   } catch (error) {
@@ -47,46 +50,50 @@ const _deleteMessagesForUser = async (req: string, reset: () => void) => {
   }
 };
 
-// const _getMessages = async (req: Express.Request, res: Response) => {
-//   const messages_cache = await cache.get("messages_cache");
-
-//   if (messages_cache) {
-//     console.log("res send from cache");
-//     return res.json(JSON.parse(messages_cache));
-//   }
-
-//   const messages = await messageServices.getMessages();
-
-//   cache.set("messages_cache", JSON.stringify(messages), () =>
-//     console.log("data cached")
-//   );
-//   cache.expire("messages_cache", TIME_TO_EXPIRE);
-
-//   return res.json(messages);
-// };
-
 type IGetUserMessages = {
   cid: string;
   c: string;
   limit: string;
+  userId: string;
+  deletedAt: string;
+  host: IConversation["host"];
+  activityLog: z.infer<typeof memberSchema>[];
 };
 
-const _getMessages = async (req: Request<{}, {}, {}, IGetUserMessages>, res: Response) => {
-  const { cid: conversationId, c: timestamp, limit } = req.query;
-  const LIMIT = parseInt(limit);
-  const CURSOR = parseInt(timestamp);
+const _getUserMessages = async (req: Request<{}, {}, {}, IGetUserMessages>, res: Response) => {
+  const { c: timestamp, host,activityLog, limit = LIMIT, deletedAt,...body } = req.query;
+  const _LIMIT = Number(limit);
+  const CURSOR = Number(timestamp);
+  const _deletedAt = Number(deletedAt);
+  const conversationId = new Types.ObjectId(body.cid)
+  const userId = new Types.ObjectId(body.userId)
 
   try {
-    const messages = await messageServices.getUserMessages(conversationId, LIMIT, CURSOR);
+    if(host === 'user'){
+      const messages = await messageServices.getUserMessages({
+        conversationId,
+        userId,
+        limit: _LIMIT,
+        cursor: CURSOR,
+        deletedAt: _deletedAt,
+      });
+      
+      return res.json(messages);
+    }
 
-    const response = {
-      messages,
-      hasNextPage: messages.length > LIMIT,
-    };
+    if(host === 'group'){
+      const messages = await messageServices.getGroupMessages({
+        conversationId,
+        userId,
+        cursor: CURSOR,
+      });
 
-    res.json(messages);
+      return res.json(messages);
+    }
+
+    return res.json([]);
   } catch (error) {
-    res.send(error);
+    return res.send(error);
   }
 };
 
@@ -109,6 +116,6 @@ export default {
   _saveUserMessage,
   _updateUserMessages,
   _deleteMessagesForUser,
-  _getMessages,
+  _getUserMessages,
   _deleteUserMessage,
 };

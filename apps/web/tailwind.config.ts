@@ -5,6 +5,7 @@ import themes from "daisyui/src/theming/themes";
 
 const darkmode = {
   ...themes["dim"],
+  "background-color": "var(--base-200-300)",
   secondary: "#ffffff",
   "base-100": "hsl(228deg 4.76% 20.59%)",
   "base-200": "hsl(220deg 4.62% 12.75%)",

@@ -11,7 +11,7 @@ import StarredMessagess from "./ProfileTabs/StarredMessagess";
 import UserMedia from "./ProfileTabs/UserMedia";
 import UserProfile from "./ProfileTabs/UserProfileTabs/UserProfile";
 import { useMemo } from "react";
-import { getReceiver } from "@lib/conversation";
+import { getParticipant } from "@lib/conversation";
 import SystemProfile from "./ProfileTabs/SystemProfile";
 
 function DisplayProfile(TransitionComponent: React.FC<{ children: React.ReactNode }>) {
@@ -19,7 +19,7 @@ function DisplayProfile(TransitionComponent: React.FC<{ children: React.ReactNod
     const selectedUser = useStore((s) => s.selectedUser);
     const selectedConversation = useConversationStore((s) => s.selectedConversation);
 
-    const user = selectedUser ?? getReceiver(selectedConversation!);
+    const user = selectedUser ?? getParticipant(selectedConversation!);
 
     return useMemo(
       () => (

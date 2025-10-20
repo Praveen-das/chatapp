@@ -7,8 +7,9 @@ export function useTheme() {
   const props = useNextTheme();
 
   let mode = props.resolvedTheme?.split("-")[0];
-  let colorHex = props.resolvedTheme?.split("-")[1];
-  let bgcolor = colorHex ? "#" + colorHex : COLORS.default;
+  let defaultColorHex = COLORS.default.replace("#", "");
+  let colorHex = props.resolvedTheme?.split("-")[1] || defaultColorHex;
+  let bgcolor = "#" + colorHex;
 
   const isDarkMode = mode?.toLowerCase() === "dark";
   const isLightMode = mode?.toLowerCase() === "light";
@@ -20,7 +21,6 @@ export function useTheme() {
       if (!isSystemDefault) return;
 
       let mode = e.matches ? "dark" : "light";
-
       props.setTheme(bgcolor ? mode + "-" + colorHex : mode);
     };
 

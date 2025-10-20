@@ -1,12 +1,24 @@
-import { Namespace, Server } from "socket.io";
+import { Server } from "socket.io";
 import produceMessage from "../kafka/kafka";
 import { ISocket } from "../interfaces/socketInterfaces";
 import { IMessage } from "@repo/interfaces/messageInterface";
+import { GroupClearReq } from "@repo/interfaces/groupInterface";
+import { IUser } from "@repo/interfaces/userInterface";
+import { handleGeneratingConversation } from "@repo/utils";
 
 export default function registerConversationHandlers(io: Server, socket: ISocket) {
-  socket.on("REGISTER_CONVERSATION", (conversation: INewConversation) => {
-    const members = conversation.members.map(({ id }) => id);
-    produceMessage({ conversation: { ...conversation, members } }, "CREATE_CONVERSATION");
+  socket.on("REGISTER_CONVERSATION", (members: [IUser, IUser],props:any) => {
+    const { conversation, userConversations } = handleGeneratingConversation(members,props);
+
+    userConversations.forEach((userConversation) => {
+      io.to(userConversation.userId).emit(
+        "CREATE_USER_CONVERSATION",
+        userConversation,
+        userConversation.userId === socket.userId
+      );
+    });
+
+    produceMessage({ conversation, userConversations }, "CREATE_CONVERSATION");
   });
 
   socket.on("REGISTER_USER_CONVERSATION", (conversations: IUserConversation[]) => {
@@ -30,11 +42,9 @@ export default function registerConversationHandlers(io: Server, socket: ISocket
     produceMessage(req, "UPDATE_USER_CONVERSATION");
   });
 
-  socket.on("CLEAR_GROUP_CONVERSATION", (id: string) => {
-    const req = { id, updates: { deletedAt: Date.now() } };
-
-    io.to(socket.userId!).emit("CLEAR_CONVERSATION", id);
-    produceMessage(req, "UPDATE_GROUP_CONVERSATION");
+  socket.on("CLEAR_GROUP_CONVERSATION", (req: GroupClearReq) => {
+    io.to(socket.userId!).emit("CLEAR_CONVERSATION", req.conversationId);
+    produceMessage(req, "CLEAR_GROUP_CONVERSATION_FOR_USER");
   });
 
   socket.on("DELETE_CONVERSATION", (id: string) => {

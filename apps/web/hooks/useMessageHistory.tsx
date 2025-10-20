@@ -5,15 +5,18 @@ import { useMessageStore } from "store/messageStore";
 import { shallow } from "zustand/shallow";
 import useAxios from "./useAxios";
 import config from "../config/config";
-import { useStore } from "store/global";
 import { decrypt } from "@lib/e2e";
 import { parseAttachments } from "@lib/messages";
 import { useAttachments } from "store/attachments";
+import useAuth from "./useAuth";
+import { IConversation } from "@repo/interfaces/conversationInterface";
+import { IActivityLog } from "@interfaces/groupInterface";
 
 const { PAGINATION_LIMIT } = config;
 
 function useMessageHistory() {
   const axios = useAxios();
+  const { user } = useAuth();
   const selectedConversation = useConversationStore((s) => s.selectedConversation);
 
   const [messageHistory, setMessageHistory] = useState<IMessage[]>([]);
@@ -42,48 +45,71 @@ function useMessageHistory() {
     if (!messageHistory.length) return;
 
     const { setMediaStore } = useAttachments.getState();
-    const conversationId = selectedConversation?.conversationId!;
+    const { conversationId, host } = selectedConversation!;
     const timestamp = messageHistory[0]?.timestamp;
-    const users = useStore.getState().users;
     const mediaStore: { images: IImageAttachment[]; link: IUrlAttachment[] } = { images: [], link: [] };
 
-    const response = await fetchMessages(conversationId, timestamp?.toString());
-    
+    const response = await fetchMessages({
+      conversationId,
+      cursor: timestamp?.toString()!,
+      deletedAt: selectedConversation?.deletedAt!,
+      host,
+    });
+
     if (!response) return;
 
     response.forEach((message) => {
       if (message) {
-        const attachment = parseAttachments(message);
+        const { imageAttachment, urlAttachment } = parseAttachments(message, selectedConversation!);
 
-        attachment?.imageAttachment && mediaStore.images.push(attachment?.imageAttachment!);
-        attachment?.urlAttachment && mediaStore.link.push(attachment?.urlAttachment!);
+        imageAttachment && mediaStore.images.push(imageAttachment!);
+        urlAttachment && mediaStore.link.push(urlAttachment!);
 
         if (message.message) message.message = decrypt(message.message);
-        message.user = users.find((u) => u.id === message.from);
+        // message.user = users.find((u) => u.id === message.from);
       }
     });
 
     hasNextPage.current[selectedConversation?.id!] = response.length > PAGINATION_LIMIT;
     setMediaStore(selectedConversation?.id!, mediaStore);
     useMessageStore.getState().appendMessageHistory(selectedConversation?.id!, response);
-  }, [messageHistory, selectedConversation]);
+  }, [messageHistory, selectedConversation, user]);
 
-  const fetchMessages = useCallback(async (conversationId: string, cursor?: string) => {
-    try {
-      setIsLoading(true);
-      const params = new URLSearchParams({ cid: conversationId });
-      params.append("limit", PAGINATION_LIMIT.toString());
-      if (cursor) params.append("c", cursor);
+  const fetchMessages = useCallback(
+    async ({
+      conversationId,
+      cursor,
+      deletedAt,
+      host,
+      activityLog
+    }: {
+      conversationId: string;
+      cursor: string;
+      deletedAt: number;
+      host: IConversation["host"];
+      activityLog?: IActivityLog;
+    }) => {
+      try {
+        setIsLoading(true);
+        const params = new URLSearchParams({ cid: conversationId });
+        params.append("limit", PAGINATION_LIMIT.toString());
+        params.append("host", host);
+        
+        if (cursor) params.append("c", cursor);
+        if (user?.id) params.append("userId", user.id);
+        if (deletedAt) params.append("deletedAt", deletedAt.toString());
 
-      const res = await axios.get<IMessage[]>(`/db/messages/fetch?${params.toString()}`);
-      return res.data;
-    } catch (error) {
-      console.log(error);
-      return;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+        const res = await axios.get<IMessage[]>(`/db/messages/fetch?${params.toString()}`);
+        return res.data;
+      } catch (error) {
+        console.log(error);
+        return;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [user]
+  );
 
   return { messageHistory, hasNextPage: hasNextPage.current[conversationId], fetchOlderMessages, isLoading };
 }

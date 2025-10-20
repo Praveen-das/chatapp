@@ -1,17 +1,17 @@
+import { IGroupConversation } from "@repo/interfaces/conversationInterface";
+import { IUser } from "@repo/interfaces/userInterface";
 import { AnimatePresence, motion } from "framer-motion";
 import { useMemo, useState } from "react";
 import useSocket from "../../../context/SocketProvider";
 import useAuth from "../../../hooks/useAuth";
-import { useConversationStore } from "../../../store/conversationStore";
-import SearchUser from "../Searchbar";
-import { useStore } from "../../../store/global";
-import { User } from "./components/User";
 import useSelectedConversation from "../../../hooks/useSelectedConversation";
-import { IGroupConversation } from "@repo/interfaces/conversationInterface";
-import { IUser } from "@repo/interfaces/userInterface";
-import { XCircleIcon } from "@heroicons/react/24/solid";
-import ModalTitle from "./components/ModalTitle";
+import { useConversationStore } from "../../../store/conversationStore";
+import { useStore } from "../../../store/global";
 import FramerWrapper from "../MotionWrapper";
+import SearchUser from "../Searchbar";
+import ModalTitle from "./components/ModalTitle";
+import { User } from "./components/User";
+import ObjectID from "bson-objectid";
 
 export const AddGroupMembersModal = () => {
   const setModal = useStore((s) => s.setModal);
@@ -67,7 +67,7 @@ export const AddGroupMembersModal = () => {
     >
       <ModalTitle>Select Contact</ModalTitle>
       <div className="max-sm:px-4 px-6 mt-4">
-        <SearchUser onChange={setQuery} />
+        <SearchUser query={query} onChange={setQuery} />
       </div>
       <div className="w-full h-full space-y-2 overflow-y-scroll no-scrollbar mt-4 mb-2">
         {(query ? queryResult : users).map((person) => (

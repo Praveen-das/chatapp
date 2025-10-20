@@ -12,6 +12,7 @@ const router = Router();
 
 router.post("/send", async (req, res) => {
   const { phonenumber } = req.body;
+
   try {
     const verification = await twilioClient.verify.v2
       .services(SERVICE_SID!)
@@ -20,22 +21,22 @@ router.post("/send", async (req, res) => {
     return res.json(verification);
   } catch (error) {
     console.log(error);
-    return res.json({error});
+    return res.json({ error });
   }
 });
 
 router.post("/verify", async (req, res) => {
   try {
     const { phonenumber, code } = req.body;
-    
+
     const verificationCheck = await twilioClient.verify.v2
       .services(SERVICE_SID!)
       .verificationChecks.create({ code, to: phonenumber });
-      
-      return res.json(verificationCheck);
-    } catch (error) {
-      console.log(error)
-      return res.json({error});
+
+    return res.json(verificationCheck);
+  } catch (error) {
+    console.log(error);
+    return res.json({ error });
   }
 });
 

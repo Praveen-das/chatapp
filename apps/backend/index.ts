@@ -6,6 +6,7 @@ import cors from "cors";
 import bodyParser from "body-parser";
 import { verifyAuth } from "./src/middlewares/auth";
 import otpRoute from "./src/routes/otpRoute";
+import { otpRateLimiter } from "./src/rateLimit/otp";
 
 (async () => {
   const app = express();
@@ -30,7 +31,7 @@ import otpRoute from "./src/routes/otpRoute";
   }
 
   app.get("/health", (_, res) => res.json({ status: "okay" }));
-  app.use('/otp', otpRoute);
+  app.use("/otp", otpRateLimiter, otpRoute);
   app.use(verifyAuth);
   app.use(router);
 

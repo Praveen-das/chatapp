@@ -83,7 +83,7 @@ export async function refreshToken() {
 export async function validateRefreshToken() {
   try {
     const req = new NextRequest(process.env.NEXTAUTH_URL!, { headers: { cookie: headers().get("cookie") || "" } });
-    const token = await getToken({ req: req });
+    const token = await getToken({ req: req as any });
 
     if (!token) throw Error("Token not found login again");
 

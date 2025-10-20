@@ -55,7 +55,7 @@ function Avatar({
  
   return (
     <div
-      onClick={!enableOptions ? onClick : undefined}
+      onClick={!enableOptions && !url ? onClick : undefined}
       className={`self-center flex justify-center items-center relative ${profilePicture ? "" : "bg-[--avatarBg]"} text-white rounded-full`}
       style={{
         minWidth: size,

@@ -35,7 +35,7 @@ interface Actions {
   deleteUserMessages: (conversationId: string, collection: IDeleteForUserRequest["collection"]) => void;
   getUnreadMessages: (userId: string) => IMessage[];
   setUnreadMessages: (userId: string, message: IMessage[] | null) => void;
-  clearUnreadMessages: (userId?: string) => void;
+  clearUnreadMessages: (conversationId?: string) => void;
   updateReadReceipt: (conversationId: string, readReceipts: IReadReceiptUpdatesCollection[]) => void;
   setReplyRequest: (reply: IMessageReply | null) => void;
   clearChat: (conversationId: string) => void;
@@ -114,10 +114,10 @@ export const useMessageStore = create(
 
         set({ unreadMessages: new Map(unreadMessages) });
       },
-      clearUnreadMessages: (userId) => {
-        if (userId) {
+      clearUnreadMessages: (conversationId) => {
+        if (conversationId) {
           const unreadMessages = get().unreadMessages;
-          unreadMessages.set(userId, []);
+          unreadMessages.set(conversationId, []);
           return set({ unreadMessages: new Map(unreadMessages) });
         }
         set({ unreadMessages: new Map() });

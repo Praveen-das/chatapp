@@ -27,7 +27,7 @@ const GroupMembersSelectionTab = () => {
     <div className="flex flex-col h-full">
       <SecondaryHeader title="Add group members" mainTab="dashboard" onClose={() => setSelectedGroupMembers(null)} />
       <div className="flex flex-col overflow-hidden max-sm:gap-2 sm:gap-4 max-sm:mt-2 sm:mt-4 ">
-        <SearchUser onChange={setQuery} />
+        <SearchUser query={query} onChange={setQuery} />
         {!!selectedGroupMembers.length && (
           <div className="flex gap-2 justify-between items-center">
             <div className="flex flex-nowrap gap-1 items-center text-xs w-full whitespace-nowrap overflow-scroll no-scrollbar">

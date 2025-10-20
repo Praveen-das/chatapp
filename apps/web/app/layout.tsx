@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="bg-[var(--base-300-100)]">
+    <html lang="en" suppressHydrationWarning>
       <head>{/* <script src="https://unpkg.com/react-scan/dist/auto.global.js" /> */}</head>
       <body className={inter.className}>
         <Provider>{children}</Provider>

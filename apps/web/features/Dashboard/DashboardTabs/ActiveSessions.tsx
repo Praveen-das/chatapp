@@ -1,29 +1,26 @@
-import { MouseEvent } from "react";
-import Header from "./SharedComponents/Header";
-import { HandRaisedIcon } from "@heroicons/react/24/outline";
-import { useSessionStore } from "store/sessionStore";
-import useSocket from "context/SocketProvider";
-import { useStore } from "store/global";
-import moment from "moment";
 import BrowserAvatar from "@features/ui/BrowserAvatar";
-import { ISession } from "@repo/interfaces/sessionInterface";
+import { HandRaisedIcon } from "@heroicons/react/24/outline";
 import useAxios from "@hooks/useAxios";
+import { ISession } from "@repo/interfaces/sessionInterface";
+import useSocket from "context/SocketProvider";
+import moment from "moment";
+import { useStore } from "store/global";
+import { useSessionStore } from "store/sessionStore";
+import Header from "./SharedComponents/Header";
 
 function ActiveSessions() {
-  const [currentSession, ...activeSessions] = useSessionStore((s) => s.activeSessions);
+  const { sendRequestToEndSession } = useSocket();
+  const currentSession = useSessionStore((s) => s.currentSession);
+  const activeSessions = useSessionStore((s) => s.activeSessions);
   const { clearAllSessions } = useSessionStore((s) => s.actions);
-  const axios = useAxios();
 
   async function terminateAllSessions() {
     try {
       clearAllSessions(currentSession?.sessionId!);
 
-      const body = {
-        sessionIds: activeSessions.map((session) => session.sessionId),
-        userId: currentSession?.userId,
-      };
+      const sessionIds = activeSessions.map((session) => session.sessionId);
 
-      const res = await axios.post(`/session/clear`, JSON.stringify(body));
+      sendRequestToEndSession(sessionIds);
     } catch (error) {
       console.log(error);
     }

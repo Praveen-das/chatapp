@@ -114,6 +114,7 @@ interface IConversationBase {
   active?: boolean;
   archived?: boolean;
   conversationId: string;
+  tags?: string[];
 }
 
 interface IUserConversation extends IConversationBase {
@@ -125,16 +126,7 @@ interface IUserConversation extends IConversationBase {
   blockedByUser?: boolean;
 }
 
-interface IGroupConversation extends IConversationBase {
-  _id?:string
-  userId: string;
-  conversationId: string;
-  channelId: string;
-  invitationId?: string;
-  members: IUser[];
-  joinedAt: number
-  host: "group";
-}
+
 
 interface IGroup {
   _id?: string,

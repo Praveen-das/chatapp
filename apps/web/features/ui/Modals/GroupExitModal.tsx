@@ -1,8 +1,5 @@
-import { useMemo } from "react";
 import useSocket from "../../../context/SocketProvider";
 import useAuth from "../../../hooks/useAuth";
-import { useConversationStore } from "../../../store/conversationStore";
-import { useMessageStore } from "../../../store/messageStore";
 import { useStore } from "../../../store/global";
 import { IGroupConversation } from "@repo/interfaces/conversationInterface";
 import { IModal } from "@interfaces/modalInterface";
@@ -23,7 +20,9 @@ const GroupExitModal = () => {
 
   return (
     <FramerWrapper className={`modal-box flex flex-col justify-between gap-4 p-8 w-full max-w-xs bg-[--modal]`}>
-      <label className="mb-4" htmlFor="">Exit Group ?</label>
+      <label className="mb-4" htmlFor="">
+        Exit Group ?
+      </label>
       <div className="flex w-full justify-stretch gap-4 mx-auto">
         <form className="w-full" method="dialog">
           <div className="w-full">

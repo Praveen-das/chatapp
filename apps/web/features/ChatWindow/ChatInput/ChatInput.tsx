@@ -1,29 +1,28 @@
 "use client";
 import React, { ChangeEvent, memo, useState } from "react";
 
-import useSocket from "../../../context/SocketProvider";
-import { useMessageStore } from "../../../store/messageStore";
-import useAuth from "@hooks/useAuth";
-import { useStore } from "../../../store/global";
-import EmojiPicker from "../../ui/EmojiPicker";
-import { parseUrl } from "@lib/utils";
-import { useAttachments } from "../../../store/attachments";
-import { useConversationStore } from "../../../store/conversationStore";
-import useSelectedConversation from "@hooks/useSelectedConversation";
-import LinkPreview from "../../ui/LinkPreview";
-import { getImages } from "@lib/utils";
-import { Attachment, SendSolid } from "iconoir-react";
+import { FaceSmileIcon, PhotoIcon } from "@heroicons/react/24/outline";
 import { ArrowUturnRightIcon, DocumentTextIcon, XCircleIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import useAuth from "@hooks/useAuth";
+import useSelectedConversation from "@hooks/useSelectedConversation";
+import { getParticipant } from "@lib/conversation";
+import { generateMessageTemplate } from "@lib/messages";
+import { getImages, parseUrl } from "@lib/utils";
 import { IUrlAttachment } from "@repo/interfaces/messageInterface";
 import ObjectID from "bson-objectid";
-import { generateMessageTemplate } from "@lib/messages";
+import { APP_NAME } from "config/constants";
+import { AnimatePresence, motion } from "framer-motion";
+import { Attachment, SendSolid } from "iconoir-react";
+import useSocket from "../../../context/SocketProvider";
+import { useAttachments } from "../../../store/attachments";
+import { useConversationStore } from "../../../store/conversationStore";
+import { useStore } from "../../../store/global";
+import { useMessageStore } from "../../../store/messageStore";
+import EmojiPicker from "../../ui/EmojiPicker";
+import LinkPreview from "../../ui/LinkPreview";
 import ImageAttachmentPreview from "./AttachmentPreview/ImageAttachmentPreview";
 import UrlAttachmentPreview from "./AttachmentPreview/UrlAttachmentPreview";
-import { FaceSmileIcon, PhotoIcon } from "@heroicons/react/24/outline";
 import useUrlParser from "./useUrlParser";
-import { AnimatePresence, motion } from "framer-motion";
-import { getReceiver } from "@lib/conversation";
-import { APP_NAME } from "config/constants";
 
 function ChatInput() {
   const { user } = useAuth();
@@ -34,7 +33,8 @@ function ChatInput() {
   const isGroup = selectedConversation?.host === "group";
   const isSystemConversation = selectedConversation?.host === "system";
   const isMember = isGroup && selectedConversation?.members.some((m) => m.id === user?.id);
-  const username = getReceiver(selectedConversation!)?.username;
+
+  const username = getParticipant(selectedConversation!)?.username;
 
   return (
     <div className="flex flex-col w-full mx-auto shadow-lg bg-[--base-200-300] sm:rounded-2xl">
@@ -78,6 +78,7 @@ function Input(): React.ReactNode {
   if (selectedConversation?.host === "system") return;
 
   const [messageString, setMessageString] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const [toggleEmojiPicker, setToggleEmojiPicker] = useState(false);
   const [toggleAttachments, setToggleAttachments] = useState(false);
@@ -101,6 +102,9 @@ function Input(): React.ReactNode {
 
   const handleMessaging = async () => {
     if (!messageString) return;
+    if (loading) return;
+
+    setLoading(true);
 
     const selectedConversation = useConversationStore.getState().selectedConversation;
     const conversations = useConversationStore.getState().conversations;
@@ -127,7 +131,11 @@ function Input(): React.ReactNode {
 
     const message = await generateMessageTemplate(conversation!, messageString, attachment);
 
-    sendMessage(conversation!, [message]);
+    sendMessage({
+      conversation: conversation!,
+      messages: [message],
+      callback: () => setLoading(false),
+    });
 
     setSelectedUser(null);
     setMessageString("");
@@ -257,7 +265,7 @@ function Input(): React.ReactNode {
           onChange={handleInput}
           className="w-full bg-transparent outline-none border-none ml-3 overflow-hidden resize-none"
         />
-        <div className="btn btn-circle btn-sm btn-ghost" onClick={handleMessaging} tabIndex={0}>
+        <div className="btn btn-circle btn-sm btn-ghost" onClick={() => !loading && handleMessaging()} tabIndex={0}>
           <SendSolid className="size-6" />
         </div>
       </div>

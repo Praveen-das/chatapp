@@ -8,19 +8,17 @@ interface ISearch {
   onClick?: () => void;
   highlightResults?: boolean;
   highlightElm?: string;
+  query: string;
 }
 
 export default function Searchbar({
-  initialValue = "",
   onChange = () => {},
+  query,
   onClick,
   highlightElm,
   highlightResults = false,
 }: ISearch) {
-  const [value, setValue] = useState(initialValue);
-
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setValue(e.target.value);
     onChange(e.target.value);
   };
 
@@ -29,7 +27,7 @@ export default function Searchbar({
     if (!highlightElm) return;
 
     document.querySelectorAll<any>(highlightElm).forEach((elm) => {
-      let regex = new RegExp(value, "gi");
+      let regex = new RegExp(query, "gi");
 
       const text = elm.innerText;
 
@@ -40,7 +38,7 @@ export default function Searchbar({
 
       elm.innerHTML = highlightedText;
     });
-  }, [value, highlightResults, highlightElm]);
+  }, [query, highlightResults, highlightElm]);
 
   useEffect(() => {
     if (onClick) {
@@ -57,7 +55,7 @@ export default function Searchbar({
       <div className={`btn btn-circle btn-xs btn-ghost `}>
         <MagnifyingGlassIcon  />
       </div>
-      <input value={value} onChange={handleChange} className="w-full h-full bg-transparent  outline-none" type="text" />
+      <input value={query} onChange={handleChange} className="w-full h-full bg-transparent  outline-none" type="text" />
     </div>
   );
 }

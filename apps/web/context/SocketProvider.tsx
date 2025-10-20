@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, PropsWithChildren, useContext, useEffect, useMemo, useRef } from "react";
+import React, { createContext, PropsWithChildren, useContext, useEffect, useRef } from "react";
 import useAuth from "../hooks/useAuth";
 import socket from "../lib/ws";
 import { useMessageStore } from "../store/messageStore";
@@ -18,6 +18,7 @@ import {
   IConversationBase,
   INewConversation,
   IUserBlockRequest,
+  GenerateConversationProps,
 } from "@repo/interfaces/conversationInterface";
 import {
   IDeleteResponse,
@@ -27,9 +28,9 @@ import {
   IUpdates,
 } from "@repo/interfaces/messageInterface";
 import { IUser, IUserRuleChangeRequest } from "@repo/interfaces/userInterface";
-import { IGroupCreationReq } from "@repo/interfaces/groupInterface";
+import { GroupClearReq, GroupDeleteReq, IGroupCreationReq, JoinGroupParams } from "@repo/interfaces/groupInterface";
 import { processMessagesForUser } from "@lib/messages";
-import { getReceiver } from "@lib/conversation";
+import { getParticipant } from "@lib/conversation";
 import useIndexedDb from "@lib/idb";
 import { encrypt } from "@lib/e2e";
 import { useSessionStore } from "store/sessionStore";
@@ -37,6 +38,8 @@ import { toast } from "react-toastify";
 import { usePersistentStore } from "store/persistentStore";
 import { IGroup } from "@interfaces/groupInterface";
 import otp_socket from "@lib/ws_otp";
+import { ISession } from "@repo/interfaces/sessionInterface";
+import { MemberReq } from "@repo/interfaces/groupInterface";
 
 declare global {
   interface Map<K, V> {
@@ -119,7 +122,7 @@ const useContextData = () => {
       const currentUser = conversationId === socket.selectedConversation?.id;
 
       const status = currentUser
-        ? userRef.current?.rules?.readReceipts.isVisible
+        ? !userRef.current?.rules?.includes("hide_readreceipts")
           ? IMessageReadReceipt.seen
           : IMessageReadReceipt.unseen
         : IMessageReadReceipt.received;
@@ -128,7 +131,8 @@ const useContextData = () => {
         userRef.current!,
         status,
         _messages,
-        updatesCollection
+        updatesCollection,
+        conversation
       );
 
       const mediaStore = { images: imageAttachments, link: urlAttachments };
@@ -140,7 +144,7 @@ const useContextData = () => {
       };
 
       if (!conversation.active) {
-        socket.emit("ACTIVATE_CONVERSATION", conversationId);
+        sendConversationActivationRequest(conversationId);
         updateConversation(conversationId, { ...conversationUpdates, active: true });
       } else updateConversation(conversationId, conversationUpdates);
 
@@ -155,11 +159,11 @@ const useContextData = () => {
         let receiver = { id: "", displayName: "", icon: "" };
 
         if (conversation.host === "user") {
-          const member = getReceiver(conversation);
+          const member = getParticipant(conversation);
           if (!member) return;
           receiver.id = member.id;
           receiver.displayName = member.username;
-          receiver.icon = member.rules?.profilePicture.isVisible ? member.profilePicture : "";
+          receiver.icon = !member.rules?.includes("hide_profilepicture") ? member.profilePicture : "";
         } else if (conversation.host === "group") {
           receiver.id = conversation.id!;
           receiver.displayName = conversation.displayName!;
@@ -233,33 +237,22 @@ const useContextData = () => {
 
     function handleAddingMembersToGroup(
       {
-        conversation,
         conversationId,
         members,
-        self,
       }: {
-        conversation: IGroupConversation;
         conversationId: string;
         members: IGroupMember[];
-        self: boolean;
       },
       systemMessages: IMessage[]
     ) {
-      const conversations = useConversationStore.getState().conversations;
-      const existingConversation = conversations.find((c) => c.host === "group" && c.conversationId === conversationId);
+      const existingConversation = useConversationStore
+        .getState()
+        .conversations.find((c) => c.host === "group" && c.conversationId === conversationId);
 
       if (existingConversation) {
         addMembers(conversationId, members);
-      } else {
-        setConversation(conversation);
+        if (systemMessages) setMessageStore(existingConversation?.id!, systemMessages);
       }
-
-      if (self) {
-        setSelectedConversation(existingConversation?.id!);
-        useStore.getState().setDeviceTab("chatarea");
-      }
-
-      if (systemMessages) setMessageStore(existingConversation?.id!, systemMessages);
     }
 
     function handleRemovingMemberFromGroup(
@@ -285,7 +278,7 @@ const useContextData = () => {
     }
 
     function handleCreatingUserConversation(conversation: IUserConversation, select: boolean) {
-      const receiver = getReceiver(conversation);
+      const receiver = getParticipant(conversation);
 
       setConversation(conversation);
       addNewUser(receiver!);
@@ -330,14 +323,23 @@ const useContextData = () => {
       if (systemMessages) setMessageStore(id, systemMessages);
     }
 
-    async function handleRemovingSession(expiredSessionId: string) {
-      const sessions = useSessionStore.getState().activeSessions;
+    async function handleSavingSession(session: ISession) {
+      const currentSession = useSessionStore.getState().currentSession;
+      const activeSessions = useSessionStore.getState().activeSessions;
 
-      sessions.forEach(async (s) => {
-        if (s.sessionId === expiredSessionId) {
-          await signOut();
-        }
-      });
+      const self = currentSession?.sessionId === session.sessionId;
+
+      if (self) return;
+      if (!activeSessions.some((s) => s.sessionId === session.sessionId)) {
+        useSessionStore.getState().actions.addSession(session);
+      }
+    }
+
+    async function handleRemovingSession(expiredSessionIds: string[]) {
+      const currentSession = useSessionStore.getState().currentSession;
+      if (expiredSessionIds.includes(currentSession?.sessionId!)) {
+        await signOut();
+      }
     }
 
     function handleOTPMessage(res: any) {
@@ -368,7 +370,34 @@ const useContextData = () => {
       else useConversationStore.getState().conversationActions.removeFromStarred(conversationId, chat.id);
     }
 
-    socket.on("user connected", onUserConnected);
+    function handleChangeUserRule({ userId, rule }: IUserRuleChangeRequest) {
+      updateConversationRule(userId, rule);
+    }
+
+    function handleDeletingGroupConversation(conversationId: string) {
+      clearConversationData(conversationId);
+    }
+
+    function handleJoiningGroup(conversation: IGroupConversation, systemMessages: IMessage[], self = false) {
+      const { id, conversationId, members, currentParticipation } = conversation;
+      const existingConversation = useConversationStore
+        .getState()
+        .conversations.find((c) => c.conversationId === conversationId);
+
+      if (existingConversation) {
+        const cid = existingConversation.id;
+        updateGroupConversation(cid, { members, currentParticipation });
+        if (self) setSelectedConversation(cid);
+        setMessageStore(cid, systemMessages);
+      } else {
+        setConversation(conversation);
+        setMessageStore(id, systemMessages);
+      }
+      
+      useStore.getState().setDeviceTab("chatarea");
+    }
+
+    socket.on("USER_CONNECTED", onUserConnected);
     socket.on("new user created", onNewUserCreated);
     socket.on("user disconnected", onUserDisconnected);
     socket.on("message receive", onMessageReceive);
@@ -379,6 +408,7 @@ const useContextData = () => {
     socket.on("group created", handleCreatingGroup);
     socket.on("GROUP_ADD_MEMBERS", handleAddingMembersToGroup);
     socket.on("GROUP_REMOVE_MEMBER", handleRemovingMemberFromGroup);
+    socket.on("JOIN_GROUP", handleJoiningGroup);
     socket.on("UPDATE_GROUP", handleUpdatingGroup);
     socket.on("SET_GROUP_ADMIN", setAdmin);
     socket.on("DELETE_CONVERSATION", handleDeletingConversation);
@@ -388,12 +418,15 @@ const useContextData = () => {
     socket.on("REMOVE_GROUP_TAG", handleRemovingGroupTag);
     socket.on("CLEAR_CONVERSATION", handleClearingConversation);
     socket.on("REGISTER_STARRED_MESSAGES", handleRegisteringStarredMessages);
+    socket.on("UPDATE_USER_RULE", handleChangeUserRule);
+    socket.on("DELETE_GROUP_CONVERSATION", handleDeletingGroupConversation);
 
+    socket.on("SAVE_SESSION", handleSavingSession);
     socket.on("END_SESSION", handleRemovingSession);
     socket.on("OTP_MESSAGE", handleOTPMessage);
 
     return () => {
-      socket.off("user connected", onUserConnected);
+      socket.off("USER_CONNECTED", onUserConnected);
       socket.off("new user created", onNewUserCreated);
       socket.off("user disconnected", onUserDisconnected);
       socket.off("message receive", onMessageReceive);
@@ -404,6 +437,7 @@ const useContextData = () => {
       socket.off("group created", handleCreatingGroup);
       socket.off("GROUP_ADD_MEMBERS", handleAddingMembersToGroup);
       socket.off("GROUP_REMOVE_MEMBER", handleRemovingMemberFromGroup);
+      socket.off("JOIN_GROUP", handleJoiningGroup);
       socket.off("UPDATE_GROUP", handleUpdatingGroup);
       socket.off("SET_GROUP_ADMIN", setAdmin);
       socket.off("DELETE_CONVERSATION", handleDeletingConversation);
@@ -412,22 +446,29 @@ const useContextData = () => {
       socket.off("ADD_GROUP_TAG", handleAddingGroupTag);
       socket.off("REMOVE_GROUP_TAG", handleRemovingGroupTag);
       socket.off("CLEAR_CONVERSATION", handleClearingConversation);
+      socket.off("REGISTER_STARRED_MESSAGES", handleRegisteringStarredMessages);
+      socket.off("UPDATE_USER_RULE", handleChangeUserRule);
+      socket.off("DELETE_GROUP_CONVERSATION", handleDeletingGroupConversation);
 
+      socket.on("SAVE_SESSION", handleSavingSession);
       socket.off("END_SESSION", handleRemovingSession);
       socket.off("OTP_MESSAGE", handleOTPMessage);
     };
   }, []);
 
+  const sendConversationActivationRequest = (conversationId: string) => {
+    socket.emit("ACTIVATE_CONVERSATION", conversationId);
+  };
+
   const disconectSocket = () => {
     socket?.disconnect();
   };
 
-  const deleteGroupConversation = (conversation: IConversation) => {
-    clearConversationData(conversation.id);
-    sendGroupConversationDeleteRequest(conversation);
+  //senders///////////////////////////
+  const sendPresence = (to: Array<string>, session: ISession) => {
+    socket.emit("USER_CONNECTED", to, session);
   };
 
-  //senders///////////////////////////
   const sendOTPVerificationRequest = (userId: string) => {
     otp_socket.auth = { OTP_REQUEST: true };
     otp_socket.connect();
@@ -436,8 +477,8 @@ const useContextData = () => {
     });
   };
 
-  const sendRequestToEndSession = (sessionId: string) => {
-    socket.emit("END_SESSION", sessionId);
+  const sendRequestToEndSession = (sessionIds: string[]) => {
+    socket.emit("END_SESSION", sessionIds);
   };
 
   const addGroupTag = (req: { conversation: IGroupConversation; tag: string }) => {
@@ -464,13 +505,13 @@ const useContextData = () => {
     socket.emit("UNREGISTER_STARRED_MESSAGES", req);
   };
 
-  const sendRequestToRegisterConversation = (conversation: INewConversation) => {
-    socket.emit("REGISTER_CONVERSATION", conversation);
+  const sendRequestToRegisterConversation = (members: IUser[], props?: GenerateConversationProps) => {
+    socket.emit("REGISTER_CONVERSATION", members, props);
   };
 
-  const sendRequestToRegisterUserConversation = (conversations: IUserConversation[]) => {
-    socket.emit("REGISTER_USER_CONVERSATION", conversations);
-  };
+  // const sendRequestToRegisterUserConversation = (conversations: IUserConversation[]) => {
+  //   socket.emit("REGISTER_USER_CONVERSATION", conversations);
+  // };
 
   const sendRequestToArchiveConversation = (conversation: IConversation) => {
     socket.emit("ARCHIVE_CONVERSATION", conversation);
@@ -484,16 +525,16 @@ const useContextData = () => {
     socket.emit("CLEAR_CONVERSATION", id);
   };
 
-  const sendRequestToClearGroupConversation = (id: string) => {
-    socket.emit("CLEAR_GROUP_CONVERSATION", id);
+  const sendRequestToClearGroupConversation = (req: GroupClearReq) => {
+    socket.emit("CLEAR_GROUP_CONVERSATION", req);
   };
 
   const sendConversationDeleteRequest = (conversationId: string) => {
     socket.emit("DELETE_CONVERSATION", conversationId);
   };
 
-  const sendGroupConversationDeleteRequest = (conversation: IConversation) => {
-    socket.emit("DELETE_GROUP_CONVERSATION", conversation);
+  const sendGroupConversationDeleteRequest = (req: GroupDeleteReq) => {
+    socket.emit("DELETE_GROUP_CONVERSATION", req);
   };
 
   const makeAdmin = (conversation: IGroupConversation, userId: string) => {
@@ -507,15 +548,23 @@ const useContextData = () => {
     socket.emit("USER_REMOVE_FROM_ADMIN", { conversation, userId });
   };
 
-  const removeMemberFromGroup = (conversation: IGroupConversation, user: IGroupMember) => {
+  const removeMemberFromGroup = (conversation: IGroupConversation, user: IGroupMember, memberId?: string) => {
     socket.emit("GROUP_REMOVE_MEMBER", {
       conversation,
       user,
+      memberId,
       admin: userRef.current,
     });
   };
 
   const addMembersToGroup = (conversation: IGroupConversation, members: IUser[]) => {
+    // const member = selectedUsers.map(u=>({
+    //   _id: new ObjectID().toHexString(),
+    //   conversationId: group.id,
+    //   userId: user!.id,
+    //   joinedAt: Date.now(),
+    // }));
+
     socket.emit("GROUP_ADD_MEMBERS", {
       conversation,
       members,
@@ -523,8 +572,8 @@ const useContextData = () => {
     });
   };
 
-  const sendGroupjoinRequest = (group: IGroup, user: IUser, conversationExist = false) => {
-    socket.emit("JOIN_GROUP", { group, user, conversationExist });
+  const sendGroupjoinRequest = ({ conversation, user, create = false }: JoinGroupParams) => {
+    socket.emit("JOIN_GROUP", { conversation, user, create });
   };
 
   const leaveGroup = (conversation: IGroupConversation, user: IUser) => {
@@ -535,7 +584,17 @@ const useContextData = () => {
     socket.emit("GROUP_FIND_BY_ID", conversationId);
   };
 
-  const sendMessage = (conversation: IConversation, messages: IMessage[]) => {
+  const sendMessage = ({
+    conversation,
+    messages,
+    replacePlaceholder,
+    callback,
+  }: {
+    conversation: IConversation;
+    messages: IMessage[];
+    replacePlaceholder?: boolean;
+    callback?: () => void;
+  }) => {
     if (conversation.host === "system") return;
     let conversationId = conversation.conversationId!;
     let receivers;
@@ -565,11 +624,16 @@ const useContextData = () => {
     //   updatedAt: recentMessage.timestamp,
     // });
 
-    socket.emit("message", {
-      messages,
-      conversationId,
-      to: receivers,
-    });
+    socket.emit(
+      "message",
+      {
+        messages,
+        conversationId,
+        to: receivers,
+        replacePlaceholder,
+      },
+      callback
+    );
   };
 
   const deleteMessageForAll = (updates: IDeleteRequest) => {
@@ -586,12 +650,14 @@ const useContextData = () => {
     });
   };
 
-  const sendGroupCreationRequest = (req: IGroupCreationReq) => {
-    socket.emit("create group", req);
+  const sendGroupCreationRequest = (req: any) => {
+    socket.emit("create group", req, (data: any) => {
+      console.log(data);
+    });
   };
 
-  const sendUserBlockRequest = ({ conversation, userConversation }: IUserBlockRequest) => {
-    socket.emit("UPDATE_USER_BLOCK_STATUS", { userConversation, conversation, value: true });
+  const sendUserBlockRequest = ({ userConversation }: IUserBlockRequest) => {
+    socket.emit("UPDATE_USER_BLOCK_STATUS", { userConversation, value: true });
   };
 
   const sendUserUnBlockRequest = (userConversation: IUserConversation) => {
@@ -602,21 +668,20 @@ const useContextData = () => {
     socket.emit("UPDATE_USER", req);
   };
 
-  type RuleReq = { userId: string; updates: { rules: Partial<IUser["rules"]> } };
+  const sendUserRuleChangeRequest = (req: IUserRuleChangeRequest) => {
+    const sockets = getSocketChannels();
 
-  const sendUserRuleChangeRequest = (req: RuleReq) => {
-    const channels = getSocketChannels();
-    socket.emit("UPDATE_USER_RULE", req, channels, ({ userId, updates: { rules } }: IUserRuleChangeRequest) => {
+    socket.emit("UPDATE_USER_RULE", req, sockets, ({ userId, rule }: IUserRuleChangeRequest) => {
       if (userId === userRef.current?.id) {
-        let newRules = { ...userRef.current?.rules, ...rules };
-        const newUsers = { ...userRef.current, rules: newRules, updatedAt: Date.now() } as IUser;
+        const hasRule = userRef.current?.rules?.includes(rule);
+        let newRules = hasRule
+          ? userRef.current?.rules?.filter((r) => r !== rule)!
+          : [...(userRef.current?.rules || []), rule];
 
-        updateSession(newUsers);
-
+        const update = { ...userRef.current, rules: newRules, updatedAt: Date.now() } as IUser;
+        updateSession(update);
         return;
       }
-
-      updateConversationRule(userId, rules);
     });
   };
 
@@ -665,6 +730,7 @@ const useContextData = () => {
   };
 
   return {
+    sendPresence,
     sendMessage,
     disconectSocket,
     sendReadReceiptChangeRequest,
@@ -689,9 +755,8 @@ const useContextData = () => {
     sendRequestToClearUserConversation,
     sendRequestToArchiveConversation,
     sendRequestToUnarchiveConversation,
-    deleteGroupConversation,
     sendRequestToRegisterConversation,
-    sendRequestToRegisterUserConversation,
+    // sendRequestToRegisterUserConversation,
     sendRequestToRegisterStarredMessage,
     sendRequestToUnRegisterStarredMessage,
     addGroupTag,
@@ -699,6 +764,7 @@ const useContextData = () => {
     sendRequestToEndSession,
     sendOTPVerificationRequest,
     registerChannels,
+    sendConversationActivationRequest,
   };
 };
 

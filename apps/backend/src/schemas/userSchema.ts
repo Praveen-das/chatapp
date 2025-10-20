@@ -2,18 +2,9 @@ import { z } from "zod";
 import { objectId } from "./objectId";
 import Dot from "dot-object";
 
-Dot.keepArray = true
+Dot.keepArray = true;
 
-const rule = z.object({ isVisible: z.boolean() });
-
-export const userRules = z
-  .object({
-    profilePicture: rule,
-    bio: rule,
-    lastSeen: rule,
-    readReceipts: rule,
-  })
-  .partial();
+export const userRules = z.array(z.enum(["hide_profilepicture", "hide_bio", "hide_lastseen", "hide_readreceipts"]));
 
 export const userSchema = z.object({
   id: z.string(),

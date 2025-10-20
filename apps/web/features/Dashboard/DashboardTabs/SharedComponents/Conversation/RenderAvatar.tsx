@@ -15,11 +15,11 @@ export function RenderAvatar({ conversation, receiver }: { conversation: IConver
   const blockedConversation = conversation.blocked;
 
   const isOnline = receiver.status === "online";
-
+ 
   return (
     <Avatar
       url={receiver.profilePicture}
-      profileHidden={!receiver.rules?.profilePicture.isVisible}
+      profileHidden={Boolean(receiver.rules?.includes("hide_profilepicture"))}
       online={!blockedConversation && isOnline}
     />
   );

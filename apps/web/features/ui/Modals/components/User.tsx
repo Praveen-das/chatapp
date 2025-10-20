@@ -16,7 +16,7 @@ export function User({
       <Avatar
         url={person.profilePicture}
         onlineIndication={false}
-        profileHidden={!person.rules?.profilePicture.isVisible}
+        profileHidden={Boolean(person.rules?.includes("hide_profilepicture"))}
         size="40px"
       />
       <div className="h-full w-full flex justify-between items-center">

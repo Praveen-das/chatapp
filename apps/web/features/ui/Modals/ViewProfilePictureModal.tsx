@@ -1,7 +1,8 @@
 import { useStore } from "../../../store/global";
 import Image from "next/image";
 import { downloadFromUrl } from "@lib/utils";
-import { ArrowDownTrayIcon, UserIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import { ArrowDownTrayIcon, XMarkIcon } from "@heroicons/react/24/solid";
+import { UserIcon } from "@heroicons/react/24/outline";
 import Avatar from "@features/ui/Avatar";
 import { IModal } from "@interfaces/modalInterface";
 import FramerWrapper from "../MotionWrapper";
@@ -31,9 +32,11 @@ export const ViewProfilePictureModal = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            <div onClick={handleDownload} className="btn btn-circle btn-sm btn-ghost ml-auto">
-              <ArrowDownTrayIcon className="size-5" />
-            </div>
+            {url && (
+              <div onClick={handleDownload} className="btn btn-circle btn-sm btn-ghost ml-auto">
+                <ArrowDownTrayIcon className="size-5" />
+              </div>
+            )}
             <form method="dialog">
               <button className="btn btn-circle btn-sm btn-ghost ml-auto">
                 <XMarkIcon className="size-5" />
@@ -42,7 +45,7 @@ export const ViewProfilePictureModal = () => {
           </div>
         </div>
         <div className="flex flex-col w-full h-full">
-          <div className="w-full h-full relative">
+          <div className="w-full h-full relative flex justify-center items-center ">
             {url ? (
               <Image
                 fill
@@ -52,7 +55,9 @@ export const ViewProfilePictureModal = () => {
                 alt="profile picture"
               />
             ) : (
-              <UserIcon />
+              <div className="bg-[--avatarBg] h-2/4 aspect-square rounded-full flex justify-center items-center">
+                <UserIcon className="size-2/4 duration-200" />
+              </div>
             )}
           </div>
         </div>

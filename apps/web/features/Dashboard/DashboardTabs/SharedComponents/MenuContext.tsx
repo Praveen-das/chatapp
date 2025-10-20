@@ -1,6 +1,6 @@
 import Menu from "@features/ui/Menu";
 import useAuth from "@hooks/useAuth";
-import { IConversation, IUserConversation } from "@repo/interfaces/conversationInterface";
+import { IConversation, IGroupConversation, IUserConversation } from "@repo/interfaces/conversationInterface";
 import useSocket from "context/SocketProvider";
 import { memo } from "react";
 import { useConversationStore } from "store/conversationStore";
@@ -15,7 +15,7 @@ function MenuContext() {
     sendUserUnBlockRequest,
     sendRequestToArchiveConversation,
     sendRequestToUnarchiveConversation,
-    deleteGroupConversation,
+    sendGroupConversationDeleteRequest,
   } = useSocket();
 
   const setModal = useStore((s) => s.setModal);
@@ -51,8 +51,13 @@ function MenuContext() {
     clearImages();
   };
 
-  const handleDeletingGroup = (conversation: IConversation) => {
-    deleteGroupConversation(conversation);
+  const handleDeletingGroup = ({ conversationId,id, channelId }: IGroupConversation) => {
+    sendGroupConversationDeleteRequest({
+      conversationId:id,
+      groupId:conversationId,
+      channelId:channelId!,
+      userId: user?.id!,
+    });
     clearImages();
   };
 

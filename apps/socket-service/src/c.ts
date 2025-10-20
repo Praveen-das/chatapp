@@ -33,7 +33,7 @@ if (cluster.isPrimary) {
 
 } else {
   console.log(`Worker ${process.pid} started`);
-  import(".")
+  // import(".")
 }
 
 

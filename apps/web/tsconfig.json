@@ -23,5 +23,5 @@
     "**/*.tsx",
     ".next/types/**/*.ts"
 , "app/(dashboard)/page.tsx", "features/ui/EmojiPicker.tsx", "app/invite/route.js", "app/manifestats", "scripts/generate-vapid-keys.js", "a.ts", "actions/jwtts", "../../packages/schemas/userSchema.ts"  ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules",".next"]
 }

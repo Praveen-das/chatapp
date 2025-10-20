@@ -13,6 +13,7 @@ type Props = {
   isFocused: MutableRefObject<boolean>;
   isScrolledToBottom: MutableRefObject<boolean>;
   onScrolledToTop: () => void;
+  container: MutableRefObject<HTMLDivElement | null>;
 };
 
 function useScrollHandler({
@@ -26,12 +27,15 @@ function useScrollHandler({
   isFocused,
   isScrolledToBottom,
   onScrolledToTop,
+  container,
 }: Props) {
-  const canShift = useRef(false);
   const isStartElm = useRef(false);
 
   const onScroll = useCallback(() => {
     if (!listRef) return;
+    if (!container.current) return;
+
+    if (container.current.scrollHeight < container.current.clientHeight + 100) return;
 
     let THRESHOLD = 2;
     let startIndex = listRef?.findStartIndex()!;
@@ -41,15 +45,13 @@ function useScrollHandler({
 
     // scrollbar reaches the top
     if (startIndex <= THRESHOLD && !isStartElm.current) {
-      onScrolledToTop()
-      canShift.current = true; //
+      onScrolledToTop();
       isStartElm.current = true;
     }
 
     // scrollbar move from top
     if (startIndex > THRESHOLD) {
       isStartElm.current = false;
-      canShift.current = false;
     }
 
     if (endIndex > lastReadMsgIndex) {
@@ -66,14 +68,10 @@ function useScrollHandler({
   useEffect(() => {
     return () => {
       isStartElm.current = false;
-      canShift.current = false;
     };
   }, [id]);
 
-  return {
-    onScroll,
-    canShift,
-  };
+  return onScroll
 }
 
 export default useScrollHandler;

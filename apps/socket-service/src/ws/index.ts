@@ -5,8 +5,6 @@ import { createAdapter } from "@socket.io/redis-adapter";
 
 import { onConnection } from "./registerConnectionHandler";
 import { IHttpServer, ISocketService } from "../interfaces/socketInterfaces";
-import otpAuthMiddleware from "../middleware/otpAuthMiddleware";
-import { onOTPConnection } from "./registerOTPConnectionHandler";
 
 class SocketService implements ISocketService {
   io;

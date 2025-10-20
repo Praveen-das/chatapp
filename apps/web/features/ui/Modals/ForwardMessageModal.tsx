@@ -30,6 +30,7 @@ export const ForwardMessageModal = ({ title }: { title: string }) => {
   const [selectedUsers, setSelectedUsers] = useState<IUser[]>([]);
   const [selectedConversations, setSelectedConversations] = useState<IConversation[]>([]);
   const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const conversationsQueryResult = useMemo(() => {
     if (!query) return [];
@@ -54,6 +55,10 @@ export const ForwardMessageModal = ({ title }: { title: string }) => {
   };
 
   const handleMessageForward = () => {
+    if (loading) return;
+
+    setLoading(true);
+
     selectedConversations.forEach(async (conversation) => {
       let messages = await Promise.all(
         selectedChats.map((message) => {
@@ -62,7 +67,11 @@ export const ForwardMessageModal = ({ title }: { title: string }) => {
         })
       );
 
-      sendMessage(conversation, messages);
+      sendMessage({
+        conversation,
+        messages,
+        callback: () => setLoading(false),
+      });
     });
 
     setSelectedUsers([]);
@@ -91,7 +100,7 @@ export const ForwardMessageModal = ({ title }: { title: string }) => {
     >
       <ModalTitle>{title}</ModalTitle>
       <div className="max-sm:px-4 px-6 mt-4">
-        <SearchUser onChange={setQuery} />
+        <SearchUser query={query} onChange={setQuery} />
       </div>
       <div className="w-full h-full space-y-2 overflow-y-scroll no-scrollbar mt-4">
         <span className="flex w-full max-sm:px-4 pl-6 pt-2 pb-1 text-sm">Recents Chats</span>

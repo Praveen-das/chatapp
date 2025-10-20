@@ -2,10 +2,11 @@
 
 import TagInput from "@features/ui/TagInput";
 import { ChevronRightIcon } from "@heroicons/react/24/solid";
-import { PropsWithChildren, memo, useCallback } from "react";
-import useSocket from "../../../../context/SocketProvider";
+import useConversation from "@hooks/useConversation";
 import { IConversation, IGroupConversation, IUserConversation } from "@repo/interfaces/conversationInterface";
 import { IUser } from "@repo/interfaces/userInterface";
+import { memo, useCallback } from "react";
+import useSocket from "../../../../context/SocketProvider";
 import { useConversationStore } from "../../../../store/conversationStore";
 import { useStore } from "../../../../store/global";
 import { useMessageStore } from "../../../../store/messageStore";
@@ -13,7 +14,6 @@ import Avatar from "../../../ui/Avatar";
 import MediaSelection from "../SharedComponents/MediaSelection";
 import NotificationToggle from "../SharedComponents/NotificationToggle";
 import StarredMessages from "../SharedComponents/StarredMessages";
-import useConversation from "@hooks/useConversation";
 
 function UserProfile({ user, showChatOption = false }: { user: IUser; showChatOption?: boolean }) {
   const { sendUserBlockRequest, sendUserUnBlockRequest, sendConversationDeleteRequest } = useSocket();
@@ -96,7 +96,7 @@ function UserProfile({ user, showChatOption = false }: { user: IUser; showChatOp
         <div className="flex gap-8 items-center max-sm:px-4 px-8">
           <Avatar
             url={user.profilePicture}
-            profileHidden={!user?.rules?.profilePicture.isVisible}
+            profileHidden={Boolean(user.rules?.includes("hide_profilepicture"))}
             size="70px"
             onlineIndication={false}
             onClick={openViewProfilePictureModal}
@@ -110,7 +110,7 @@ function UserProfile({ user, showChatOption = false }: { user: IUser; showChatOp
         </div>
 
         {/* about */}
-        {user.bio && user?.rules?.bio.isVisible && (
+        {user.bio && !user?.rules?.includes('hide_bio') && (
           <div className="w-full flex flex-col max-sm:px-4 px-8">
             <p className="leading-7">{user.bio}</p>
           </div>

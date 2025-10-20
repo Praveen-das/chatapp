@@ -1,43 +1,56 @@
 import { IUser } from "@repo/interfaces/userInterface";
-import { INewConversation, IUserConversation } from "@repo/interfaces/conversationInterface";
+import { GenerateConversationProps, INewConversation, IUserConversation } from "@repo/interfaces/conversationInterface";
 import { Types } from "mongoose";
 
-export function handleGeneratingConversation(sender: IUser, receiver: IUser) {
-  const conversation = generateConversation(sender, receiver);
-  const userConversations = generateUserConversations(conversation);
+export function handleGeneratingConversation(members: [IUser, IUser], props?: GenerateConversationProps) {
+  const conversation = generateConversation(members);
+  const userConversations = generateUserConversations(conversation, members, props);
 
   return { conversation, userConversations };
 }
 
-export function handleGeneratingSystemConversation(sender: IUser, receiver: IUser) {
-  const conversation = generateConversation(sender, receiver);
-  const userConversations = generateUserConversations(conversation);
+export function handleGeneratingSystemConversation(members: [IUser, IUser]) {
+  const conversation = generateConversation(members);
+  const userConversations = generateUserConversations(conversation, members);
 
   return { conversation, userConversations };
 }
 
-export function generateConversation(sender: IUser, receiver: IUser): INewConversation {
+export function generateConversation(members: [IUser, IUser]): INewConversation {
   return {
     id: new Types.ObjectId().toHexString(),
     host: "user",
-    members: [sender, receiver],
+    members: members.map(({ id }) => id),
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
 }
 
-export function generateUserConversations(conversation: INewConversation): IUserConversation[] {
-  return conversation.members.map((member) => ({
-    id: new Types.ObjectId().toHexString(),
-    userId: member.id,
-    conversationId: conversation.id,
-    members: conversation.members,
-    host: conversation.host,
-    active: false,
+export function generateUserConversations(
+  conversation: INewConversation,
+  members: [IUser, IUser],
+  props?: GenerateConversationProps
+): IUserConversation[] {
+  return members.map((member) => {
+    const c: IUserConversation = {
+      id: new Types.ObjectId().toHexString(),
+      userId: member.id,
+      conversationId: conversation.id,
+      members,
+      host: conversation.host,
+      active: false,
 
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  }));
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    if (props?.blocked) {
+      if (member.id === props.blocked.userId) c.blocked = true;
+      else c.blockedByUser = true;
+    }
+
+    return c;
+  });
 }
 
 export function generateGroup({

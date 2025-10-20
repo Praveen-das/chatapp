@@ -3,13 +3,13 @@ import useSocket from "../../../context/SocketProvider";
 import useAuth from "../../../hooks/useAuth";
 import Avatar from "../Avatar";
 import { useStore } from "../../../store/global";
-import { IGroupConversation } from "@repo/interfaces/conversationInterface";
 import { useConversationStore } from "store/conversationStore";
 import { useEffect, useState } from "react";
 import useAxios from "@hooks/useAxios";
 import { IModal } from "@interfaces/modalInterface";
 import { IGroup } from "@interfaces/groupInterface";
 import FramerWrapper from "../MotionWrapper";
+import ObjectID from "bson-objectid";
 
 export const JoinGroupModal = () => {
   const axios = useAxios();
@@ -24,12 +24,46 @@ export const JoinGroupModal = () => {
 
   function handleJoiningGroup() {
     if (!group) return;
+    if (!user) return;
 
-    sendGroupjoinRequest(
-      group!,
-      user!,
-      conversations.some((c) => c.conversationId === group.id)
-    );
+    let groupConversation: any = {};
+    const userId = user.id;
+    const memberId = new ObjectID().toHexString();
+
+    const member = {
+      _id: memberId,
+      conversationId: group.id,
+      userId,
+      joinedAt: Date.now(),
+    };
+
+    delete group._id;
+
+    const existingConversation = conversations.find((c) => c.conversationId === group.id);
+    
+    const members = [...group.members, { ...user, memberId }];
+
+    if (!existingConversation) {
+      groupConversation = {
+        ...group,
+        id: new ObjectID().toHexString(),
+        conversationId: group.id,
+        userId,
+        members,
+        active: true,
+        joinedAt: Date.now(),
+        updatedAt: Date.now(),
+        currentParticipation: member,
+      };
+    } else {
+      groupConversation = { ...existingConversation, currentParticipation: member, members };
+    }
+
+    sendGroupjoinRequest({
+      conversation: groupConversation!,
+      user,
+      create: !existingConversation,
+    });
 
     setModal(false);
   }
@@ -40,10 +74,8 @@ export const JoinGroupModal = () => {
         setLoading(true);
         const fetchedGroup = await axios<IGroup[]>(`/db/group/fetch/${invitationId}`).then((res) => res.data[0]);
 
-        setLoading(false);
-
         if (fetchedGroup) {
-          if (fetchedGroup.members.find((m) => m.id === user?.id)) {
+          if (fetchedGroup.members.find((m: any) => m.id === user?.id)) {
             const conversationId = useConversationStore
               .getState()
               .conversations.find((c) => c.conversationId === fetchedGroup.id)?.id!;
@@ -54,6 +86,7 @@ export const JoinGroupModal = () => {
             setGroup(fetchedGroup);
           }
         } else {
+          setGroup(null);
         }
       } catch (error) {
         console.log(error);
@@ -64,7 +97,9 @@ export const JoinGroupModal = () => {
   }, [invitationId, user]);
 
   return (
-    <FramerWrapper className={`modal-box p-8 py-10 relative flex gap-2 items-center flex-col max-w-[400px] bg-[--modal]`}>
+    <FramerWrapper
+      className={`modal-box p-8 py-10 relative flex gap-2 items-center flex-col max-w-[400px] bg-[--modal]`}
+    >
       {loading ? (
         <span className="loading loading-spinner loading-lg"></span>
       ) : !group ? (

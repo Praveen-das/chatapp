@@ -19,7 +19,18 @@ import { useMessageStore } from "store/messageStore";
 const useContextData = () => {
   const axios = useAxios();
   const router = useRouter();
-  const { data: session, update } = useSession();
+  const { data: session, update } = useSession({
+    onUnauthenticated: () => {
+      useStore.getState().reset();
+      useAttachments.getState().reset();
+      useMenu.getState().reset();
+      useSearch.getState().reset();
+      useSessionStore.getState().reset();
+      useConversationStore.getState().reset();
+      useMessageStore.getState().reset();
+    },
+    required: true,
+  });
   const { setAccessToken } = useAccessToken();
 
   const [isMounted, setMounted] = useState(false);
@@ -28,8 +39,8 @@ const useContextData = () => {
   useEffect(() => {
     async function init() {
       try {
-        if (!session?.user) return;
-
+        if (!user) return;
+        
         const accessToken = await refreshToken();
 
         if (!accessToken) await signOut();
@@ -43,17 +54,7 @@ const useContextData = () => {
     }
 
     init();
-
-    return () => {
-      useStore.getState().reset();
-      useAttachments.getState().reset();
-      useMenu.getState().reset();
-      useSearch.getState().reset();
-      useSessionStore.getState().reset();
-      useConversationStore.getState().reset();
-      useMessageStore.getState().reset();
-    };
-  }, [session]);
+  }, [user]);
 
   const updateSession = async (updatedUser: IUser) => {
     await update({ user: updatedUser });
@@ -66,15 +67,24 @@ const useContextData = () => {
           .put(`/db/user`, { id: user?.id, updates: { [key]: value } })
           .then((res) => res.data);
 
-        if (!updatedUser.errors) {
-          await updateSession(updatedUser);
-          toast.success(`${key} updated successfully`);
+        if (updatedUser.error) {
+          if (updatedUser.error.code === 11000) {
+            toast.error('Username already exists');
+            return;
+          }
+          toast.error(updatedUser.error.message);
           return;
         }
 
-        updatedUser.errors.forEach((error: any) => {
-          toast.error(error.message);
-        });
+        if (updatedUser.errors) {
+          updatedUser.errors.forEach((error: any) => {
+            toast.error(error.message);
+          });
+          return;
+        }
+
+        await updateSession(updatedUser);
+        toast.success(`${key} updated successfully`);
       } catch (error) {
         console.log(error);
       }

@@ -5,32 +5,35 @@ import { IUpdateBlockReq, IUserBlockRequest } from "@repo/interfaces/conversatio
 import { IUserRuleChangeRequest } from "@repo/interfaces/userInterface";
 
 export default async function registerUserHandlers(io: Server, socket: ISocket) {
-  io.emit("user connected", { userId: socket.userId });
-
   produceMessage({ id: socket.userId, updates: { status: "online", lastSeen: Date.now() } }, "UPDATE_USER");
+
+  socket.on("USER_CONNECTED", async (to: string[], session: any) => {
+    io.to(socket.userId!).emit("SAVE_SESSION", session);
+    io.to(to).emit("USER_CONNECTED", { userId: socket.userId });
+  });
 
   socket.on(
     "UPDATE_USER_BLOCK_STATUS",
-    ({ userConversation, conversation, userConversations, value }: { value: boolean } & IUserBlockRequest) => {
-      if (!!userConversations?.length) {
-        const members: string[] = [];
+    ({ userConversation, value }: { value: boolean } & IUserBlockRequest) => {
+      // if (!!userConversations?.length) {
+      //   const members: string[] = [];
 
-        userConversations.forEach((c) => {
-          members.push(c.userId);
-          io.to(c.userId).emit("CREATE_USER_CONVERSATION", c);
-        });
+      //   userConversations.forEach((c) => {
+      //     members.push(c.userId);
+      //     io.to(c.userId).emit("CREATE_USER_CONVERSATION", c);
+      //   });
 
-        produceMessage({ userConversations }, "CREATE_USER_CONVERSATION");
-        produceMessage({ ...conversation, members }, "CREATE_CONVERSATION");
-        return;
-      }
+      //   produceMessage({ userConversations }, "CREATE_USER_CONVERSATION");
+      //   produceMessage({ ...conversation, members }, "CREATE_CONVERSATION");
+      //   return;
+      // }
 
       if (userConversation) {
         const req: IUpdateBlockReq = {
           conversationId: userConversation.conversationId,
           value,
-          requestedUserId:'',
-          userId:'',
+          requestedUserId: "",
+          userId: "",
         };
 
         userConversation.members.forEach(({ id }) => {
@@ -60,14 +63,11 @@ export default async function registerUserHandlers(io: Server, socket: ISocket) 
     produceMessage(body, "UPDATE_USER");
   });
 
-  socket.on("UPDATE_USER_RULE", (req: IUserRuleChangeRequest, channels: string[], callback) => {
-    const body = {
-      id: req.userId,
-      updates: req.updates,
-    };
-
+  socket.on("UPDATE_USER_RULE", (req: IUserRuleChangeRequest, sockets: string[], callback) => {
+    sockets.forEach((id) => {
+      io.to(id).emit("UPDATE_USER_RULE", req);
+    });
     callback(req);
-
-    produceMessage(body, "UPDATE_USER");
+    // produceMessage(req, "UPDATE_USER_RULE");
   });
 }

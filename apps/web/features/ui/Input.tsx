@@ -27,7 +27,7 @@ export function Input({
     <>
       <AnimatePresence>
         {open && (
-          <div className="w-full relative z-50">
+          <div className="w-full z-50 absolute">
             <motion.div
               variants={motionconfig.settings}
               initial="hidden"

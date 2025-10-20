@@ -64,6 +64,10 @@ export const authOptions: AuthOptions = {
 
               const newUser = await createUser(req)!;
               if (!newUser) throw new Error("USER_CREATION_FAILED");
+              if (newUser.error) {
+                if (newUser.error.code === 11000) throw new Error("Username already exists");
+                throw new Error(newUser.error.message);
+              }
               return newUser;
             }
           }

@@ -3,7 +3,7 @@ import messageController from "../controller/messageController";
 
 const router = Router();
 
-router.get("/fetch", messageController._getMessages);
+router.get("/fetch", messageController._getUserMessages);
 
 router.get("/attachments");
 

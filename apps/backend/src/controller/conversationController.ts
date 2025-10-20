@@ -7,11 +7,15 @@ import { objectId } from "../schemas/objectId";
 
 const _createConversation = async (req: string, reset: () => void) => {
   try {
-    const { conversation: body } = JSON.parse(req);
+    const parsed = JSON.parse(req);
 
-    let conversation = conversationSchema.parse(body);
+    if(!parsed.conversation) throw Error('Conversation empty')
+    if(!parsed.userConversations) throw Error('UserConversations empty')
 
-    const response = await conversationServices.createConversation(conversation);
+    let conversation = conversationSchema.parse(parsed.conversation);
+    const userConversations = userConversationsSchema.parse(parsed.userConversations);
+
+    const response = await conversationServices.saveConversations(conversation,userConversations);
   } catch (error) {
     console.log(error);
     reset();
@@ -33,21 +37,22 @@ const _createUserConversation = async (req: string, reset: () => void) => {
 const _createGroupConversation = async (req: string, reset: () => void) => {
   try {
     let { groupConversations: body } = JSON.parse(req);
-
     const groupConversations = groupConversationsSchema.parse(body);
-
     const response = await conversationServices.createGroupConversation(groupConversations);
   } catch (error) {
-    console.log(error);
+    console.log('_createGroupConversation----->',error);
     reset();
   }
 };
 
 const _deleteGroupConversation = async (req: string, reset: () => void) => {
   try {
-    const parsed: string = JSON.parse(req);
-    let id = objectId.parse(parsed);
-    const response = await conversationServices.deleteGroupConversation(id);
+    const parsed: any = JSON.parse(req);
+
+    let userId = objectId.parse(parsed.userId);
+    let groupId = objectId.parse(parsed.groupId);
+
+    const response = await conversationServices.deleteGroupConversation(userId,groupId);
   } catch (error) {
     console.log(error);
     reset();

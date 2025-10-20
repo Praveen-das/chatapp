@@ -1,44 +1,40 @@
-import { useCallback, useMemo } from "react";
-import { useStore } from "../store/global";
-import { IUser } from "@repo/interfaces/userInterface";
 import { findUserConversation } from "@lib/conversation";
-import { useConversationStore } from "store/conversationStore";
+import { IUser } from "@repo/interfaces/userInterface";
 import useSocket from "context/SocketProvider";
-import { handleGeneratingConversation } from "@repo/utils/index";
 import { getSession } from "next-auth/react";
+import { useCallback } from "react";
+import { useConversationStore } from "store/conversationStore";
 
 const { setSelectedConversation } = useConversationStore.getState().conversationActions;
 
 const useConversation = () => {
-  const { sendRequestToRegisterConversation, sendRequestToRegisterUserConversation } = useSocket();
+  const { sendRequestToRegisterConversation } = useSocket();
 
-  const startConversation = useCallback(async (user: IUser) => {
-    if (!user) return;
+  const startConversation = useCallback(async (participant: IUser) => {
+    if (!participant) return;
 
-    const conversation = findUserConversation(user.id);
+    const conversation = findUserConversation(participant.id);
 
     if (conversation) setSelectedConversation(conversation.id);
     else {
-      const { user: sender } = (await getSession())!;
-      const { conversation: newConversation, userConversations } = handleGeneratingConversation(user!, sender!);
-
-      sendRequestToRegisterConversation(newConversation);
-      sendRequestToRegisterUserConversation(userConversations);
+      const { user } = (await getSession())!;
+      if (!user) return;
+      sendRequestToRegisterConversation([user, participant]);
     }
   }, []);
 
-  const startSystemConversation = useCallback(async (user: IUser) => {
-    if (!user) return;
+  // const startSystemConversation = useCallback(async (user: IUser) => {
+  //   if (!user) return;
 
-    const { user: sender } = (await getSession())!;
-    const { conversation, userConversations } = handleGeneratingConversation(user!, sender!);
+  //   const { user: sender } = (await getSession())!;
+  //   const { conversation, userConversations } = handleGeneratingConversation(user!, sender!);
 
-    sendRequestToRegisterConversation(conversation);
-    sendRequestToRegisterUserConversation(userConversations);
-  }, []);
+  //   sendRequestToRegisterConversation(conversation);
+  //   sendRequestToRegisterUserConversation(userConversations);
+  // }, []);
 
   return {
-    startConversation
+    startConversation,
   };
 };
 

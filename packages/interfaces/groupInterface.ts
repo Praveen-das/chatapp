@@ -1,36 +1,51 @@
 import ObjectID from "bson-objectid";
-import { IGroupMember } from "./conversationInterface";
+import { IGroupConversation, IGroupMember } from "./conversationInterface";
 import { IMessage } from "./messageInterface";
 import { IUser } from "./userInterface";
 import { Types } from "mongoose";
 
 export interface IGroupCreationReq {
-  id: string,
-  channelId: string,
-  invitationId?: string,
-  displayName:string,
-  profilePicture: string,
-  admins: string[],
-  host: string,
-  members: IUser[],
-  createdBy: string,
-  createdAt: number,
-  updatedAt: number,
+  groupId: string;
+  displayName: string;
+  profilePicture: string;
+  selectedMembers: IUser[];
 }
 
+export type MemberReq = {
+  _id: string;
+  conversationId: string;
+  userId: string;
+  joinedAt: number;
+  exitedAt?: number;
+};
+
+export type GroupDeleteReq = { groupId: string; conversationId: string; channelId: string; userId: string };
+export type GroupClearReq = {
+  conversationId: string;
+  groupId: string;
+  recentMember: string;
+  userId: string;
+};
+
 export interface IGroup {
-  _id: Types.ObjectId,
-  id: Types.ObjectId,
-  channelId: Types.ObjectId,
-  invitationId?: Types.ObjectId,
-  displayName:string,
-  desc:string,
-  profilePicture: string,
-  admins: Types.ObjectId[],
-  tags: string[],
-  host: 'group',
-  members: Types.ObjectId[],
-  createdBy: Types.ObjectId,
-  createdAt: number,
-  updatedAt: number,
+  _id?: Types.ObjectId;
+  id: Types.ObjectId;
+  channelId: Types.ObjectId;
+  invitationId?: Types.ObjectId;
+  displayName: string;
+  desc?: string;
+  profilePicture: string;
+  admins: Types.ObjectId[];
+  tags?: string[];
+  host: "group";
+  members: Types.ObjectId[];
+  createdBy: Types.ObjectId;
+  createdAt: number;
+  updatedAt: number;
 }
+
+export type JoinGroupParams = {
+  conversation: IGroupConversation;
+  user: IUser;
+  create: boolean;
+};

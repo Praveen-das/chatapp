@@ -26,7 +26,7 @@ function GroupProfile({ conversationId }: { conversationId: string }) {
 
   const {
     removeMemberFromGroup,
-    deleteGroupConversation,
+    sendGroupConversationDeleteRequest,
     makeAdmin,
     removeFromAdmin,
     sendGroupInfoUpdateRequest,
@@ -41,7 +41,7 @@ function GroupProfile({ conversationId }: { conversationId: string }) {
     profileTab.back();
   }
 
-  const members = useMemo(() => sortGroupMembers([...conversation.members]), [conversation]);
+  const members = useMemo(() => sortGroupMembers([...conversation.members]), [conversation.members.length]);
 
   const userIsAdmin = conversation.admins.includes(user?.id!);
   const userIsMember = conversation.members.some((m) => m.id === user?.id!);
@@ -79,7 +79,12 @@ function GroupProfile({ conversationId }: { conversationId: string }) {
   }
 
   function handleDeletingGroup() {
-    deleteGroupConversation(conversation!);
+    sendGroupConversationDeleteRequest({
+      groupId: conversation?.conversationId!,
+      conversationId: conversation?.id!,
+      channelId: conversation?.channelId!,
+      userId: user?.id!,
+    });
   }
 
   function handleAdmin(userId: string, action: string) {
@@ -88,7 +93,7 @@ function GroupProfile({ conversationId }: { conversationId: string }) {
   }
 
   function handleRemovingMember(user: IGroupMember) {
-    removeMemberFromGroup(conversation!, user);
+    removeMemberFromGroup(conversation!, user, user.memberId!);
   }
 
   function handleAddingTag(tag: string) {
@@ -135,7 +140,7 @@ function GroupProfile({ conversationId }: { conversationId: string }) {
           </div>
         </div>
 
-        {(conversation.desc || !!conversation.tags.length) && (
+        {(conversation.desc || !!conversation.tags?.length) && (
           <div className="flex flex-col gap-4">
             {(conversation.desc || userCanEdit) && (
               <div className="max-sm:px-4 px-8">
@@ -149,10 +154,10 @@ function GroupProfile({ conversationId }: { conversationId: string }) {
               </div>
             )}
 
-            {(!!conversation.tags.length || userCanEdit) && (
+            {(!!conversation.tags?.length || userCanEdit) && (
               <div className="max-sm:px-4 px-8">
                 <TagInput
-                  tags={conversation.tags}
+                  tags={conversation.tags || []}
                   showLabel={false}
                   canEdit={userCanEdit}
                   onSubmit={handleAddingTag}

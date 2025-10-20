@@ -26,7 +26,6 @@ function SystemProfile() {
   const profileTab = useStore((s) => s.profileTab);
   const setDeviceTab = useStore((s) => s.setDeviceTab);
   const clearChat = useMessageStore((s) => s.clearChat);
-  const { startConversation } = useConversation();
 
   function closeProfile() {
     profileTab.back();

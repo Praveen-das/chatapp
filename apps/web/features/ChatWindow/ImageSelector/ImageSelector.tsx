@@ -23,8 +23,12 @@ function ImageSelector() {
 
   const [captions, setCaptions] = useState(Array(images.length).fill(""));
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [loading, setLoading] = useState(false);
 
   const handleSendingAttachment = async () => {
+    if (loading) return;
+
+    setLoading(true);
     const selectedUser = useStore.getState().selectedUser;
     const {
       selectedConversation,
@@ -52,7 +56,7 @@ function ImageSelector() {
         };
 
         const message = await generateMessageTemplate(conversation!, caption, attachment);
-        message.type = 'placeholder';
+        message.type = "placeholder";
         return message;
       })
     );
@@ -76,10 +80,11 @@ function ImageSelector() {
           URL.revokeObjectURL(attachment.url);
           attachment.status = "success";
           attachment.file = undefined;
-          attachment.sender = message.from;
+          // attachment.sender = message.from;
 
           if (message.attachment?.type === "images") message.attachment = { ...message.attachment, ...res };
         } catch (err) {
+          setLoading(false)
           console.error("Image upload failed", err);
         }
       }
@@ -88,7 +93,13 @@ function ImageSelector() {
     const uploadPromises = messages.map(uploadImageAttachment);
     await Promise.allSettled(uploadPromises);
 
-    sendMessage(conversation!, messages);
+    sendMessage({
+      conversation: conversation!,
+      messages,
+      replacePlaceholder: true,
+      callback: () => setLoading(false),
+    });
+
     setSelectedUser(null);
   };
 

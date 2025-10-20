@@ -11,6 +11,10 @@ import Menu from "@features/ui/Menu";
 import Header from "./SharedComponents/Header";
 import { Input } from "../../ui/Input";
 import useAxios from "@hooks/useAxios";
+import { toast } from "react-toastify";
+import { IGroup, IGroupCreationRequest } from "@interfaces/groupInterface";
+import { IGroupConversation } from "@repo/interfaces/conversationInterface";
+import axiosClient from "@lib/axiosClient";
 
 const GroupCreationTab = () => {
   const { user } = useAuth();
@@ -29,34 +33,68 @@ const GroupCreationTab = () => {
   const handleClose = () => {
     setSelectedGroupMembers(null);
     setDashboardTab("dashboard");
+    setProfilePicture("");
+    setGroupName("");
   };
 
   const handleSubmit = async () => {
     setLoading(true);
-    const groupId = new ObjectID().toHexString();
-    const group = {
-      id: groupId,
-      channelId: new ObjectID().toHexString(),
-      displayName,
-      profilePicture,
-      admins: [user?.id!],
-      host: "group",
-      members: selectedGroupMembers,
-      createdBy: user?.id!,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-
-    selectedGroupMembers.push(user!);
-
-    if (profilePicture) {
-      const res = await uploadImage(profilePicture, groupId, true);
-      group.profilePicture = res.url;
-    }
 
     try {
-      const res = await axios.post("/db/group/create", JSON.stringify(group));
-      sendGroupCreationRequest(group);
+      selectedGroupMembers.push(user!);
+      const groupId = new ObjectID().toHexString();
+      const channelId = new ObjectID().toHexString();
+
+      const members = selectedGroupMembers.map((m) => {
+        let memberId = new ObjectID().toHexString();
+        return { _id: memberId, userId: m.id, conversationId: groupId, joinedAt: Date.now() };
+      });
+
+      const group: IGroupCreationRequest = {
+        id: groupId,
+        channelId,
+        displayName,
+        profilePicture,
+        admins: [user?.id!],
+        host: "group",
+        members,
+        createdBy: user?.id!,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      if (profilePicture) {
+        try {
+          const res = await uploadImage(profilePicture, group.id, true);
+          group.profilePicture = res.url;
+        } catch (error) {
+          toast.error("Failed to upload image.");
+        }
+      }
+
+      const groupConversations: any[] = [];
+
+      selectedGroupMembers.forEach((member) => {
+        const userConversation = {
+          ...group,
+          id: new ObjectID().toHexString(),
+          userId: member.id,
+          conversationId: group.id,
+          members: selectedGroupMembers,
+          active: true,
+
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          currentParticipation: members.find((m) => m.userId === member.id),
+        };
+
+        groupConversations.push(userConversation);
+      });
+
+      const res = await axiosClient.post("/db/group/create", { group, groupConversations });
+
+      if (res.status === 200) sendGroupCreationRequest(groupConversations);
+      else throw Error("Failed to create group");
     } catch (error) {
       console.log(error);
     } finally {
@@ -68,7 +106,7 @@ const GroupCreationTab = () => {
   const handleDropdown = (e: MouseEvent<HTMLDivElement>) => {
     setMenu({
       id: "GROUP_CREATION",
-      reference:e,
+      reference: e,
       data: null,
     });
   };
@@ -122,7 +160,11 @@ const GroupCreationTab = () => {
         <Input label="Group name" value={displayName} onChange={setGroupName} />
       </div>
       <div className="flex justify-center pb-8">
-        <button onClick={handleSubmit} className="btn btn-circle btn-md btn-primary text-[--black-white]">
+        <button
+          disabled={loading}
+          onClick={handleSubmit}
+          className="btn btn-circle btn-md btn-primary text-[--black-white]"
+        >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-7 h-7 ">
             <path
               fillRule="evenodd"

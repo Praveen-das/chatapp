@@ -95,7 +95,7 @@ export const AllMembers = () => {
       <div className="absolute inset-0 backdrop-blur-xl bg-[--modal] z-[-1]"></div>
       <ModalTitle>Group members</ModalTitle>
       <div className="max-sm:px-4 px-6 mt-4">
-        <SearchUser onChange={setQuery} highlightElm=".displayName" highlightResults />
+        <SearchUser query={query} onChange={setQuery} highlightElm=".displayName" highlightResults />
       </div>
       <div className="flex relative flex-col w-full h-full overflow-y-scroll no-scrollbar mt-4 mb-2">
         <Menu<IGroupMember> id="ALL_MEMBERS" clientPoint>

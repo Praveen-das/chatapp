@@ -1,48 +1,50 @@
 import { Schema, model } from "mongoose";
+import id from "zod/v4/locales/id.js";
 
-const schemaOptions = { toJSON: { virtuals: true } }
+const schemaOptions = { toJSON: { virtuals: true } };
 
-const ProfileRules = new Schema({ isVisible: { type: Boolean, default: true } })
-
-export const userSchema = new Schema({
+export const userSchema = new Schema(
+  {
     id: Schema.Types.ObjectId,
     username: {
-        type: String,
-        required: true
+      type: String,
+      required: true,
+      unique: true,
     },
     phoneNumber: {
-        type: String,
-        required: true,
-        unique: true,
+      type: String,
+      required: true,
+      unique: true,
     },
     bio: {
-        type: String,
-        default: '',
+      type: String,
+      default: "",
     },
     profilePicture: {
+      type: String,
+      default: "",
+    },
+    rules: [
+      {
         type: String,
-        default: '',
-    },
-    rules: {
-        profilePicture: { isVisible: { type: Boolean, default: true } },
-        bio: { isVisible: { type: Boolean, default: true } },
-        lastSeen: { isVisible: { type: Boolean, default: true } },
-        readReceipts: { isVisible: { type: Boolean, default: true } },
-    },
+        enum: ["hide_profilepicture", "hide_bio", "hide_lastseen", "hide_readreceipts"],
+      },
+    ],
     status: {
-        type: String,
-        enum: ['online', 'offline'],
-        default: 'online',
+      type: String,
+      enum: ["online", "offline"],
+      default: "online",
     },
-    tags:[String],
+    tags: [String],
     lastSeen: Number,
     createdAt: Number,
     updatedAt: Number,
-}, schemaOptions)
+  },
+  schemaOptions
+);
 
-userSchema.index({ username: 1,phoneNumber:1 });
+userSchema.index({ id: 1,username: 1, phoneNumber: 1 });
 
-const User = model('user', userSchema)
+const User = model("user", userSchema);
 
-export default User
-
+export default User;

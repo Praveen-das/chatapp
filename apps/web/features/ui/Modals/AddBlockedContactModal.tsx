@@ -16,7 +16,7 @@ export const AddBlockedContactModal = () => {
   const { user } = useAuth();
   const userList = useStore((s) => s.users);
   const setModal = useStore((s) => s.setModal);
-  const { sendUserBlockRequest } = useSocket();
+  const { sendUserBlockRequest, sendRequestToRegisterConversation } = useSocket();
   const conversations = useConversationStore((s) => s.conversations);
 
   const [query, setQuery] = useState("");
@@ -42,8 +42,9 @@ export const AddBlockedContactModal = () => {
     ) as IUserConversation;
 
     if (!userConversation) {
-      const {conversation,userConversations} = handleGeneratingConversation(user!, selectedUser);
-      sendUserBlockRequest({ conversation, userConversations });
+      sendRequestToRegisterConversation([user!, selectedUser!], {
+        blocked: { userId: user?.id! },
+      });
     } else {
       sendUserBlockRequest({ userConversation });
     }
@@ -59,7 +60,7 @@ export const AddBlockedContactModal = () => {
       </div> */}
       <ModalTitle>Select Contact</ModalTitle>
       <div className="max-sm:px-4 px-6 mt-4">
-        <SearchUser onChange={setQuery} />
+        <SearchUser query={query} onChange={setQuery} />
       </div>
       <div className="w-full h-full space-y-2 overflow-y-scroll no-scrollbar mt-4 mb-2">
         {(query ? queryResult : users).map(

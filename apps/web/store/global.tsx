@@ -60,6 +60,8 @@ export const useStore = create<IGlobalStore>((set, get) => {
     setUsers: (users) => set({ users }),
     addNewUser: (user) => {
       const users = get().users;
+      if(users.some(u=>u.id === user.id)) return 
+      
       users.push(user);
       users.sort((a: any, b: any) => {
         if (a.self) return -1;
@@ -67,10 +69,10 @@ export const useStore = create<IGlobalStore>((set, get) => {
         return a.username.localeCompare(b.username);
       });
 
-      set({ users: [...users] });
+      set({ users});
     },
     updateUserRule: (userId, rule) => {
-      const newUsers = get().users.map((u) => (u.id === userId ? { ...u, rules: { ...u.rules, ...rule } } : u));
+      const newUsers = get().users.map((u) => (u.id === userId ? { ...u, rules: [...(u.rules || []), rule] } : u));
       set({ users: newUsers });
     },
     updateUserStatus: (userId, status, lastSeen) => {

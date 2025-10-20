@@ -21,7 +21,7 @@ export default function Person({ person, onClick, isSelected }: IPerson): React.
     >
       <Avatar
         url={person.profilePicture}
-        profileHidden={!person?.rules?.profilePicture.isVisible}
+        profileHidden={Boolean(person?.rules?.includes("hide_profilepicture"))}
         online={isOnline}
         // onlineIndication={false}
       />

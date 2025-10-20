@@ -73,6 +73,8 @@ const _getUser = async (req: Request, res: Response) => {
 };
 
 const _getUserById = async (req: Request, res: Response) => {
+  if(!req.params.id) return res.json({ error: "User ID is required" });
+  
   let userId = new Types.ObjectId(req.params.id);
   const user = await userServices.getUserById(userId);
 

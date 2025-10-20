@@ -1,5 +1,6 @@
 "use server";
 
+// @ts-ignore
 import twilio from "twilio";
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID2;

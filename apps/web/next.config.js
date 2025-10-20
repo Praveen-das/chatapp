@@ -3,6 +3,14 @@
 module.exports = {
   transpilePackages: ["@repo/ui"],
   reactStrictMode: false,
+  experimental: {
+    serverActions: {
+      allowedOrigins: [
+        'localhost:3000',
+        'qw8d3s7n-3000.inc1.devtunnels.ms',
+      ],
+    },
+  },
   webpack(config) {
     config.module.rules.push({
       test: /\.svg$/,

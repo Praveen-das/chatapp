@@ -1,8 +1,5 @@
-import { ImageProps } from "next/image";
-import { useAttachments } from "../../../../../store/attachments";
 import { IImageAttachment } from "@repo/interfaces/messageInterface";
 import { useStore } from "../../../../../store/global";
-import { DetailedHTMLProps, ImgHTMLAttributes, useEffect, useLayoutEffect, useState } from "react";
 import { CustomImage } from "@features/ui/CustomImage";
 
 declare module "csstype" {
@@ -28,8 +25,6 @@ const ImageAttachment = ({ attachment, isPlaceholder }: { attachment: IImageAtta
   };
 
   const ASPECT_RATIO = width / height;
-
-  const [base64, setBase64] = useState("");
 
   return (
     <>

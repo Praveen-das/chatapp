@@ -21,6 +21,7 @@ import { IModal } from "@interfaces/modalInterface";
 import { CustomImage } from "../CustomImage";
 import { ArrowDownTrayIcon, ChevronLeftIcon, ChevronRightIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import FramerWrapper from "../MotionWrapper";
+import { APP_NAME } from "config/constants";
 
 function ImageViewer() {
   const selectedConversation = useConversationStore((s) => s.selectedConversation);
@@ -74,8 +75,13 @@ function ImageViewer() {
     url && downloadFromUrl(url);
   };
 
-  const senderId = userImages[activeIndex]?.sender;
-  const sender = selectedConversation?.host !== "system" ? selectedConversation?.members.find((m) => m.id === senderId) : null;
+  const sender = userImages[activeIndex]?.sender;
+  const isSystemConversation = selectedConversation?.host === "system";
+  const isCurrentUser = sender?.id === selectedConversation?.userId;
+
+  const url = isSystemConversation ? "/" : sender?.profilePicture;
+  const profileHidden = isSystemConversation ? false : Boolean(sender?.rules?.includes("hide_profilepicture"));
+  const senderName = isSystemConversation ? APP_NAME : isCurrentUser ? "You" : sender?.username;
 
   return (
     <FramerWrapper
@@ -87,27 +93,23 @@ function ImageViewer() {
         className="flex justify-between gap-2"
       >
         <div className="flex items-center gap-4 ">
-          <Avatar
-            url={sender?.profilePicture}
-            onlineIndication={false}
-            profileHidden={!sender?.rules?.profilePicture.isVisible}
-          />
+          <Avatar url={url} onlineIndication={false} profileHidden={profileHidden} />
           <div className="grid gap-1">
             <label className="text-sm" htmlFor="username">
-              {sender?.username}
+              {senderName}
             </label>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
           <div onClick={handleDownload} className="btn btn-circle btn-sm btn-ghost ml-auto">
-              <ArrowDownTrayIcon className="size-5" />
-            </div>
-            <form method="dialog">
-              <button className="btn btn-circle btn-sm btn-ghost ml-auto">
-                <XMarkIcon className="size-5" />
-              </button>
-            </form>
+            <ArrowDownTrayIcon className="size-5" />
+          </div>
+          <form method="dialog">
+            <button className="btn btn-circle btn-sm btn-ghost ml-auto">
+              <XMarkIcon className="size-5" />
+            </button>
+          </form>
         </div>
       </div>
 

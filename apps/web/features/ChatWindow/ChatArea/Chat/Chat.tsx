@@ -2,7 +2,7 @@
 
 import { MouseEvent, memo } from "react";
 import Avatar from "@features/ui/Avatar";
-import { IImageAttachment, IMessage, IMessageReply, IUrlAttachment } from "@repo/interfaces/messageInterface";
+import { IImageAttachment, IMessageReply, IUrlAttachment } from "@repo/interfaces/messageInterface";
 import ImageAttachment from "./Attachments/ImageAttachment";
 import UrlAttachment from "./Attachments/UrlAttachment";
 import { ArrowUturnLeftIcon } from "@heroicons/react/24/solid";
@@ -19,6 +19,7 @@ import classNames from "classnames";
 import { useStore } from "store/global";
 import { IUser } from "@repo/interfaces/userInterface";
 import { scrolleToIndexHelper } from "@lib/events";
+import { IMessage } from "@interfaces/messageInterface";
 
 interface IChatProps {
   reply?: IMessageReply;
@@ -70,7 +71,7 @@ function Chat({
         >
           <RenderAvatar
             url={receiver?.profilePicture!}
-            profileHidden={!receiver?.rules?.profilePicture.isVisible}
+            profileHidden={receiver?.rules?.includes("hide_profilepicture")!}
             avatarVisibility={avatarVisibility}
           />
           <RenderChat chat={chat} self={self} {...chatProps} />
@@ -199,7 +200,7 @@ function ActionButtons({
         >
           <ArrowUturnLeftIcon className="size-4" />
         </div>
-      )}        
+      )}
       <div className="group-hover:opacity-100 opacity-0 btn btn-circle btn-ghost btn-xs" onClick={handleOpen}>
         <EllipsisVerticalIcon className="size-5 pointer-events-none" />
       </div>

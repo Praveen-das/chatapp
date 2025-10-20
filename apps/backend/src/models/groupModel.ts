@@ -13,7 +13,7 @@ const groupSchema = new Schema<IGroup>(
     admins: [String],
     tags: [String],
     host: String,
-    members: [Schema.Types.ObjectId],
+    members: [{ type: Schema.Types.ObjectId, ref: 'members' }],
     desc: { type: String, default: "" },
     createdBy: Schema.Types.ObjectId,
     createdAt: Number,

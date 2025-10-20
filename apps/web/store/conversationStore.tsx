@@ -16,19 +16,20 @@ type IConversationStore = {
   isLoaded: boolean;
   selectedConversation?: IConversation | null;
   conversationActions: {
-    setConversation: (conversations: IConversation) => void;
-    updateConversation: (conversationId: string, updates: Partial<IConversationBase>) => void;
+    setConversation: (conversation: IConversation) => void;
+    setConversations: (conversations: IConversation[]) => void;
+    updateConversation: (conversationId: string, updates: Partial<IConversationBase & { memberId: string }>) => void;
     deleteConversation: (conversationId: string) => void;
     setSelectedConversation: (conversationId: string | null) => void;
     addToStarred: (id: string, message: IMessage) => void;
     removeFromStarred: (id: string, messageId: string) => void;
     clearStarred: (id: string) => void;
-    updateConversationRule: (userId: string, rule: IUserRuleChangeRequest["updates"]["rules"]) => void;
+    updateConversationRule: (userId: string, rule: IUserRules) => void;
     updateUserStatus: (userId: string, status: "online" | "offline", lastSeen?: number) => void;
-    setIsLoaded: (value:boolean) => void;
+    setIsLoaded: (value: boolean) => void;
   };
   groupActions: {
-    updateGroupConversation: (conversationId: string, updates: Partial<IGroupConversation>) => void;
+    updateGroupConversation: (userConversationId: string, updates: Partial<IGroupConversation>) => void;
     setAdmin: (conversationId: string, userId: string, isAdmin: boolean) => void;
     addMembers: (conversationId: string, users: IGroupMember[]) => void;
     removeMember: (conversationId: string, userId: string) => void;
@@ -42,7 +43,7 @@ const store = create(
   subscribeWithSelector<IConversationStore>((set, get) => {
     return {
       conversations: [],
-      isLoaded:false,
+      isLoaded: false,
       selectedConversation: null,
       reset: () => set({ conversations: [], selectedConversation: null }),
       conversationActions: {
@@ -59,25 +60,39 @@ const store = create(
 
           set({ conversations });
         },
+        setConversations: (conversations) => set({ conversations }),
         updateUserStatus: (userId, status, lastSeen) => {
           const conversations = get().conversations.map((c) => {
-            if (c.host === "user") {
-              const members = c.members.map((m) => (m.id === userId ? m : m)) as [IUser, IUser];
+            if (c.host !== "system") {
+              const members = c.members.map((m) => {
+                if (m.id === userId) {
+                  if (status === "offline") return { ...m, status, lastSeen };
+                  return { ...m, status };
+                }
+                return m;
+              });
               return { ...c, members };
             }
             return c;
           });
 
+          // @ts-ignore
           set({ conversations });
         },
         updateConversationRule: (userId, rule) => {
           const conversations = get().conversations.map((c) => {
-            const members: any =
-              c.host === "user" &&
-              c.members.map((m) => {
-                if (m.id === userId) return { ...m, rules: { ...m.rules, ...rule } };
-                return m;
-              });
+            if (c.host === "system") return c;
+            const members: any = c.members.map((m) => {
+              if (m.id === userId) {
+                const hasRule = m.rules?.includes(rule);
+                if (hasRule) {
+                  const filteredRules = m.rules?.filter((r) => r !== rule);
+                  return { ...m, rules: filteredRules };
+                }
+                return { ...m, rules: [...(m.rules || []), rule] };
+              }
+              return m;
+            });
             return { ...c, members };
           });
           set({ conversations });
@@ -124,7 +139,7 @@ const store = create(
           });
           set({ conversations });
         },
-        setIsLoaded:(value)=> set({isLoaded:value}),
+        setIsLoaded: (value) => set({ isLoaded: value }),
         clearStarred: (id) => {
           const conversations = get().conversations.map((c) => (c.id !== id ? c : { ...c, starred: [] }));
           set({ conversations });
@@ -134,7 +149,7 @@ const store = create(
         addGroupTag: (conversationId, tag) => {
           const conversations = get().conversations.map((c) => {
             if (c.id === conversationId && c.host === "group") {
-              return { ...c, tags: [tag, ...c.tags] };
+              return { ...c, tags: [tag, ...(c.tags || [])] };
             }
             return c;
           });
@@ -143,7 +158,7 @@ const store = create(
         removeGroupTag: (conversationId, tag) => {
           const conversations = get().conversations.map((c) => {
             if (c.id === conversationId && c.host === "group") {
-              return { ...c, tags: c.tags.filter((t) => t !== tag) };
+              if (c.tags) return { ...c, tags: c.tags.filter((t) => t !== tag) };
             }
             return c;
           });
@@ -177,8 +192,9 @@ const store = create(
         setAdmin: (conversationId, userId, isAdmin) => {
           const conversations = get().conversations.map((c) => {
             if (c.conversationId === conversationId && c.host === "group") {
+              const admins = isAdmin ? [...c.admins, userId] : c.admins.filter((id) => id !== userId);
               const members = c.members.map((m) => (m.id === userId ? { ...m, isAdmin } : m));
-              return { ...c, members };
+              return { ...c, members, admins };
             }
 
             return c;
@@ -188,7 +204,9 @@ const store = create(
         },
         addMembers: (conversationId, members) => {
           const conversations = get().conversations.map((c) => {
-            if (c.conversationId === conversationId && c.host === "group") c.members.push(...members);
+            if (c.conversationId === conversationId && c.host === "group") {
+              c.members.push(...members);
+            }
             return c;
           });
 

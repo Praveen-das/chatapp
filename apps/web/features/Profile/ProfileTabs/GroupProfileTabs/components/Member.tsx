@@ -34,7 +34,7 @@ export function Member({ member, showOptions = false }: { member: IGroupMember; 
     >
       <Avatar
         url={member.profilePicture}
-        profileHidden={!member.rules?.profilePicture.isVisible}
+        profileHidden={Boolean(member.rules?.includes("hide_profilepicture"))}
         size="40px"
         onlineIndication={false}
       />

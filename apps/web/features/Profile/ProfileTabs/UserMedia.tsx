@@ -5,7 +5,6 @@ import { useAttachments } from "../../../store/attachments";
 import { useStore } from "../../../store/global";
 import LinkPreview from "../../ui/LinkPreview";
 import { IImageAttachment, IUrlAttachment } from "@repo/interfaces/messageInterface";
-import Image from "next/image";
 import useSelectedConversation from "@hooks/useSelectedConversation";
 import { CustomImage } from "@features/ui/CustomImage";
 
@@ -20,7 +19,7 @@ function UserMedia({ conversationId }: { conversationId: string }) {
   const media = mediaStore.get(conversation.id) || {};
   const mediaList = Object.keys(media).sort((a: string, b: string) => a.localeCompare(b));
   const [tab, setTab] = useState(mediaList[0]);
-
+  
   return (
     <div className="w-full h-full flex flex-col">
       <div className="min-h-16 w-full flex items-center gap-4 px-4">
@@ -68,14 +67,14 @@ function Links({ links }: { links: IUrlAttachment[] }) {
   return (
     <div className="grid gap-2 w-full overflow-y-scroll no-scrollbar p-2">
       {links.map((link) => {
-        return (
-          <>
-            {link.metadata ? (
-              <LinkPreview metadata={link.metadata} link={link.url} />
-            ) : (
-              link.url && <div className="bg-base-300 rounded-2xl p-2">{link.url}</div>
-            )}
-          </>
+        return link.metadata ? (
+          <LinkPreview key={link.id} metadata={link.metadata} link={link.url} />
+        ) : (
+          link.url && (
+            <div key={link.id} className="bg-base-300 rounded-2xl p-2">
+              {link.url}
+            </div>
+          )
         );
       })}
     </div>
@@ -91,6 +90,7 @@ function ImagePreviews({ media }: { media: IImageAttachment[] }) {
     <div className="grid grid-cols-4 gap-1 w-full overflow-y-scroll no-scrollbar">
       {media.map((image) => (
         <CustomImage
+          key={image.id}
           onClick={() => handleClick(image)}
           width={100}
           height={100}

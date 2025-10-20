@@ -50,19 +50,18 @@ const messageReplySchema = z.object({
   attachment: attachmentSchema.optional(),
 });
 
-export const userMessageSchema = z
-  .object({
-    id: objectId,
-    conversationId: objectId,
-    from: z.union([objectId, z.literal("system")]),
-    to: objectId.optional(),
-    message: z.string(),
-    readReceipt: z.array(readReceiptSchema).optional(),
-    timestamp: z.number(),
-    attachment: attachmentSchema.optional(),
-    reply: messageReplySchema.optional(),
-    deleted: z.boolean().optional(),
-    type: z.enum(["message", "placeholder", "service_message", "notification"]),
-  })
+export const userMessageSchema = z.object({
+  id: objectId,
+  conversationId: objectId,
+  from: z.union([objectId, z.literal("system")]),
+  to: objectId.optional(),
+  message: z.string(),
+  readReceipt: z.array(readReceiptSchema).optional(),
+  timestamp: z.number(),
+  attachment: attachmentSchema.optional(),
+  reply: messageReplySchema.optional(),
+  deleted: z.boolean().optional(),
+  type: z.enum(["message", "placeholder", "service_message", "notification"]),
+});
 
 export const messagesSchema = z.array(userMessageSchema);

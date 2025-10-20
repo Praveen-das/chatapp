@@ -1,14 +1,46 @@
 import { Types } from "mongoose";
 
-import Conversations from "../models/ConversationModel.js";
-import { IUserConversation, IConversation, IGroupConversation } from "../interfaces/conversationInterface.js";
-import { IUpdateBlockReq, IDeleteConversationRequest } from "@repo/interfaces/conversationInterface.js";
-import UserConversation from "../models/UserConversation.js";
-import GroupConversation from "../models/GroupConversation.js";
+import { IDeleteConversationRequest, IUpdateBlockReq } from "@repo/interfaces/conversationInterface.js";
 import { z } from "zod";
+import {
+  conversationLookup,
+  conversationMessagesLookup,
+  starredMessagesLookup,
+  userLookup,
+} from "../db/stages/stages.js";
+import { IGroupConversation, IUserConversation } from "../interfaces/conversationInterface.js";
+import Conversations from "../models/ConversationModel.js";
+import GroupConversation from "../models/GroupConversation.js";
+import SystemConversation from "../models/SystemConversation.js";
+import UserConversation from "../models/UserConversation.js";
 import { conversationSchema, systemConversationSchema, userConversationsSchema } from "../schemas/conversationSchema";
 import { groupConversationsSchema } from "../schemas/groupSchema";
-import SystemConversation from "../models/SystemConversation.js";
+import Member from "../models/MemberModel.js";
+import mongoose from "mongoose";
+
+async function saveConversations(
+  conversation: z.infer<typeof conversationSchema>,
+  userConversations: z.infer<typeof userConversationsSchema>
+) {
+  const session = await mongoose.startSession();
+  try {
+
+    const result = await session.withTransaction(async () => {
+      const result1 = await Conversations.create([conversation], { session });
+      const result2 = await UserConversation.insertMany(userConversations, { session });
+
+      return { conversation: result1, userConversations: result2 };
+    });
+
+    session.endSession();
+
+    return result;
+  } catch (error) {
+    session.abortTransaction()
+    console.error("Error:", error);
+    throw error; // Rethrow the error if needed
+  }
+}
 
 async function createConversation(conversation: z.infer<typeof conversationSchema>) {
   try {
@@ -45,8 +77,17 @@ async function createUserConversation(userConversations: z.infer<typeof userConv
 
 async function createGroupConversation(groupConversations: z.infer<typeof groupConversationsSchema>) {
   try {
-    const result = await GroupConversation.insertMany(groupConversations);
+    const ops = groupConversations.map((doc) => ({
+      updateOne: {
+        filter: { userId: doc.userId, conversationId: doc.conversationId },
+        update: { $setOnInsert: doc },
+        upsert: true,
+      },
+    }));
 
+    const result = await GroupConversation.bulkWrite(ops, { ordered: false });
+    
+    console.log(result);
     // return result;
   } catch (error) {
     console.error("Error:", error);
@@ -54,11 +95,18 @@ async function createGroupConversation(groupConversations: z.infer<typeof groupC
   }
 }
 
-async function deleteGroupConversation(id: Types.ObjectId) {
+async function deleteGroupConversation(userId: Types.ObjectId, conversationId: Types.ObjectId) {
+  const session = await mongoose.startSession();
   try {
-    const res = await GroupConversation.deleteOne({ id });
+    const res = await session.withTransaction(async () => {
+      const deletedMembers = await Member.deleteMany({ userId, conversationId }, { session });
+      const deletedConves = await GroupConversation.deleteOne({ userId, conversationId }, { session });
+    });
+
+    await session.endSession();
   } catch (error) {
-    console.error("Error adding user to group:", error);
+    session.abortTransaction()
+    console.error("Error deleteGroupConversation:", error);
     throw error;
   }
 }
@@ -74,141 +122,14 @@ async function getUserConversation(userId: Types.ObjectId) {
       {
         $match: { userId },
       },
-      {
-        $lookup: {
-          from: "conversations",
-          localField: "conversationId",
-          foreignField: "id",
-          as: "conversation",
-        },
-      },
-      {
-        $unwind: {
-          path: "$conversation",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $addFields: {
-          members: "$conversation.members",
-          host: "$conversation.host",
-        },
-      },
-      {
-        $lookup: {
-          from: "users",
-          localField: "members",
-          foreignField: "id",
-          as: "members",
-        },
-      },
 
-      // messages
-      {
-        $lookup: {
-          from: "messages",
-          let: {
-            deletedAt: "$deletedAt",
-            conversationId: "$conversationId",
-          },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    {
-                      $eq: ["$conversationId", "$$conversationId"],
-                    },
-                    {
-                      $gt: ["$timestamp", "$$deletedAt"],
-                    },
-                    {
-                      $or: [
-                        {
-                          $ne: [
-                            {
-                              $ifNull: ["$to", null],
-                            },
-                            null,
-                          ],
-                        },
-                        {
-                          $eq: ["$from", userId],
-                        },
-                      ],
-                    },
-                  ],
-                },
-              },
-            },
+      ...conversationLookup(),
 
-            { $sort: { timestamp: -1 } },
-            {
-              $limit: 10,
-            },
-            { $sort: { timestamp: 1 } },
+      userLookup({ localField: "members", as: "members" }),
 
-            // Perform the messageDeleted lookup for only the matched messages
-            {
-              $lookup: {
-                from: "messagedeleteflags",
-                let: {
-                  messageId: "$id",
-                  userId,
-                },
-                pipeline: [
-                  {
-                    $match: {
-                      $expr: {
-                        $and: [
-                          {
-                            $eq: ["$messageId", "$$messageId"],
-                          },
-                          {
-                            $eq: ["$userId", "$$userId"],
-                          },
-                        ],
-                      },
-                    },
-                  },
-                ],
-                as: "messageDeleted",
-              },
-            },
-            // Unwind messageDeleted with preservation
-            {
-              $unwind: {
-                path: "$messageDeleted",
-                preserveNullAndEmptyArrays: true,
-              },
-            },
-            // Filter out deleted messages
-            {
-              $match: {
-                $expr: {
-                  $ne: ["$messageDeleted.deleted", true],
-                },
-              },
-            },
-          ],
-          as: "messages",
-        },
-      },
+      conversationMessagesLookup(userId),
 
-      // starred messages
-      {
-        $lookup: {
-          from: "messages",
-          localField: "starred",
-          foreignField: "id",
-          as: "starred",
-        },
-      },
-      {
-        $project: {
-          conversation: 0,
-        },
-      },
+      starredMessagesLookup(),
     ]);
 
     return res;
@@ -337,17 +258,16 @@ async function registerStarredMessages(id: Types.ObjectId, messageId: Types.Obje
 
 async function unregisterStarredMessages(id: Types.ObjectId, messageId: Types.ObjectId, host: string) {
   try {
-    if (host === "user") {
-      const res = await UserConversation.findOneAndUpdate({ id }, { $pull: { starred: messageId } });
-    } else {
-      const res = await GroupConversation.findOneAndUpdate({ id }, { $pull: { starred: messageId } });
-    }
+    if (host === "user") await UserConversation.findOneAndUpdate({ id }, { $pull: { starred: messageId } });
+    if (host === "group") await GroupConversation.findOneAndUpdate({ id }, { $pull: { starred: messageId } });
+    if (host === "system") await SystemConversation.findOneAndUpdate({ id }, { $pull: { starred: messageId } });
   } catch (error) {
     console.log("unregisterStarredMessages------->", error);
   }
 }
 
 export default {
+  saveConversations,
   createConversation,
   createSystemConversation,
   createUserConversation,

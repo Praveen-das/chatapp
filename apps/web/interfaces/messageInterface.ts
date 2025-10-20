@@ -1,6 +1,6 @@
 import { IMessage as _IMessage } from "@repo/interfaces/messageInterface";
 import { Override } from "@repo/interfaces/type";
-import { IUser } from "@repo/interfaces/userInterface";
+import { IUser, IUserRules } from "@repo/interfaces/userInterface";
 
 export type IMessage = Override<
   _IMessage,

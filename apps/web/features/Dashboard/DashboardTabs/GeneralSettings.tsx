@@ -9,6 +9,7 @@ import { usePersistentStore } from "../../../store/persistentStore";
 import COLORS from "config/themes";
 import Header from "./SharedComponents/Header";
 import { useTheme } from "@hooks/useTheme";
+import { IUser, IUserRules } from "@repo/interfaces/userInterface";
 
 declare module "csstype" {
   interface Properties {
@@ -44,12 +45,13 @@ function GeneralSettings() {
   }
 
   const handleChangingProfileRules = (e: ChangeEvent<HTMLInputElement>) => {
-    let name = e.target.name;
+    let rule = e.target.name as IUserRules;
     let checked = e.target.checked;
 
     sendUserRuleChangeRequest({
       userId: user?.id!,
-      updates: { rules: { [name]: { isVisible: checked } } },
+      rule,
+      action: checked ? "add" : "remove",
     });
   };
 
@@ -68,7 +70,7 @@ function GeneralSettings() {
   };
 
   const checkBoxStyle = "checkbox checkbox-primary [--chkfg:oklch(var(--b3))] checkbox-sm";
-
+  
   return (
     <div className="flex flex-col h-full">
       <Header title="General Settings" mainTab="settings" />
@@ -80,9 +82,9 @@ function GeneralSettings() {
           <div className="form-control pl-2">
             <label className="label cursor-pointer justify-start gap-4">
               <input
-                name="profilePicture"
+                name="hide_profilepicture"
                 onChange={handleChangingProfileRules}
-                checked={Boolean(user?.rules?.profilePicture?.isVisible)}
+                checked={!user?.rules?.includes("hide_profilepicture")}
                 type="checkbox"
                 className={checkBoxStyle}
               />
@@ -92,9 +94,9 @@ function GeneralSettings() {
           <div className="form-control pl-2">
             <label className="label cursor-pointer justify-start gap-4">
               <input
-                name="lastSeen"
+                name="hide_lastseen"
                 onChange={handleChangingProfileRules}
-                checked={Boolean(user?.rules?.lastSeen?.isVisible)}
+                checked={!user?.rules?.includes("hide_lastseen")}
                 type="checkbox"
                 className={checkBoxStyle}
               />
@@ -104,9 +106,9 @@ function GeneralSettings() {
           <div className="form-control pl-2">
             <label className="label cursor-pointer justify-start gap-4">
               <input
-                name="bio"
+                name="hide_bio"
                 onChange={handleChangingProfileRules}
-                checked={Boolean(user?.rules?.bio?.isVisible)}
+                checked={!user?.rules?.includes("hide_bio")}
                 type="checkbox"
                 className={checkBoxStyle}
               />
@@ -116,9 +118,9 @@ function GeneralSettings() {
           <div className="form-control pl-2">
             <label className="label cursor-pointer justify-start gap-4">
               <input
-                name="readReceipts"
+                name="hide_readreceipts"
                 onChange={handleChangingProfileRules}
-                checked={Boolean(user?.rules?.readReceipts?.isVisible)}
+                checked={!user?.rules?.includes("hide_readreceipts")}
                 type="checkbox"
                 className={checkBoxStyle}
               />

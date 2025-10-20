@@ -8,14 +8,13 @@ import { AnimatePresence } from "framer-motion";
 const Modal = () => {
   const modal = useStore((s) => s.modal);
   const setModal = useStore((s) => s.setModal);
-  const dialogRef = useRef<HTMLDialogElement>(null);
 
   function handleClose() {
     if (modal) setModal({ ...modal, open: false });
   }
 
   return (
-    <dialog onClose={handleClose} open={Boolean(modal?.open)} ref={dialogRef} className="modal outline-none">
+    <dialog onClose={handleClose} open={Boolean(modal?.open)} className="modal outline-none">
       <AnimatePresence onExitComplete={() => setModal(null)}>
         {Boolean(modal?.open) ? modals[modal?.activeModal as IModalKey] : null}
       </AnimatePresence>

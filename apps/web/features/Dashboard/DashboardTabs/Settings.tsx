@@ -3,7 +3,6 @@ import { MouseEvent, useMemo, useState } from "react";
 import { useStore } from "../../../store/global";
 import useAuth from "../../../hooks/useAuth";
 import Avatar from "../../ui/Avatar";
-import useSocket from "../../../context/SocketProvider";
 import Menu from "@features/ui/Menu";
 import { useMenu } from "store/menu";
 import { uploadImage } from "@lib/imageKit";

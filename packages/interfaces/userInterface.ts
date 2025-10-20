@@ -1,5 +1,7 @@
 import { Types } from "mongoose";
 
+export type IUserRules = "hide_profilepicture" | "hide_bio" | "hide_lastseen" | "hide_readreceipts";
+
 export interface IUser {
   id: string;
   username: string;
@@ -7,7 +9,7 @@ export interface IUser {
   bio?: string;
   tags?: string[];
   profilePicture: string;
-  rules?: IUserRules;
+  rules?: IUserRules[];
   status?: "online" | "offline";
   lastSeen?: number;
   createdAt: number;
@@ -27,18 +29,8 @@ export interface IUBlockReq {
   blockedId: Types.ObjectId;
 }
 
-export interface IRule {
-  isVisible: boolean;
-}
-
-export interface IUserRules {
-  profilePicture: IRule;
-  bio: IRule;
-  lastSeen: IRule;
-  readReceipts: IRule;
-}
-
 export interface IUserRuleChangeRequest {
   userId: string;
-  updates: { rules: Partial<IUser["rules"]> };
+  rule: IUserRules;
+  action: "add" | "remove";
 }

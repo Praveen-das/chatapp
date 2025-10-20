@@ -8,14 +8,9 @@ import { IUserRules } from "@repo/interfaces/userInterface";
 
 import { IUser } from "@repo/interfaces/userInterface";
 
-const rules: IUserRules = {
-  bio: { isVisible: true },
-  lastSeen: { isVisible: true },
-  profilePicture: { isVisible: true },
-  readReceipts: { isVisible: true },
-};
+const rules:any = [] 
 
-export const dummyUser: IUser = {
+export const dummyUser: any = {
   id: "user0",
   username: "user0_name",
   phoneNumber: "+10000000000",
@@ -30,7 +25,7 @@ export const dummyUser: IUser = {
   self: true,
 };
 
-export const dummyConversations: IConversation[] = [
+export const dummyConversations: any[] = [
   {
     id: "conv1",
     userId: "user0",

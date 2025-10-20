@@ -2,7 +2,7 @@
 import { ArrowLeftIcon, EllipsisVerticalIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import { IGroupConversation, IUserConversation } from "@repo/interfaces/conversationInterface";
 import { generateConversation, generateUserConversations, handleGeneratingConversation } from "@repo/utils/index";
-import { getReceiver } from "@lib/conversation";
+import { getParticipant } from "@lib/conversation";
 import { getRelativeTime } from "@lib/utils";
 import { MouseEvent, memo, useMemo } from "react";
 import { useAttachments } from "store/attachments";
@@ -107,7 +107,7 @@ function UserInfo({ conversationId }: { conversationId: string }) {
   const selectedConversation = useSelectedConversation<IUserConversation>(conversationId);
 
   const receiver = useMemo(
-    () => getReceiver(selectedConversation!) || selectedUser,
+    () => getParticipant(selectedConversation!) || selectedUser,
     [selectedConversation, selectedUser]
   );
 
@@ -116,9 +116,11 @@ function UserInfo({ conversationId }: { conversationId: string }) {
   const { username, profilePicture, rules, status } = receiver;
   const lastSeen = getRelativeTime(receiver?.lastSeen!);
   const isOnline = status === "online";
-  const isHidden = !rules?.profilePicture.isVisible;
+  const isHidden = Boolean(rules?.includes("hide_profilepicture"));
   const canShowLastSeen =
-    (isOnline || rules?.lastSeen.isVisible) && !selectedConversation?.blockedByUser && !selectedConversation?.blocked;
+    (isOnline || !rules?.includes("hide_lastseen")) &&
+    !selectedConversation?.blockedByUser &&
+    !selectedConversation?.blocked;
 
   return (
     <>
@@ -157,12 +159,13 @@ function HeaderMenuContext() {
   const {
     sendRequestToClearUserConversation,
     sendRequestToClearGroupConversation,
-    deleteGroupConversation,
+    sendGroupConversationDeleteRequest,
     sendUserBlockRequest,
     sendUserUnBlockRequest,
+    sendRequestToRegisterConversation
   } = useSocket();
 
-  const { user: currentUser } = useAuth();
+  const currentUser = useAuth().user;
   const selectedUser = useStore((s) => s.selectedUser);
   const conversationId = useConversationStore((s) => s.selectedConversation)?.id!;
 
@@ -187,8 +190,9 @@ function HeaderMenuContext() {
 
     if (selectedConversation) return sendUserBlockRequest({ userConversation: selectedConversation });
 
-    const { conversation, userConversations } = handleGeneratingConversation(currentUser!, selectedUser!);
-    sendUserBlockRequest({ conversation, userConversations });
+    sendRequestToRegisterConversation([currentUser!, selectedUser!], {
+      blocked: { userId: currentUser?.id! },
+    });
   };
 
   const handleUnblockingUser = () => {
@@ -204,9 +208,14 @@ function HeaderMenuContext() {
   };
 
   const handleClearChat = () => {
-    isUserConversation
-      ? sendRequestToClearUserConversation(conversationId)
-      : sendRequestToClearGroupConversation(conversationId);
+    isGroupConversation
+      ? sendRequestToClearGroupConversation({
+          conversationId: conversationId!,
+          groupId: selectedConversation.conversationId!,
+          userId: currentUser?.id!,
+          recentMember: selectedConversation.currentParticipation?._id!,
+        })
+      : sendRequestToClearUserConversation(conversationId);
   };
 
   function handleClosingChat() {
@@ -216,7 +225,15 @@ function HeaderMenuContext() {
   }
 
   function handleDeletingGroupConversation() {
-    deleteGroupConversation(selectedConversation!);
+    if (selectedConversation?.host === "group") {
+      const { id, conversationId, channelId } = selectedConversation;
+      sendGroupConversationDeleteRequest({
+        conversationId: id,
+        groupId: conversationId,
+        channelId: channelId!,
+        userId: currentUser?.id!,
+      });
+    }
   }
 
   return (

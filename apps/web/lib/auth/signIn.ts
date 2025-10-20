@@ -11,9 +11,9 @@ type IUserCreationReq = {
   profilePicture?: string;
 };
 
-export async function createUser(input: IUserCreationReq): Promise<IUser | null> {
+export async function createUser(input: IUserCreationReq) {
   try {
-    const data = await axiosClient.post("/db/user", JSON.stringify(input)).then((res) => res.data);
+    const data = await axiosClient.post<IUser & {error:any}>("/db/user", JSON.stringify(input)).then((res) => res.data);
     return data;
   } catch (error) {
     console.log(error);
@@ -28,6 +28,6 @@ export async function fetchUser(phonenumber: string): Promise<IUser | null> {
     if (res.data?.error) throw res.data.error;
     return res.data;
   } catch (error: any) {
-    throw error
+    throw error;
   }
 }

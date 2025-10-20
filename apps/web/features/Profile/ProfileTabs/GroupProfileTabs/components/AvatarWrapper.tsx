@@ -28,21 +28,28 @@ export function AvatarWrapper({ conversation, userIsAdmin }: { conversation: IGr
   }
 
   const options = useMemo(() => {
-    return [
+    const base = [
       {
         label: "View image",
         handler: openViewProfilePictureModal,
       },
-      {
-        label: "Change image",
-        handler: () => document.getElementById("group_avatar")?.click(),
-      },
-      {
-        label: "Delete image",
-        handler: handleDeletingProfilePicture,
-      },
     ];
-  }, []);
+
+    if (userIsAdmin) {
+      base.push(
+        {
+          label: "Change image",
+          handler: () => document.getElementById("group_avatar")?.click(),
+        },
+        {
+          label: "Delete image",
+          handler: handleDeletingProfilePicture,
+        }
+      );
+    }
+
+    return base;
+  }, [userIsAdmin, openViewProfilePictureModal, handleDeletingProfilePicture]);
 
   function handleDeletingProfilePicture() {
     sendGroupInfoUpdateRequest(conversation, { profilePicture: "" });
@@ -77,7 +84,8 @@ export function AvatarWrapper({ conversation, userIsAdmin }: { conversation: IGr
         loading={loading}
         onClick={handleDropdown}
         onChange={handleUpdatingProfilePicture}
-        enableOptions={userIsAdmin} />
+        enableOptions={userIsAdmin} 
+        />
     </div>
   );
 }

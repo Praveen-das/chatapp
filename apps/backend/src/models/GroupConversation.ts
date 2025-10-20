@@ -13,8 +13,6 @@ const groupConversationSchema = new Schema<IGroupConversation>(
     archived: { type: Boolean, default: false },
     starred: [Schema.Types.ObjectId],
 
-    joinedAt: Number,
-    deletedAt: Number,
     createdAt: Number,
     updatedAt: Number,
   },

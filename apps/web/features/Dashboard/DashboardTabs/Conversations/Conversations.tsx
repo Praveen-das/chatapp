@@ -1,21 +1,17 @@
 "use client";
-import { Fragment, useEffect, useMemo, useState } from "react";
-import Conversation from "../SharedComponents/Conversation/Conversation";
-import { useConversationStore } from "../../../../store/conversationStore";
-import MainHeader from "./Header";
-import Menu_Conversation from "../SharedComponents/MenuContext";
-import { IConversation, IQueryResult } from "@repo/interfaces/conversationInterface";
-import { useSearch } from "@hooks/useSearch";
-import SearchPrompt from "../SharedComponents/SearchPrompt";
 import Searchbar from "@features/ui/Searchbar";
+import { useSearch } from "@hooks/useSearch";
+import { IQueryResult } from "@repo/interfaces/conversationInterface";
+import { AnimatePresence } from "framer-motion";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useStore } from "store/global";
-import { AnimatePresence, motion } from "framer-motion";
-import MotionWrapper from "../SharedComponents/Conversation/MotionWrapper";
-import useAxios from "@hooks/useAxios";
-import { registerConversations } from "@lib/conversation";
-import useSocket from "context/SocketProvider";
-import useAuth from "@hooks/useAuth";
+import { useConversationStore } from "../../../../store/conversationStore";
+import Conversation from "../SharedComponents/Conversation/Conversation";
 import ConversationSkeleton from "../SharedComponents/Conversation/ConversationSkeleton";
+import MotionWrapper from "../SharedComponents/Conversation/MotionWrapper";
+import Menu_Conversation from "../SharedComponents/MenuContext";
+import SearchPrompt from "../SharedComponents/SearchPrompt";
+import MainHeader from "./Header";
 
 export default function Conversations() {
   return (
@@ -37,7 +33,7 @@ function DisplayConversations() {
   let isLoaded = useConversationStore((s) => s.isLoaded);
   let users = useStore((s) => s.users);
   const [searchQuery, setSearchQuery] = useState("");
-
+  
   useEffect(() => {
     let res: IQueryResult = { chats: [], groups: [], contacts: [] };
 
@@ -58,15 +54,18 @@ function DisplayConversations() {
     setQueryResult(res);
   }, [searchQuery, conversations, users]);
 
-  useMemo(() => conversations.sort((a, b) => b.updatedAt - a.updatedAt), [conversations]);
-
   useEffect(() => {
-    return () => resetSearch();
-  }, []);
+    return () => {
+      resetSearch();
+      setSearchQuery("");
+    };
+  }, [selectedConversation]);
+
+  useMemo(() => conversations.sort((a, b) => b.updatedAt - a.updatedAt), [conversations]);
 
   return (
     <>
-      <Searchbar onChange={setSearchQuery} />
+      <Searchbar query={searchQuery} onChange={setSearchQuery} />
       <div className="flex flex-col overflow-hidden h-full">
         <Menu_Conversation />
         <div className="flex flex-1 h-full w-full flex-col mt-4 gap-6 overflow-y-scroll no-scrollbar [&>:first-child]:z-20">

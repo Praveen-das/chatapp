@@ -1,6 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
-import { Key, memo, useCallback, useEffect, useRef, useState } from "react";
+import { Key, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { VListHandle, Virtualizer } from "virtua";
 import useSocket from "../../../context/SocketProvider";
 import { useStore } from "../../../store/global";
@@ -27,7 +27,7 @@ function ChatArea() {
   const unreadMessages = useUnreadMessages();
   const clearUnreadMessages = useMessageStore((s) => s.clearUnreadMessages);
   const setReplyRequest = useMessageStore((s) => s.setReplyRequest);
-
+  
   useEffect(
     () => () => {
       setReplyRequest(null);
@@ -72,6 +72,16 @@ function ChatBox({ messages, messageHistory, unreadMessages, isLoading, virtuali
   const isFocused = useRef(true);
   const initialValue = useRef(0);
   const isScrolledToBottom = useRef(true);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const canShift = useRef(false);
+  
+  useMemo(() => {
+    canShift.current = true;
+  }, [messageHistory.length]);
+
+  useMemo(() => {
+    canShift.current = false;
+  }, [messages.length]);
 
   const previousMessages = useChats(messageHistory, {
     enable: !messages.length && canShowUnreadNotificationBar,
@@ -85,7 +95,7 @@ function ChatBox({ messages, messageHistory, unreadMessages, isLoading, virtuali
     value: unreadMessages.length,
   });
 
-  const { canShift, onScroll } = useScrollHandler({
+  const onScroll = useScrollHandler({
     id: virtualizerId,
     messages,
     messageHistory,
@@ -96,6 +106,7 @@ function ChatBox({ messages, messageHistory, unreadMessages, isLoading, virtuali
     isFocused,
     setNewMessageBadge,
     onScrolledToTop,
+    container: scrollContainerRef,
   });
 
   // Custom hook to handle setting scrollbar for new messages and setting initial scrollbar position and messages flag
@@ -129,13 +140,13 @@ function ChatBox({ messages, messageHistory, unreadMessages, isLoading, virtuali
   );
 
   return (
-    <div className="flex flex-col flex-1 relative">
+    <div className="flex flex-col flex-1 relative ">
       {isLoading && (
         <div className="absolute top-0 w-full flex justify-center items-center text-sm text-primary">
           <span className="loading loading-spinner loading-sm"></span>
         </div>
       )}
-      <div className="flex-col flex flex-1 basis-0 h-full overflow-y-auto">
+      <div ref={scrollContainerRef} className="flex-col flex flex-1 basis-0 h-full overflow-y-auto">
         <MenuContext />
         <span className="mt-auto" />
         <Virtualizer key={virtualizerId} ref={setListRef} onScroll={onScroll} shift={canShift.current}>
@@ -163,7 +174,6 @@ function UnreadMessageBadge({ count, onClick }: { count: number; onClick?: () =>
 
 function MenuContext() {
   const { sendRequestToUnRegisterStarredMessage, sendRequestToRegisterStarredMessage } = useSocket();
-  const { removeFromStarred } = useConversationStore((s) => s.conversationActions);
   const selectedConversation = useConversationStore((s) => s.selectedConversation);
   const setSelectedChats = useMessageStore((s) => s.setSelectedChats);
   const setModal = useStore((s) => s.setModal);

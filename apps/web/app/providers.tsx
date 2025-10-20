@@ -1,10 +1,7 @@
 "use client";
 
-import Modal from "@features/ui/Modal";
 import { useTheme } from "@hooks/useTheme";
-import { AppContext } from "context/AppContext";
 import AuthContext from "context/AuthContext";
-import { SocketProvider } from "context/SocketProvider";
 import { SessionProvider } from "next-auth/react";
 import { ThemeProvider } from "next-themes";
 import { PropsWithChildren } from "react";

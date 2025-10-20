@@ -1,9 +1,14 @@
-import { Types } from "mongoose";
+import { PipelineStage, Types } from "mongoose";
 import { MessageDeleteFlag, Messages } from "../models/MessageModel";
 import client from "../redis/client";
 import { IMessage } from "../interfaces/messageInterface";
 import z from "zod";
 import { messagesSchema } from "../schemas/userMessageSchema";
+import { systemMessagesSchema } from "../schemas/systemMessageSchema";
+import { LIMIT } from "../../const";
+import { memberSchema } from "../schemas/groupSchema";
+import GroupConversation from "../models/GroupConversation";
+import { activityLookup, limitMessages, messagedeleteflagsLookup, messagesLookup } from "../db/stages/stages";
 
 async function saveUserMessage(messages: z.infer<typeof messagesSchema>) {
   try {
@@ -31,11 +36,20 @@ async function saveUserMessage(messages: z.infer<typeof messagesSchema>) {
     // const savedMessages = await Message.insertMany(messageDocs);
 
     const res = await Messages.insertMany(messages);
-    console.log("saveUserMessage----->", !!res.length);
     await client.del("messages_cache");
     return res;
   } catch (error) {
-    console.log("saveUserMessage----->", error);
+    console.log("saveUserMessage error----->", error);
+  }
+}
+
+async function saveSystemMessage(messages: z.infer<typeof systemMessagesSchema>) {
+  try {
+    const res = await Messages.insertMany(messages);
+    await client.del("messages_cache");
+    return res;
+  } catch (error) {
+    console.log("saveUserMessage error----->", error);
   }
 }
 
@@ -47,100 +61,69 @@ async function getMessages() {
   }
 }
 
-async function getUserMessages(
-  conversationId: string,
-  limit: number,
-  timestamp?: number,
-) {
+async function getUserMessages({
+  conversationId,
+  limit,
+  userId,
+  cursor,
+  deletedAt,
+}: {
+  conversationId: Types.ObjectId;
+  userId: Types.ObjectId;
+  limit: number;
+  deletedAt: number;
+  cursor?: number;
+}) {
   try {
-    const query: any = {
-      conversationId: new Types.ObjectId(conversationId),
+    const query: PipelineStage.Match["$match"] = {
+      conversationId,
+      timestamp: {
+        $gte: deletedAt,
+      },
     };
 
-    if (timestamp) {
-      query.timestamp = { $lt: timestamp };
+    if (cursor) {
+      query.timestamp.$lt = cursor;
     }
 
     const res = await Messages.aggregate([
       {
         $match: query,
       },
-      {
-        $sort: {
-          timestamp: -1,
-        },
-      },
-      {
-        $limit: limit+1,
-      },
-      {
-        $sort: {
-          timestamp: 1,
-        },
-      },
-      // {
-      //   $lookup: {
-      //     from: "groups",
-      //     let: {
-      //       conversationId: "$conversationId",
-      //     },
-      //     pipeline: [
-      //       {
-      //         $match: {
-      //           $expr: {
-      //             $eq: ["$id", "$$conversationId"],
-      //           },
-      //         },
-      //       },
-      //     ],
-      //     as: "conversation",
-      //   },
-      // },
-      // {
-      //   $unwind: "$conversation",
-      // },
-      // {
-      //   $match: { "conversation.members": userId },
-      // },
-      // {
-      //   $group: {
-      //     _id: "$conversationId",
-      //     messages: {
-      //       $push: {
-      //         $cond: {
-      //           if: {
-      //             $in: [userId, "$deletedFor"],
-      //           },
-      //           then: "$$REMOVE",
-      //           else: {
-      //             id: "$id",
-      //             conversationId: "$conversationId",
-      //             from: "$from",
-      //             to: "$to",
-      //             timestamp: "$timestamp",
-      //             message: "$message",
-      //             reply: "$reply",
-      //             readReceipt: "$readReceipt",
-      //           },
-      //         },
-      //       },
-      //     },
-      //   },
-      // },
-      // {
-      //   $addFields: {
-      //     conversationId: "$id",
-      //   },
-      // },
-      // {
-      //   $project: {
-      //     _id: 0,
-      //     "messages.deletedFor": 0,
-      //   },
-      // },
+
+      ...messagedeleteflagsLookup(userId),
+
+      ...limitMessages()
     ]);
 
     return res;
+  } catch (error) {
+    console.log("getUserMessages---->", error);
+    return [];
+  }
+}
+
+async function getGroupMessages({
+  conversationId,
+  userId,
+  cursor,
+}: {
+  conversationId: Types.ObjectId;
+  userId: Types.ObjectId;
+  cursor: number;
+}) {
+  try {
+    const groups = await GroupConversation.aggregate([
+      { $match: { conversationId, userId } },
+
+      activityLookup(),
+
+      messagesLookup(userId, cursor),
+
+      { $project: { messages: 1 } },
+    ])
+
+    return groups[0].messages;
   } catch (error) {
     console.log("getUserMessages---->", error);
     return [];
@@ -195,9 +178,7 @@ const updateUserMessages = async (updates: Partial<IMessage>[]) => {
   }
 };
 
-const deleteMessagesForUser = async (
-  collections: { userId: string; messageId: string }[]
-) => {
+const deleteMessagesForUser = async (collections: { userId: string; messageId: string }[]) => {
   try {
     var bulkOps: BulkOperation[] = [];
 
@@ -224,7 +205,9 @@ const deleteMessagesForUser = async (
 export default {
   getMessages,
   getUserMessages,
+  getGroupMessages,
   saveUserMessage,
+  saveSystemMessage,
   updateUserMessages,
   deleteUserMessages,
   deleteMessagesForUser,

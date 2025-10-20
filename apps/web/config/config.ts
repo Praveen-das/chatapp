@@ -25,7 +25,7 @@ const profilDetails = {
 
 }
 
-const PAGINATION_LIMIT = 5
+const PAGINATION_LIMIT = 50
 
 export default {
     settings,

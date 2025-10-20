@@ -9,7 +9,7 @@ import { IUserConversation } from "@repo/interfaces/conversationInterface";
 import Header from "./SharedComponents/Header";
 import { PlusIcon } from "@heroicons/react/24/solid";
 import Avatar from "@features/ui/Avatar";
-import { getReceiver } from "@lib/conversation";
+import { getParticipant } from "@lib/conversation";
 
 function BlockedContacts() {
   const setModal = useStore((s) => s.setModal);
@@ -32,12 +32,12 @@ function BlockedContacts() {
       <div className="flex flex-col max-sm:gap-2 sm:gap-4 max-sm:mt-2 sm:mt-4">
         <div className="grid pb-2 gap-2 overflow-y-scroll no-scrollbar">
           {blockedConversations.map((conversation) => {
-            const receiver = getReceiver(conversation);
+            const receiver = getParticipant(conversation);
             return (
               <div key={conversation.id} className="flex items-center justify-between gap-4 w-full p-3 rounded-2xl">
                 <Avatar
                   url={receiver?.profilePicture}
-                  profileHidden={!receiver?.rules?.profilePicture.isVisible}
+                  profileHidden={receiver?.rules?.includes("hide_profilepicture")!}
                   onlineIndication={false}
                 />
                 <div className="flex flex-col w-full flex-1">
