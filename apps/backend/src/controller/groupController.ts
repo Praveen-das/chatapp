@@ -1,6 +1,11 @@
+import { IGroup, MemberReq } from "@repo/interfaces/groupInterface";
 import { Request, Response } from "express";
 import { Types } from "mongoose";
-import { IGroup, MemberReq } from "@repo/interfaces/groupInterface";
+import {
+  conversationClearReq,
+  groupConversationsSchema, groupMembersSchema,
+  groupSchema
+} from "../schemas/groupSchema";
 import {
   addGroupTag,
   addMembersToGroup,
@@ -8,24 +13,16 @@ import {
   createGroup,
   deleteGroup,
   fetchGroupById,
-  fetchGroups,
-  fetchGroupsByUserId,
-  generateGroupInvitationId,
+  fetchGroupByInvitationId,
+  fetchGroups, generateGroupInvitationId,
   makeUserAdmin,
   removeGroupTag,
   removeMemberFromGroup,
   removeUserAdmin,
   updateGroup,
-  updateGroupMemberRole,
+  updateGroupMemberRole
 } from "../services/groupServices";
-import { conversationClearReq, groupConversationsSchema, groupMemberSchema, groupMembersSchema, groupSchema } from "../schemas/groupSchema";
-import { objectId } from "../schemas/objectId";
-
-const _fetchGroups = async (req: Request, res: Response) => {
-  const group = await fetchGroups();
-
-  res.json(group);
-};
+import { handleUpdatingGroupConversationSyncState } from "../services/utils/conversation";
 
 const _createGroup = async (req: Request, res: Response) => {
   try {
@@ -33,12 +30,21 @@ const _createGroup = async (req: Request, res: Response) => {
     const group = groupSchema.parse(body.group);
     const groupConversations = groupConversationsSchema.parse(body.groupConversations);
 
-    const conversations = await createGroup(group,groupConversations);
+    const conversations = await createGroup(group, groupConversations);
+
+    if (conversations?.ok) await handleUpdatingGroupConversationSyncState(groupConversations);
+
     res.json(conversations);
   } catch (error) {
     res.send(null);
     console.log("CREATE_GROUP error--->", error);
   }
+};
+
+const _fetchGroups = async (req: Request, res: Response) => {
+  const group = await fetchGroups();
+
+  res.json(group);
 };
 
 const _generateGroupInvitationId = async (req: Request, res: Response) => {
@@ -86,7 +92,7 @@ const _addMembersToGroup = async (req: string, reset: () => void) => {
     const members = groupMembersSchema.parse(parsed.members);
     const groupId = new Types.ObjectId(parsed.groupId);
 
-    await addMembersToGroup(groupId,members);
+    await addMembersToGroup(groupId, members);
   } catch (error) {
     console.log(error);
     reset();
@@ -121,26 +127,40 @@ const _fetchGroupById = async (req: Request, res: Response) => {
   if (!id) throw new Error("Group ID is required");
 
   try {
-    const groups = await fetchGroupById(id);
+    const group = await fetchGroupById(id);
 
-    res.json(groups);
+    res.json(group);
   } catch (error) {
     res.json(error);
   }
 };
 
-const _fetchGroupsByUserId = async (req: Request, res: Response) => {
+const _fetchGroupByInvitationId = async (req: Request, res: Response) => {
+  const id = req.params.id;
+
+  if (!id) throw new Error("Group ID is required");
+
   try {
-    const userId = objectId.parse(req.params.id);
+    const groups = await fetchGroupByInvitationId(id);
 
-    if (!userId) throw new Error("User ID is required");
-
-    const groups = await fetchGroupsByUserId(userId);
     res.json(groups);
   } catch (error) {
     res.json(error);
   }
 };
+
+// const _fetchGroupsByUserId = async (req: Request, res: Response) => {
+//   try {
+//     const userId = objectId.parse(req.params.id);
+
+//     if (!userId) throw new Error("User ID is required");
+
+//     const groups = await fetchGroupsByUserId(userId);
+//     res.json(groups);
+//   } catch (error) {
+//     res.json(error);
+//   }
+// };
 
 const _makeUserAdmin = async (req: string, reset: () => void) => {
   try {
@@ -223,8 +243,9 @@ export default {
   _addMembersToGroup,
   _removeMemberFromGroup,
   _updateGroupMemberRole,
-  _fetchGroupsByUserId,
   _fetchGroupById,
+  // _fetchGroupsByUserId,
+  _fetchGroupByInvitationId,
   _makeUserAdmin,
   _removeUserAdmin,
   _clearGroupConversation,

@@ -43,10 +43,10 @@ export const AddBlockedContactModal = () => {
 
     if (!userConversation) {
       sendRequestToRegisterConversation([user!, selectedUser!], {
-        blocked: { userId: user?.id! },
+        blocked: [user?.id!],
       });
     } else {
-      sendUserBlockRequest({ userConversation });
+      sendUserBlockRequest(userConversation);
     }
 
     setModal(false);

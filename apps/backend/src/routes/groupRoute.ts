@@ -14,8 +14,10 @@ router
 
     .patch('/change-role', groupController._updateGroupMemberRole)
 
-    .get('/fetch/:id', groupController._fetchGroupById)
+    .get('/:id', groupController._fetchGroupById)
 
-    .get('/:id', groupController._fetchGroupsByUserId)
+    .get('/group-invitations/:id', groupController._fetchGroupByInvitationId)
+
+    // .get('/:id', groupController._fetchGroupsByUserId)
 
 export default router

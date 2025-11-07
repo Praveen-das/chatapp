@@ -20,7 +20,7 @@ export function RenderAvatar({ conversation, receiver }: { conversation: IConver
     <Avatar
       url={receiver.profilePicture}
       profileHidden={Boolean(receiver.rules?.includes("hide_profilepicture"))}
-      online={!blockedConversation && isOnline}
+      onlineIndication={false}
     />
   );
 }

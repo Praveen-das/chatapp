@@ -12,6 +12,7 @@ import { uploadImage } from "@lib/imageKit";
 import { useStore } from "../../../store/global";
 import { flip, shift, useFloating } from "@floating-ui/react";
 import { generateMessageTemplate } from "@lib/messages";
+import { getMemberById } from "@lib/conversation";
 
 function ImageSelector() {
   const { sendMessage } = useSocket();
@@ -37,10 +38,7 @@ function ImageSelector() {
     } = useConversationStore.getState();
 
     let conversation =
-      selectedConversation ||
-      conversations.find(
-        (c) => c?.host !== "system" && c.members.find((m) => m.id === selectedUser?.id!) && c.host === "user"
-      );
+      selectedConversation || conversations.find((c) => getMemberById(c, selectedUser?.id!) && c.host === "user");
 
     const conversationId = conversation?.id!;
 
@@ -84,7 +82,7 @@ function ImageSelector() {
 
           if (message.attachment?.type === "images") message.attachment = { ...message.attachment, ...res };
         } catch (err) {
-          setLoading(false)
+          setLoading(false);
           console.error("Image upload failed", err);
         }
       }

@@ -28,6 +28,8 @@ export const groupLookup = () => [
       desc: "$conversation.desc",
       tags: "$conversation.tags",
       createdBy: "$conversation.createdBy",
+      updatedAt: "$conversation.updatedAt",
+      version: "$conversation.version",
     },
   },
 ];
@@ -51,6 +53,27 @@ export const conversationLookup = () => [
     $addFields: {
       members: "$conversation.members",
       host: "$conversation.host",
+      updatedAt: "$conversation.updatedAt",
+      version: "$conversation.version",
+      username: "$conversation.username",
+      blocked: {
+        $cond: [
+          {
+            $in: ["$userId", { $ifNull: ["$conversation.blockedList.blockedBy", []] }],
+          },
+          true,
+          false,
+        ],
+      },
+      blockedByUser: {
+        $cond: [
+          {
+            $in: ["$userId", { $ifNull: ["$conversation.blockedList.userId", []] }],
+          },
+          true,
+          false,
+        ],
+      },
     },
   },
 ];
@@ -82,13 +105,22 @@ export const activityLookup = () => ({
   },
 });
 
-export const messagesLookup = (userId: Types.ObjectId, cursor?: number): any => ({
+export const messagesLookup = ({
+  userId,
+  cursor,
+  lastKnownMessageTimestamp,
+}: {
+  userId: Types.ObjectId;
+  cursor?: number;
+  lastKnownMessageTimestamp?: number;
+}): any => ({
   $lookup: {
     from: "messages",
     let: {
       convoId: "$conversationId",
       activityLog: "$activityLog",
       cursor,
+      lastKnownMessageTimestamp,
     },
     pipeline: [
       {
@@ -99,53 +131,73 @@ export const messagesLookup = (userId: Types.ObjectId, cursor?: number): any => 
                 $eq: ["$conversationId", "$$convoId"],
               },
               {
-                $reduce: {
-                  input: "$$activityLog",
-                  initialValue: false,
-                  in: {
-                    $or: [
-                      "$$value",
-                      {
-                        $and: [
+                $cond: [
+                  {
+                    $ifNull: ["$$lastKnownMessageTimestamp", false],
+                  },
+                  {
+                    $gt: ["$timestamp", "$$lastKnownMessageTimestamp"],
+                  },
+                  {
+                    $reduce: {
+                      input: "$$activityLog",
+                      initialValue: false,
+                      in: {
+                        $or: [
+                          "$$value",
                           {
-                            $gte: ["$timestamp", "$$this.joinedAt"],
-                          },
-                          {
-                            $cond: [
+                            $and: [
                               {
-                                $ifNull: ["$$this.exitedAt", false],
+                                $gte: ["$timestamp", "$$this.joinedAt"],
                               },
                               {
-                                $lt: ["$timestamp", "$$this.exitedAt"],
+                                $cond: [
+                                  {
+                                    $ifNull: ["$$this.exitedAt", false],
+                                  },
+                                  {
+                                    $lt: ["$timestamp", "$$this.exitedAt"],
+                                  },
+                                  true,
+                                ],
                               },
-                              true,
-                            ],
-                          },
-                          {
-                            $cond: [
                               {
-                                $ifNull: ["$$cursor", false],
+                                $cond: [
+                                  {
+                                    $ifNull: ["$$cursor", false],
+                                  },
+                                  {
+                                    $lt: ["$timestamp", "$$cursor"],
+                                  },
+                                  true,
+                                ],
                               },
-                              {
-                                $lt: ["$timestamp", "$$cursor"],
-                              },
-                              true,
                             ],
                           },
                         ],
                       },
-                    ],
+                    },
                   },
-                },
+                ],
               },
             ],
           },
         },
       },
 
+      {
+        $sort: {
+          timestamp: -1,
+        },
+      },
+      {
+        $limit: LIMIT + 1,
+      },
+
       ...messagedeleteflagsLookup(userId),
 
       userLookup({ localField: "from", as: "user" }),
+
       {
         $unwind: {
           path: "$user",
@@ -153,7 +205,62 @@ export const messagesLookup = (userId: Types.ObjectId, cursor?: number): any => 
         },
       },
 
-      ...limitMessages(),
+      {
+        $sort: {
+          timestamp: 1,
+        },
+      },
+    ],
+    as: "messages",
+  },
+});
+
+export const recentMessagesLookup = (userId: Types.ObjectId, lastKnownMessageTimestamp?: number): any => ({
+  $lookup: {
+    from: "messages",
+    let: {
+      convoId: "$conversationId",
+      lastKnownMessageTimestamp,
+    },
+    pipeline: [
+      {
+        $match: {
+          $expr: {
+            $and: [
+              {
+                $eq: ["$conversationId", "$$convoId"],
+              },
+              {
+                $lt: ["$timestamp", "$$lastKnownMessageTimestamp"],
+              },
+            ],
+          },
+        },
+      },
+
+      {
+        $sort: {
+          timestamp: -1,
+        },
+      },
+      {
+        $limit: LIMIT + 1,
+      },
+
+      userLookup({ localField: "from", as: "user" }),
+
+      {
+        $unwind: {
+          path: "$user",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      {
+        $sort: {
+          timestamp: 1,
+        },
+      },
     ],
     as: "messages",
   },
@@ -168,11 +275,11 @@ export const membersLookup = () => [
         {
           $match: {
             $expr: {
-              $in: ["$_id", "$$memberIds"],
+              $in: ["$_id", { $ifNull: ["$$memberIds", []] }],
             },
           },
         },
-        ...userLookupPipeline()
+        ...userLookupPipeline(),
       ],
       as: "members",
     },
@@ -221,7 +328,7 @@ export const userLookupPipeline = () => [
   },
 ];
 
-export const conversationMessagesLookup = (userId: Types.ObjectId) => ({
+export const conversationMessagesLookup = (userId: Types.ObjectId): any => ({
   $lookup: {
     from: "messages",
     let: {
@@ -259,7 +366,17 @@ export const conversationMessagesLookup = (userId: Types.ObjectId) => ({
         },
       },
 
+      {
+        $sort: {
+          timestamp: -1,
+        },
+      },
+      {
+        $limit: LIMIT + 1,
+      },
+
       userLookup({ localField: "from", as: "user" }),
+
       {
         $unwind: {
           path: "$user",
@@ -270,7 +387,11 @@ export const conversationMessagesLookup = (userId: Types.ObjectId) => ({
       // Perform the messageDeleted lookup for only the matched messages
       ...messagedeleteflagsLookup(userId),
 
-      ...limitMessages(),
+      {
+        $sort: {
+          timestamp: 1,
+        },
+      },
     ],
     as: "messages",
   },
@@ -338,19 +459,3 @@ export const starredMessagesLookup = () => ({
     as: "starred",
   },
 });
-
-export const limitMessages = (): Array<any> => [
-  {
-    $sort: {
-      timestamp: -1,
-    },
-  },
-  {
-    $limit: LIMIT + 1,
-  },
-  {
-    $sort: {
-      timestamp: 1,
-    },
-  },
-];

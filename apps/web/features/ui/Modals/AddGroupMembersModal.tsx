@@ -11,7 +11,6 @@ import FramerWrapper from "../MotionWrapper";
 import SearchUser from "../Searchbar";
 import ModalTitle from "./components/ModalTitle";
 import { User } from "./components/User";
-import ObjectID from "bson-objectid";
 
 export const AddGroupMembersModal = () => {
   const setModal = useStore((s) => s.setModal);
@@ -41,8 +40,27 @@ export const AddGroupMembersModal = () => {
     });
   };
 
-  function onSubmit() {
-    addMembersToGroup(selectedConversation as IGroupConversation, selectedUsers);
+  async function onSubmit() {
+    const { admins, channelId, displayName, host, conversationId, members, profilePicture, desc, invitationId, tags, createdBy } =
+      selectedConversation!;
+
+    addMembersToGroup(
+      {
+        id:conversationId,
+        admins,
+        channelId: channelId!,
+        displayName: displayName!,
+        host,
+        members,
+        profilePicture,
+        desc,
+        invitationId,
+        tags,
+        createdBy: createdBy!,
+      },
+      selectedUsers
+    );
+    
     setModal(false);
   }
 

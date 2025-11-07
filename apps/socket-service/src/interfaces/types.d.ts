@@ -127,7 +127,6 @@ interface IUserConversation extends IConversationBase {
 }
 
 
-
 interface IGroup {
   _id?: string,
   id: string,

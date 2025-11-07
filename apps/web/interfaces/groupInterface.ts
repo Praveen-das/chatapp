@@ -1,7 +1,6 @@
 import { IGroupMember } from "@repo/interfaces/conversationInterface";
 import { IGroup as _IGroup, MemberReq } from "@repo/interfaces/groupInterface";
 import { Override } from "@repo/interfaces/type";
-import { IUser } from "@repo/interfaces/userInterface";
 
 export type IActivityLog = { joinedAt: number; exitedAt: number }
 

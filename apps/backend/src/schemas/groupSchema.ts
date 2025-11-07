@@ -24,15 +24,12 @@ export const groupSchema = z.object({
   host: z.literal("group"),
   members: z.array(memberSchema),
   createdBy: objectId,
-  createdAt: z.number(),
-  updatedAt: z.number(),
 });
 
 export const groupConversationSchema = z.object({
   id: objectId,
   userId: objectId,
   conversationId: objectId,
-
   createdAt: z.number(),
   updatedAt: z.number(),
 });

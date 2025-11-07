@@ -35,37 +35,41 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
       updates: Partial<IGroupConversation>;
       admin: IUser;
     }) => {
-      const body = { groupId: conversation.conversationId, updates: updates };
+      try {
+        const body = { groupId: conversation.conversationId, updates };
 
-      produceMessage(body, "UPDATE_GROUP_INFO");
+        produceMessage(body, "UPDATE_GROUP_INFO");
 
-      const updatedProperty = Object.keys(updates)[0]!;
-
-      function getUpdateMessage(key: string) {
-        switch (key) {
-          case "displayName":
-            return `${admin.username} changed group name to "${updates.displayName}"`;
-          case "desc":
-            return `${admin.username} modified the group description`;
-          case "profilePicture":
-            return `${admin.username} changed the profile picture`;
-          default:
-            break;
+        const updatedProperty = Object.keys(updates)[0]!;
+        
+        function getUpdateMessage(key: string) {
+          switch (key) {
+            case "displayName":
+              return `${admin.username} changed group name to "${updates.displayName}"`;
+            case "desc":
+              return `${admin.username} modified the group description`;
+            case "profilePicture":
+              return `${admin.username} changed the profile picture`;
+            default:
+              break;
+          }
         }
+
+        const messageString = getUpdateMessage(updatedProperty);
+
+        const message: Partial<IMessage> = {
+          id: crypto.randomUUID(),
+          conversationId: conversation.conversationId,
+          from: "system",
+          type: "notification",
+          message: messageString,
+          timestamp: Date.now(),
+        };
+
+        io.to(conversation.channelId!).emit("UPDATE_GROUP", { ...updates, id: conversation.conversationId }, message);
+      } catch (error) {
+        console.log("updateGroupInfo listener error:", error);
       }
-
-      const messageString = getUpdateMessage(updatedProperty);
-
-      const message: Partial<IMessage> = {
-        id: crypto.randomUUID(),
-        conversationId: conversation.conversationId,
-        from: "system",
-        type: "notification",
-        message: messageString,
-        timestamp: Date.now(),
-      };
-
-      io.to(conversation.channelId!).emit("UPDATE_GROUP", { ...updates, id: conversation.conversationId }, message);
     }
   );
 
@@ -158,26 +162,17 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
 
   socket.on(
     "GROUP_ADD_MEMBERS",
-    async ({
-      conversation,
-      members,
-      admin,
-    }: {
-      conversation: IGroupConversation;
-      members: IGroupMember[];
-      admin: IUser;
-    }) => {
+    async ({ group, members, admin }: { group: IGroup; members: IGroupMember[]; admin: IUser }) => {
       const groupConversations: IGroupConversation[] = [];
       const groupMembers: MemberReq[] = [];
 
       const _members = members.map(({ id }) => id);
       const sockets = io.sockets.sockets;
-      const conversationId = conversation.conversationId;
-      delete conversation._id;
+      const conversationId = group.id;
 
       _members.forEach((id) => {
         sockets.forEach((_socket: ISocket) => {
-          if (_socket.userId === id) _socket.join(conversation.channelId!);
+          if (_socket.userId === id) _socket.join(group.channelId!);
         });
       });
 
@@ -205,11 +200,11 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
         }));
 
         const groupConversation: IGroupConversation = {
-          ...conversation,
+          ...group,
           id: new Types.ObjectId().toHexString(),
           conversationId,
           userId: m.id,
-          members: [...conversation.members, m],
+          members: [...(group.members as IGroupMember[]), m],
           active: true,
           updatedAt: Date.now(),
           createdAt: Date.now(),
@@ -232,7 +227,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
         message: `${admin.username} added ${m.username} to the group`,
       }));
 
-      io.to(conversation.channelId!)
+      io.to(group.channelId!)
         .except([..._members, socket.userId!])
         .emit("GROUP_ADD_MEMBERS", { conversationId, members }, messages);
 

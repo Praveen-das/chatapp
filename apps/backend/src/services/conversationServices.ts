@@ -1,22 +1,33 @@
-import { Types } from "mongoose";
+import { PipelineStage, Types } from "mongoose";
 
-import { IDeleteConversationRequest, IUpdateBlockReq } from "@repo/interfaces/conversationInterface.js";
+import { IDeleteConversationRequest, IUserBlockRequest } from "@repo/interfaces/conversationInterface.js";
+import { ConversationEntry } from "@repo/interfaces/syncRegistryInterface.js";
+import mongoose from "mongoose";
 import { z } from "zod";
 import {
+  activityLookup,
   conversationLookup,
   conversationMessagesLookup,
+  groupLookup,
+  membersLookup,
+  messagesLookup,
   starredMessagesLookup,
   userLookup,
 } from "../db/stages/stages.js";
 import { IGroupConversation, IUserConversation } from "../interfaces/conversationInterface.js";
 import Conversations from "../models/ConversationModel.js";
+import Dummy from "../models/Dummy.js";
 import GroupConversation from "../models/GroupConversation.js";
+import Member from "../models/MemberModel.js";
 import SystemConversation from "../models/SystemConversation.js";
 import UserConversation from "../models/UserConversation.js";
-import { conversationSchema, systemConversationSchema, userConversationsSchema } from "../schemas/conversationSchema";
+import {
+  conversationBlockRequest,
+  conversationSchema,
+  systemConversationSchema,
+  userConversationsSchema,
+} from "../schemas/conversationSchema";
 import { groupConversationsSchema } from "../schemas/groupSchema";
-import Member from "../models/MemberModel.js";
-import mongoose from "mongoose";
 
 async function saveConversations(
   conversation: z.infer<typeof conversationSchema>,
@@ -24,19 +35,18 @@ async function saveConversations(
 ) {
   const session = await mongoose.startSession();
   try {
-
     const result = await session.withTransaction(async () => {
       const result1 = await Conversations.create([conversation], { session });
       const result2 = await UserConversation.insertMany(userConversations, { session });
 
-      return { conversation: result1, userConversations: result2 };
+      return { conversation: result1[0], userConversations: result2 };
     });
 
     session.endSession();
 
     return result;
   } catch (error) {
-    session.abortTransaction()
+    session.abortTransaction();
     console.error("Error:", error);
     throw error; // Rethrow the error if needed
   }
@@ -75,7 +85,10 @@ async function createUserConversation(userConversations: z.infer<typeof userConv
   }
 }
 
-async function createGroupConversation(groupConversations: z.infer<typeof groupConversationsSchema>) {
+async function createGroupConversation(
+  groupConversations: z.infer<typeof groupConversationsSchema>,
+  session?: mongoose.mongo.ClientSession
+) {
   try {
     const ops = groupConversations.map((doc) => ({
       updateOne: {
@@ -85,10 +98,9 @@ async function createGroupConversation(groupConversations: z.infer<typeof groupC
       },
     }));
 
-    const result = await GroupConversation.bulkWrite(ops, { ordered: false });
-    
-    console.log(result);
-    // return result;
+    const result = await GroupConversation.bulkWrite(ops, { ordered: false, session: session ? session : undefined });
+
+    return result;
   } catch (error) {
     console.error("Error:", error);
     throw error; // Rethrow the error if needed
@@ -105,7 +117,7 @@ async function deleteGroupConversation(userId: Types.ObjectId, conversationId: T
 
     await session.endSession();
   } catch (error) {
-    session.abortTransaction()
+    session.abortTransaction();
     console.error("Error deleteGroupConversation:", error);
     throw error;
   }
@@ -118,7 +130,7 @@ async function fetchAllConversations() {
 
 async function getUserConversation(userId: Types.ObjectId) {
   try {
-    const res = await UserConversation.aggregate([
+    const pipeline = [
       {
         $match: { userId },
       },
@@ -130,9 +142,11 @@ async function getUserConversation(userId: Types.ObjectId) {
       conversationMessagesLookup(userId),
 
       starredMessagesLookup(),
-    ]);
+    ];
 
-    return res;
+    const res = await UserConversation.aggregate(pipeline);
+
+    return res as IUserConversation[];
   } catch (error) {
     console.log("getUserConversation-------->", error);
   }
@@ -143,7 +157,7 @@ async function updateUserConversationById(id: Types.ObjectId, updates: Partial<I
     const res = await UserConversation.findOneAndUpdate({ id }, updates);
     return res;
   } catch (error) {
-    console.log("updateConversationById-------->", error);
+    console.log("updateUserConversationById-------->", error);
   }
 }
 
@@ -156,25 +170,28 @@ async function updateGroupConversationById(id: Types.ObjectId, updates: Partial<
   }
 }
 
-async function updateUserConversationBlockStatus({ conversationId, userId, requestedUserId, value }: IUpdateBlockReq) {
+async function updateUserConversationBlockStatus({
+  conversationId,
+  blockedList,
+  blocked,
+  blockedId,
+}: z.infer<typeof conversationBlockRequest>) {
   try {
-    const res = await UserConversation.bulkWrite([
-      {
-        updateOne: {
-          filter: { conversationId, userId },
-          update: { $set: { blockedByUser: value } },
-        },
-      },
-      {
-        updateOne: {
-          filter: { conversationId, userId: requestedUserId },
-          update: { $set: { blocked: value } },
-        },
-      },
-    ]);
-    return res;
+    if (blocked) {
+      const res = await Conversations.findOneAndUpdate(
+        { id: conversationId },
+        { $push: { blockedList }, $inc: { version: 1 } },
+        { new: true }
+      );
+    } else {
+      const res = await Conversations.findOneAndUpdate(
+        { id: conversationId },
+        { $pull: { blockedList: { userId: blockedId } }, $inc: { version: 1 } },
+        { new: true }
+      );
+    }
   } catch (error) {
-    console.log("updateConversationById-------->", error);
+    console.log("updateUserConversationBlockStatus-------->", error);
   }
 }
 
@@ -266,6 +283,135 @@ async function unregisterStarredMessages(id: Types.ObjectId, messageId: Types.Ob
   }
 }
 
+const createPipeline = (conversationId: string, userId: Types.ObjectId, host: "user" | "group", req: any) => {
+  const matchStage = { $match: { userId, conversationId: new Types.ObjectId(conversationId) } };
+
+  if (req.newEntry) {
+    if (host === "user")
+      return [
+        matchStage,
+        ...conversationLookup(),
+        userLookup({ localField: "members", as: "members" }),
+        conversationMessagesLookup(userId),
+        starredMessagesLookup(),
+      ];
+
+    if (host === "group")
+      return [
+        matchStage,
+        ...groupLookup(),
+        ...membersLookup(),
+        activityLookup(),
+        messagesLookup({ userId }),
+        starredMessagesLookup(),
+        { $set: { currentParticipation: { $arrayElemAt: ["$activityLog", -1] } } },
+        { $project: { conversation: 0, activityLog: 0 } },
+      ];
+
+    return [];
+  }
+
+  const pipeline: PipelineStage[] = [matchStage];
+
+  if (host === "group") pipeline.push(activityLookup());
+
+  if (req.needSync) {
+    if (host === "group")
+      pipeline.push(...groupLookup(), ...membersLookup(), starredMessagesLookup(), {
+        $set: { currentParticipation: { $arrayElemAt: ["$activityLog", -1] } },
+      });
+    if (host === "user")
+      pipeline.push(
+        ...conversationLookup(),
+        userLookup({ localField: "members", as: "members" }),
+        starredMessagesLookup()
+      );
+  }
+
+  if (req.lastKnownMessageTimestamp) {
+    if (host === "group")
+      pipeline.push(messagesLookup({ userId, lastKnownMessageTimestamp: req.lastKnownMessageTimestamp }));
+    if (host === "user") pipeline.push(conversationMessagesLookup(userId));
+  }
+
+  if (req.needSync) {
+    pipeline.push({
+      $project: {
+        conversation: 0,
+        activityLog: 0,
+      },
+    });
+    return pipeline;
+  }
+
+  if (req.lastKnownMessageTimestamp) {
+    pipeline.push({ $project: { messages: 1, id: 1, conversationId: 1 } });
+    return pipeline;
+  }
+
+  return pipeline;
+};
+
+async function fetchConversations(userId: Types.ObjectId, entries: ConversationEntry[]) {
+  try {
+    const res: Record<string, PipelineStage[]> = {};
+    const resultKeys: Set<string> = new Set();
+
+    for (const req of entries) {
+      const pipeline = {
+        $unionWith: {
+          coll: req.host === "group" ? "groupconversations" : "userconversations",
+          pipeline: createPipeline(req.conversationId!, userId, req?.host!, req),
+        },
+      };
+
+      const collection = (() => {
+        switch (Object.keys(req)[0]) {
+          case "newEntry":
+            return "newEntry";
+          case "needSync":
+            return req.lastKnownMessageTimestamp ? "newEntry" : "needSync";
+          case "lastKnownMessageTimestamp":
+            return "messages";
+          case "unSyncUserIds":
+            return "unSyncUserIds";
+          default:
+            return null;
+        }
+      })();
+
+      if (!collection) continue;
+
+      resultKeys.add(collection);
+
+      if (res[collection]) res[collection].push(pipeline);
+      else res[collection] = [{ $match: { _id: { $exists: false } } }, pipeline];
+    }
+
+    if (!!Object.keys(res)) {
+      const promises: Promise<any>[] = [];
+
+      resultKeys.forEach((collection) => {
+        promises.push(Dummy.aggregate(res[collection]));
+      });
+
+      const result = await Promise.all(promises);
+      const data: Record<string, any> = {};
+
+      Array.from(resultKeys).forEach((collection, i) => {
+        data[collection] = result[i];
+      });
+
+      return data;
+    }
+
+    return null;
+  } catch (error) {
+    console.log("fetchConversations--->", error);
+    return [];
+  }
+}
+
 export default {
   saveConversations,
   createConversation,
@@ -273,6 +419,7 @@ export default {
   createUserConversation,
   createGroupConversation,
   deleteGroupConversation,
+  fetchConversations,
   fetchAllConversations,
   getUserConversation,
   updateConversationById,

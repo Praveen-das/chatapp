@@ -51,7 +51,7 @@ function GeneralSettings() {
     sendUserRuleChangeRequest({
       userId: user?.id!,
       rule,
-      action: checked ? "add" : "remove",
+      action: checked ? "remove" : "add",
     });
   };
 
@@ -70,7 +70,7 @@ function GeneralSettings() {
   };
 
   const checkBoxStyle = "checkbox checkbox-primary [--chkfg:oklch(var(--b3))] checkbox-sm";
-  
+
   return (
     <div className="flex flex-col h-full">
       <Header title="General Settings" mainTab="settings" />

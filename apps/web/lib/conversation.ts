@@ -12,6 +12,18 @@ export const getParticipant = (c: IConversation) => {
   if (c?.host !== "system") return c.members.find((m) => m.id !== c.userId);
 };
 
+export const getMemberById = (c: IConversation,id:string) => {
+  if (c?.host !== "system") return c?.members.find((m) => m.id === id);
+};
+
+export const getConversationByConversationId = (conversationId: string) => {
+  return useConversationStore.getState().conversations.find((c) => c.conversationId === conversationId);
+};
+
+export const getConversationById = (userConversationId: string) => {
+  return useConversationStore.getState().conversations.find((c) => c.id === userConversationId);
+};
+
 export function getDisplayName(conversation: IConversation): string {
   if (conversation.host === "user") {
     const receiver = getParticipant(conversation);

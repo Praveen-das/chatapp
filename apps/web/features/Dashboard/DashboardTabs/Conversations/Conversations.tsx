@@ -61,7 +61,7 @@ function DisplayConversations() {
     };
   }, [selectedConversation]);
 
-  useMemo(() => conversations.sort((a, b) => b.updatedAt - a.updatedAt), [conversations]);
+  useMemo(() => conversations.sort((a, b) => b.recentMessage?.timestamp! - a.recentMessage?.timestamp!), [conversations]);
 
   return (
     <>

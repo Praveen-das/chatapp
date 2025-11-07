@@ -15,6 +15,7 @@ import { MouseEvent } from "react";
 import { useConversationStore } from "store/conversationStore";
 import { IMessageReply } from "@repo/interfaces/messageInterface";
 import { IModalKey } from "@interfaces/modalInterface";
+import { getMemberById } from "@lib/conversation";
 
 export default function ChatHeaderActions() {
   const setModal = useStore((s) => s.setModal);
@@ -38,8 +39,7 @@ export default function ChatHeaderActions() {
 
     const copiedMessages = selectedChats
       .map(({ timestamp, from, message }) => {
-        const receiver =
-          selectedConversation?.host !== "system" ? selectedConversation?.members.find((m) => m.id === from) : null;
+        const receiver = getMemberById(selectedConversation!, from!);
         return [moment(new Date(timestamp)).format("D-MM-YY"), receiver?.username, message].join(" ");
       })
       .join("\n");

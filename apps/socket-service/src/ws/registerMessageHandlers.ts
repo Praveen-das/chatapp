@@ -28,8 +28,6 @@ export default function registerMessageHandlers(io: Server, socket: ISocket) {
           conversationId,
         });
 
-        callback();
-
         produceMessage({ messages: messagesWithoutPlaceholder }, "MESSAGES");
       } else {
         io.to(to).emit("message receive", {
@@ -39,6 +37,8 @@ export default function registerMessageHandlers(io: Server, socket: ISocket) {
 
         produceMessage({ messages }, "MESSAGES");
       }
+
+      callback();
     }
   );
 

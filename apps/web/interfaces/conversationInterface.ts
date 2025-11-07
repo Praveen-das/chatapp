@@ -9,6 +9,6 @@ import { MemberReq } from "@repo/interfaces/groupInterface";
 import { Override } from "@repo/interfaces/type";
 
 type IGroupConversation = Override<_IGroupConversation, { displayName?: string }>;
-type IUserConversation = _IUserConversation
+export type IUserConversation = _IUserConversation;
 
 export type IConversation = IGroupConversation | IUserConversation | ISystemConversation;

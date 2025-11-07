@@ -10,6 +10,8 @@ import { IModal } from "@interfaces/modalInterface";
 import { IGroup } from "@interfaces/groupInterface";
 import FramerWrapper from "../MotionWrapper";
 import ObjectID from "bson-objectid";
+import { getMemberById } from "@lib/conversation";
+import { IGroupConversation } from "@repo/interfaces/conversationInterface";
 
 export const JoinGroupModal = () => {
   const axios = useAxios();
@@ -72,10 +74,10 @@ export const JoinGroupModal = () => {
     (async () => {
       try {
         setLoading(true);
-        const fetchedGroup = await axios<IGroup[]>(`/db/group/fetch/${invitationId}`).then((res) => res.data[0]);
+        const fetchedGroup = await axios<IGroup[]>(`/db/group/group-invitations/${invitationId}`).then((res) => res.data[0]);
 
         if (fetchedGroup) {
-          if (fetchedGroup.members.find((m: any) => m.id === user?.id)) {
+          if (getMemberById(fetchedGroup as IGroupConversation, user?.id!)) {
             const conversationId = useConversationStore
               .getState()
               .conversations.find((c) => c.conversationId === fetchedGroup.id)?.id!;
@@ -112,7 +114,7 @@ export const JoinGroupModal = () => {
           </label>
           <label className="text-sm text-center text-base-content" htmlFor="">
             Created by {group.createdBy} on{" "}
-            <span className="whitespace-nowrap">{moment(new Date(group.createdAt)).format("LT")}</span>
+            <span className="whitespace-nowrap">{moment(new Date(group.createdAt!)).format("LT")}</span>
           </label>
           <div className="avatar-group -space-x-4 rtl:space-x-reverse">
             {group.members.map((member, i) =>

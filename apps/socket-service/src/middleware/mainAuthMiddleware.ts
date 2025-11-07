@@ -13,13 +13,16 @@ interface ISocket extends Socket {
 export default async function mainAuthMiddleware(socket: ISocket, next: any) {
   const auth = socket.handshake.auth;
   const userId = auth.userId;
-  const channels: string[] = auth.channels;
+  const channels: string[] = auth.channels || [];
 
   if (userId) {
     socket.userId = userId;
     socket.join(userId);
 
-    if (!!channels.length) channels.forEach((channel) => socket.join(channel));
+    if (!!channels.length) {
+      console.log("active channels---->", channels.length);
+      channels.forEach((channel) => socket.join(channel));
+    }
 
     return next();
   }

@@ -17,3 +17,13 @@ export type IGroupConversation = Override<
   _IGroupConversation,
   { id: Types.ObjectId; userId: Types.ObjectId; conversationId: Types.ObjectId }
 >;
+
+export type _IUserBlockRequest = {
+  conversationId: string;
+  blocked: boolean;
+  blockedList?: string[];
+  updatedAt?: number;
+  blockedId?: string;
+};
+
+// { userId: string, blockedBy: string }

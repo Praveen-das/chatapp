@@ -61,16 +61,16 @@ const kafkaMessageController = async ({
     case "DELETE_GROUP_CONVERSATION":
       conversationController._deleteGroupConversation(message, callback);
       break;
-    case "CREATE_USER_CONVERSATION":
-      conversationController._createUserConversation(message, callback);
-      break;
+    // case "CREATE_USER_CONVERSATION":
+    //   conversationController._createUserConversation(message, callback);
+    //   break;
     // case "CREATE_GROUP":
     //   groupController._createGroup(message, callback);
     //   break;
     case "CREATE_GROUP_CONVERSATION":
       conversationController._createGroupConversation(message, callback);
       break;
-      
+
     case "UPDATE_MESSAGES":
       messageController._updateUserMessages(message, callback);
       break;
@@ -88,10 +88,10 @@ const kafkaMessageController = async ({
       conversationController._updateGroupConversationById(message, callback);
       break;
     case "UPDATE_USER_BLOCK_STATUS":
-      conversationController._updateUserConversationBlockStatus(
-        message,
-        callback
-      );
+      conversationController._updateUserConversationBlockStatus(message, callback);
+      break;
+    case "UPDATE_USER_RULE":
+      userController._updateUserRule(message, callback);
       break;
     case "REGISTER_STARRED_MESSAGES":
       conversationController._registerStarredMessages(message, callback);

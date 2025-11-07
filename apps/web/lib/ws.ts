@@ -1,7 +1,7 @@
 import { io, Socket } from "socket.io-client";
 import { IConversation } from "@repo/interfaces/conversationInterface";
 
-interface ISocket extends Socket {
+export interface ISocket extends Socket {
   selectedConversation?: IConversation | null;
 }
 

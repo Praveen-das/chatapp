@@ -162,7 +162,7 @@ function HeaderMenuContext() {
     sendGroupConversationDeleteRequest,
     sendUserBlockRequest,
     sendUserUnBlockRequest,
-    sendRequestToRegisterConversation
+    sendRequestToRegisterConversation,
   } = useSocket();
 
   const currentUser = useAuth().user;
@@ -188,10 +188,11 @@ function HeaderMenuContext() {
     if (selectedConversation?.host === "group") return;
     if (isSystemConversation) return;
 
-    if (selectedConversation) return sendUserBlockRequest({ userConversation: selectedConversation });
+    if (selectedConversation)
+      return sendUserBlockRequest(selectedConversation);
 
     sendRequestToRegisterConversation([currentUser!, selectedUser!], {
-      blocked: { userId: currentUser?.id! },
+      blocked: [currentUser?.id!],
     });
   };
 

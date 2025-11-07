@@ -8,8 +8,8 @@ import { LIMIT } from "../../const";
 import { z } from "zod";
 import { memberSchema } from "../schemas/groupSchema";
 import { Types } from "mongoose";
-
-const TIME_TO_EXPIRE = 60 * 60 * 24;
+import CryptoJS from "crypto-js";
+import { syncRegistry } from "../lib/SyncRegistry";
 
 interface IReq {
   messages: IMessage[];
@@ -20,12 +20,91 @@ const _saveUserMessage = async (req: string, reset: () => void) => {
   try {
     const { messages: body }: IReq = JSON.parse(req);
 
-    const messages = messagesSchema.parse(body);
+    const parsedMessages = messagesSchema.parse(body);
 
-    await messageServices.saveUserMessage(messages);
+    const messages = await messageServices.saveUserMessage(parsedMessages);
   } catch (error) {
     console.log("MESSAGES error--->", error);
     reset();
+  }
+};
+
+const _saveMessages = async (req: Request, res: Response) => {
+  try {
+    if (!req.body) return;
+
+    const messages = messagesSchema.parse(req.body);
+
+    const response = await messageServices.saveUserMessage(messages);
+
+    return res.json(response);
+  } catch (error) {
+    console.log("MESSAGES error--->", error);
+    return res.json({ error });
+  }
+};
+
+const encrypt = (message: string) => {
+  const encrypted = CryptoJS.AES.encrypt(message, "obvwoqcbv21801f19d0zibcoavwpnq").toString();
+  return encrypted;
+};
+
+function generateMockConversation({
+  conversationId,
+  from,
+  to,
+  count,
+}: {
+  from: Types.ObjectId;
+  to: Types.ObjectId;
+  conversationId: Types.ObjectId;
+  count: number;
+}) {
+  const messages: IMessage[] = [];
+  for (let i = 0; i < count; i++) {
+    const sender = Math.random() < 0.5 ? from : to;
+    const receiver = sender === from ? to : from;
+
+    messages.push({
+      id: new Types.ObjectId(),
+      from: sender,
+      to: receiver,
+      conversationId,
+      message: encrypt(`Mock message #${i + 1} from user ${sender}`),
+      timestamp: Date.now() - Math.floor(Math.random() * 1000 * 60 * 60 * 24),
+      type: "message",
+      readReceipt: [
+        { status: 2, userId: from.toHexString() },
+        { status: 2, userId: to.toHexString() },
+      ],
+    });
+  }
+
+  return messages;
+}
+
+const _generateMockMessages = async (
+  req: Request<any, any, { from: string; to: string; conversationId: string; count: number }>,
+  res: Response
+) => {
+  try {
+    if (!req.body) return res.json("data not found");
+    if (!req.body.from) return res.json("from not found");
+    if (!req.body.to) return res.json("to not found");
+    if (!req.body.conversationId) return res.json("conversationId not found");
+
+    const from = new Types.ObjectId(req.body.from);
+    const to = new Types.ObjectId(req.body.to);
+    const conversationId = new Types.ObjectId(req.body.conversationId);
+
+    const messages = generateMockConversation({ conversationId, from, to, count: Number(req.body.count || 10) });
+
+    const response = await messageServices.generateMockMessages(messages);
+
+    return res.json(response?.length);
+  } catch (error) {
+    console.log("MESSAGES error--->", error);
+    return res.json({ error });
   }
 };
 
@@ -61,15 +140,15 @@ type IGetUserMessages = {
 };
 
 const _getUserMessages = async (req: Request<{}, {}, {}, IGetUserMessages>, res: Response) => {
-  const { c: timestamp, host,activityLog, limit = LIMIT, deletedAt,...body } = req.query;
+  const { c: timestamp, host, activityLog, limit = LIMIT, deletedAt, ...body } = req.query;
   const _LIMIT = Number(limit);
   const CURSOR = Number(timestamp);
   const _deletedAt = Number(deletedAt);
-  const conversationId = new Types.ObjectId(body.cid)
-  const userId = new Types.ObjectId(body.userId)
+  const conversationId = new Types.ObjectId(body.cid);
+  const userId = new Types.ObjectId(body.userId);
 
   try {
-    if(host === 'user'){
+    if (host === "user") {
       const messages = await messageServices.getUserMessages({
         conversationId,
         userId,
@@ -77,11 +156,11 @@ const _getUserMessages = async (req: Request<{}, {}, {}, IGetUserMessages>, res:
         cursor: CURSOR,
         deletedAt: _deletedAt,
       });
-      
+
       return res.json(messages);
     }
 
-    if(host === 'group'){
+    if (host === "group") {
       const messages = await messageServices.getGroupMessages({
         conversationId,
         userId,
@@ -113,6 +192,8 @@ const _deleteUserMessage = async (req: Request, res: Response) => {
 };
 
 export default {
+  _generateMockMessages,
+  _saveMessages,
   _saveUserMessage,
   _updateUserMessages,
   _deleteMessagesForUser,

@@ -11,6 +11,7 @@ import { useMenu } from "store/menu";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
 import { DisplayRecentMessage } from "./DisplayRecentMessage";
 import useAuth from "@hooks/useAuth";
+import { getMemberById } from "@lib/conversation";
 
 interface IGroupProps {
   conversation: IGroupConversation;
@@ -58,7 +59,7 @@ function GroupConversation({ conversation, isSelectedGroup }: IGroupProps): Reac
 
   ///////////////////////////////////////////
 
-  const from = conversation.members.find((m) => m.id === recentMessage?.from)!;
+  const from = getMemberById(conversation,recentMessage?.from!)!;
 
   const sender = from.id === user?.id ? "You" : from.username;
 

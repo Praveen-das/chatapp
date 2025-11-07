@@ -1,42 +1,28 @@
 import { PipelineStage, Types } from "mongoose";
+import z from "zod";
+import { activityLookup, messagedeleteflagsLookup, messagesLookup } from "../db/stages/stages";
+import { IMessage } from "../interfaces/messageInterface";
+import GroupConversation from "../models/GroupConversation";
 import { MessageDeleteFlag, Messages } from "../models/MessageModel";
 import client from "../redis/client";
-import { IMessage } from "../interfaces/messageInterface";
-import z from "zod";
-import { messagesSchema } from "../schemas/userMessageSchema";
 import { systemMessagesSchema } from "../schemas/systemMessageSchema";
+import { messagesSchema } from "../schemas/userMessageSchema";
 import { LIMIT } from "../../const";
-import { memberSchema } from "../schemas/groupSchema";
-import GroupConversation from "../models/GroupConversation";
-import { activityLookup, limitMessages, messagedeleteflagsLookup, messagesLookup } from "../db/stages/stages";
+
+async function generateMockMessages(messages: z.infer<typeof messagesSchema>) {
+  try {
+    const res = await Messages.insertMany(messages);
+    return res;
+  } catch (error) {
+    console.log("saveUserMessage error----->", error);
+  }
+}
 
 async function saveUserMessage(messages: z.infer<typeof messagesSchema>) {
   try {
-    //   if (!messages.length) return { message: "No messages to insert" };
-
-    // // Extract messages that contain an imageAttachment
-    // const imageAttachments = messages
-    //   .filter((msg) => msg.imageAttachment)
-    //   .map((msg) => msg.imageAttachment!);
-
-    // let savedImages = [];
-    // if (imageAttachments.length > 0) {
-    //   // Insert all images in one request
-    //   savedImages = await ImageAttachment.insertMany(imageAttachments);
-    // }
-
-    // // Map messages and attach the correct imageAttachment._id
-    // const messageDocs = messages.map((msg, index) => ({
-    //   text: msg.text,
-    //   user: new mongoose.Types.ObjectId(msg.user),
-    //   imageAttachment: msg.imageAttachment ? savedImages.shift()?._id : undefined, // Assign the saved ImageAttachment _id
-    // }));
-
-    // // Insert all messages in one request
-    // const savedMessages = await Message.insertMany(messageDocs);
-
+    console.log('aaaaaaa->',messages)
     const res = await Messages.insertMany(messages);
-    await client.del("messages_cache");
+    console.log('saveUserMessage------>',res.length)
     return res;
   } catch (error) {
     console.log("saveUserMessage error----->", error);
@@ -63,7 +49,7 @@ async function getMessages() {
 
 async function getUserMessages({
   conversationId,
-  limit,
+  limit = LIMIT,
   userId,
   cursor,
   deletedAt,
@@ -81,21 +67,36 @@ async function getUserMessages({
         $gte: deletedAt,
       },
     };
-
+    
     if (cursor) {
       query.timestamp.$lt = cursor;
     }
 
-    const res = await Messages.aggregate([
+    const pipeline:any = [
       {
         $match: query,
       },
 
+      {
+        $sort: {
+          timestamp: -1,
+        },
+      },
+      {
+        $limit: limit + 1,
+      },
+
       ...messagedeleteflagsLookup(userId),
 
-      ...limitMessages()
-    ]);
+      {
+        $sort: {
+          timestamp: -1,
+        },
+      },
+    ]
 
+    const res = await Messages.aggregate(pipeline);
+    
     return res;
   } catch (error) {
     console.log("getUserMessages---->", error);
@@ -118,10 +119,10 @@ async function getGroupMessages({
 
       activityLookup(),
 
-      messagesLookup(userId, cursor),
+      messagesLookup({userId, cursor}),
 
       { $project: { messages: 1 } },
-    ])
+    ]);
 
     return groups[0].messages;
   } catch (error) {
@@ -203,6 +204,7 @@ const deleteMessagesForUser = async (collections: { userId: string; messageId: s
 };
 
 export default {
+  generateMockMessages,
   getMessages,
   getUserMessages,
   getGroupMessages,

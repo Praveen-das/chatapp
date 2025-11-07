@@ -7,20 +7,18 @@ export interface INewConversation {
   id: string;
   host: "user";
   members: string[];
-  createdAt: number;
-  updatedAt: number;
+  blocked?: [string];
 }
 
 export type IUserBlockRequest = {
-  userConversation?: IUserConversation;
-  userConversations?: IUserConversation[];
-  conversation?: INewConversation | IConversation;
+  conversationId: string;
+  blocked: boolean;
+  blockedList?: string[];
+  blockedId?: string;
 };
 
 export type GenerateConversationProps = {
-  blocked: {
-    userId: string;
-  };
+  blocked: [string];
 };
 
 export type IConversation = IUserConversation | IGroupConversation | ISystemConversation;
@@ -38,8 +36,9 @@ export interface IConversationBase {
   archived?: boolean;
   starred?: IMessage[];
   deletedAt?: number;
-  createdAt: number;
+  createdAt?: number;
   updatedAt: number;
+  version?: number;
 }
 
 export interface IUserConversation extends IConversationBase {
@@ -47,6 +46,7 @@ export interface IUserConversation extends IConversationBase {
   members: [IUser, IUser];
   displayName?: string;
 
+  blockedList?: string[];
   blocked?: boolean;
   blockedByUser?: boolean;
 }
@@ -68,7 +68,7 @@ export interface IGroupConversation extends IConversationBase {
   admins: string[];
   createdBy?: string;
   profilePicture: string;
-  currentParticipation?:MemberReq
+  currentParticipation?: MemberReq;
 }
 
 export interface ISystemConversation extends IConversationBase {
@@ -104,13 +104,6 @@ export interface IQueryResult {
   chats: IUserConversation[];
   groups: IGroupConversation[];
   contacts: IUserConversation[];
-}
-
-export interface IUpdateBlockReq {
-  conversationId: Types.ObjectId | string;
-  userId: Types.ObjectId | string;
-  requestedUserId: Types.ObjectId | string;
-  value: boolean;
 }
 
 export interface IDeleteConversationRequest {

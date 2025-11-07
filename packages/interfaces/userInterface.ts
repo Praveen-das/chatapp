@@ -15,6 +15,7 @@ export interface IUser {
   createdAt: number;
   updatedAt: number;
   self?: boolean;
+  version?: number;
 }
 
 export interface IBlocked {

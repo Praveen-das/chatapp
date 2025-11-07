@@ -12,8 +12,8 @@ const systemConversationSchema = new Schema<ISystemConversation>(
     archived: { type: Boolean, default: false },
     starred: [Schema.Types.ObjectId],
 
-    createdAt: Number,
-    updatedAt: Number,
+    createdAt:  { type: Number, default: () => Date.now() },
+    updatedAt:  { type: Number, default: () => Date.now() },
   }
 );
 

@@ -21,19 +21,19 @@ export default function registerConversationHandlers(io: Server, socket: ISocket
     produceMessage({ conversation, userConversations }, "CREATE_CONVERSATION");
   });
 
-  socket.on("REGISTER_USER_CONVERSATION", (conversations: IUserConversation[]) => {
-    const userConversations: any[] = [];
+  // socket.on("REGISTER_USER_CONVERSATION", (conversations: IUserConversation[]) => {
+  //   const userConversations: any[] = [];
 
-    conversations.forEach((conversation) => {
-      let members = conversation.members.map(({ id }) => id);
+  //   conversations.forEach((conversation) => {
+  //     let members = conversation.members.map(({ id }) => id);
 
-      userConversations.push({ ...conversation, members });
+  //     userConversations.push({ ...conversation, members });
 
-      io.to(conversation.userId).emit("CREATE_USER_CONVERSATION", conversation, conversation.userId === socket.userId);
-    });
+  //     io.to(conversation.userId).emit("CREATE_USER_CONVERSATION", conversation, conversation.userId === socket.userId);
+  //   });
 
-    produceMessage({ userConversations }, "CREATE_USER_CONVERSATION");
-  });
+  //   produceMessage({ userConversations }, "CREATE_USER_CONVERSATION");
+  // });
 
   socket.on("CLEAR_CONVERSATION", (id: string) => {
     const req = { id, updates: { deletedAt: Date.now() } };

@@ -8,6 +8,7 @@ import SearchUser from "../../ui/Searchbar";
 import { IUser } from "@repo/interfaces/userInterface";
 import SecondaryHeader from "./SharedComponents/Header";
 import SearchPrompt from "./SharedComponents/SearchPrompt";
+import { getMemberById } from "@lib/conversation";
 
 const ContactsList = () => {
   const setDashboardTab = useStore((s) => s.setDashboardTab);
@@ -25,7 +26,7 @@ const ContactsList = () => {
   }, [query, users]);
 
   const handleSelectedUser = (_selectedUser: IUser) => {
-    const con = conversations.find((c) => c.host === "user" && c.members.find((m) => m.id === _selectedUser.id));
+    const con = conversations.find((c) => c.host === "user" && getMemberById(c,_selectedUser.id));
 
     if (con) {
       setSelectedConversation(con.id);

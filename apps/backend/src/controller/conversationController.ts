@@ -4,43 +4,55 @@ import { Types } from "mongoose";
 import { conversationSchema, userConversationsSchema, conversationBlockRequest } from "../schemas/conversationSchema";
 import { groupConversationsSchema } from "../schemas/groupSchema";
 import { objectId } from "../schemas/objectId";
+import { syncRegistry } from "../lib/SyncRegistry";
+import { handleUpdatingGroupConversationSyncState } from "../services/utils/conversation";
+import { SaveConversationSyncState } from "@repo/interfaces/syncRegistryInterface";
 
 const _createConversation = async (req: string, reset: () => void) => {
   try {
     const parsed = JSON.parse(req);
 
-    if(!parsed.conversation) throw Error('Conversation empty')
-    if(!parsed.userConversations) throw Error('UserConversations empty')
+    if (!parsed.conversation) throw Error("Conversation empty");
+    if (!parsed.userConversations) throw Error("UserConversations empty");
 
     let conversation = conversationSchema.parse(parsed.conversation);
     const userConversations = userConversationsSchema.parse(parsed.userConversations);
 
-    const response = await conversationServices.saveConversations(conversation,userConversations);
+    const response = await conversationServices.saveConversations(conversation, userConversations);
+
+    if (response) {
+      const c = response.conversation!;
+      const state: SaveConversationSyncState[] = [
+        { conversationId: c?.id!, fieldValues: ["conversationId", c.id, "version",c.version] },
+      ];
+      syncRegistry.saveConversationSyncState(state);
+    }
   } catch (error) {
     console.log(error);
     reset();
   }
 };
 
-const _createUserConversation = async (req: string, reset: () => void) => {
-  try {
-    let { userConversations: body } = JSON.parse(req);
-    const userConversations = userConversationsSchema.parse(body);
+// const _createUserConversation = async (req: string, reset: () => void) => {
+//   try {
+//     let { userConversations: body } = JSON.parse(req);
+//     const userConversations = userConversationsSchema.parse(body);
 
-    const response = await conversationServices.createUserConversation(userConversations);
-  } catch (error) {
-    console.log(error);
-    reset();
-  }
-};
+//     const response = await conversationServices.createUserConversation(userConversations);
+//   } catch (error) {
+//     console.log(error);
+//     reset();
+//   }
+// };
 
 const _createGroupConversation = async (req: string, reset: () => void) => {
   try {
     let { groupConversations: body } = JSON.parse(req);
     const groupConversations = groupConversationsSchema.parse(body);
     const response = await conversationServices.createGroupConversation(groupConversations);
+    if (response?.ok) await handleUpdatingGroupConversationSyncState(groupConversations);
   } catch (error) {
-    console.log('_createGroupConversation----->',error);
+    console.log("_createGroupConversation----->", error);
     reset();
   }
 };
@@ -52,7 +64,7 @@ const _deleteGroupConversation = async (req: string, reset: () => void) => {
     let userId = objectId.parse(parsed.userId);
     let groupId = objectId.parse(parsed.groupId);
 
-    const response = await conversationServices.deleteGroupConversation(userId,groupId);
+    const response = await conversationServices.deleteGroupConversation(userId, groupId);
   } catch (error) {
     console.log(error);
     reset();
@@ -107,6 +119,8 @@ const _updateUserConversationById = async (req: string, reset: () => void) => {
     const updates = parsed.updates;
 
     const response = await conversationServices.updateUserConversationById(conversationId, updates);
+    // if (response)
+    //   syncRegistry.saveUserConversationUpdateState(response.id, response.updatedAt!);
   } catch (error) {
     console.log(error);
     reset();
@@ -132,6 +146,7 @@ const _updateUserConversationBlockStatus = async (req: string, reset: () => void
     const body = JSON.parse(req);
 
     const updates = conversationBlockRequest.parse(body);
+    
     const response = await conversationServices.updateUserConversationBlockStatus(updates);
   } catch (error) {
     console.log(error);
@@ -168,7 +183,7 @@ const _unregisterStarredMessages = async (req: string, reset: () => void) => {
 
 export default {
   _createConversation,
-  _createUserConversation,
+  // _createUserConversation,
   _createGroupConversation,
   _deleteGroupConversation,
   _fetchAllConversations,

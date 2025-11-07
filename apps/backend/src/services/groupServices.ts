@@ -1,19 +1,24 @@
+import { IGroup } from "@repo/interfaces/groupInterface";
 import mongoose, { Types, startSession } from "mongoose";
-import { IGroup, MemberReq } from "@repo/interfaces/groupInterface";
-import Group from "../models/groupModel";
-import GroupConversation from "../models/GroupConversation";
-import { IDeleteConversationRequest } from "@repo/interfaces/conversationInterface";
 import { z } from "zod";
+import {
+  activityLookup,
+  groupLookup,
+  membersLookup,
+  messagesLookup,
+  starredMessagesLookup,
+  userLookupPipeline,
+} from "../db/stages/stages";
+import GroupConversation from "../models/GroupConversation";
+import Group from "../models/groupModel";
+import Member from "../models/MemberModel";
 import {
   conversationClearReq,
   groupConversationsSchema,
-  groupMemberSchema,
   groupMembersSchema,
   groupSchema,
 } from "../schemas/groupSchema";
-import { LIMIT } from "../../const";
-import Member from "../models/MemberModel";
-import { activityLookup, groupLookup, membersLookup, messagesLookup, starredMessagesLookup, userLookupPipeline } from "../db/stages/stages";
+import conversationServices from "./conversationServices";
 
 // createGroup
 async function createGroup(
@@ -23,19 +28,11 @@ async function createGroup(
   const session = await startSession();
   try {
     const res = await session.withTransaction(async () => {
-      const ops = groupConversations.map((doc) => ({
-        updateOne: {
-          filter: { userId: doc.userId, conversationId: doc.conversationId },
-          update: { $setOnInsert: doc },
-          upsert: true,
-        },
-      }));
-
       const group = await Group.create([data], { session });
 
       if (!group[0] || group.length === 0) throw new Error("Group creation failed");
 
-      const conversations = await GroupConversation.bulkWrite(ops, { ordered: false, session });
+      const conversations = await conversationServices.createGroupConversation(groupConversations, session);
       const createdMembers = await Member.insertMany(members, { session });
 
       group[0].members = createdMembers.map((m) => m._id);
@@ -59,23 +56,12 @@ async function generateGroupInvitationId(groupId: string) {
     const invitationId = new Types.ObjectId();
     const id = new Types.ObjectId(groupId);
 
-    await Group.findOneAndUpdate({ id }, { invitationId });
+    await Group.findOneAndUpdate({ id }, { invitationId, $inc: { version: 1 } });
 
-    const populatedGroup = await Group.aggregate([
-      {
-        $match: { id },
-      },
-      {
-        $lookup: {
-          from: "users",
-          localField: "members.id",
-          foreignField: "id",
-          as: "members",
-        },
-      },
-    ]);
-
-    return populatedGroup[0];
+    return {
+      groupId,
+      invitationId,
+    };
   } catch (error) {
     console.log("createGroup--->", error);
     throw error;
@@ -84,6 +70,49 @@ async function generateGroupInvitationId(groupId: string) {
 
 // fetchGroupsForUser
 async function fetchGroupById(groupId: string) {
+  try {
+    const id = new Types.ObjectId(groupId);
+    const groups = await Group.aggregate([
+      {
+        $match: { id },
+      },
+      {
+        $lookup: {
+          from: "members",
+          let: { memberIds: "$members" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $in: ["$_id", "$$memberIds"],
+                },
+              },
+            },
+            ...userLookupPipeline(),
+          ],
+          as: "members",
+        },
+      },
+      {
+        $unwind: {
+          path: "$conversation",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $addFields: {
+          members: "$members.user",
+        },
+      },
+    ]);
+
+    return groups[0];
+  } catch (error) {
+    console.log("fetchGroupById--->", error);
+  }
+}
+
+async function fetchGroupByInvitationId(groupId: string) {
   try {
     const id = new Types.ObjectId(groupId);
     const groups = await Group.aggregate([
@@ -122,7 +151,7 @@ async function fetchGroupById(groupId: string) {
 
     return groups;
   } catch (error) {
-    console.log("fetchGroupsByUserId--->", error);
+    console.log("fetchGroupByInvitationId--->", error);
   }
 }
 
@@ -139,7 +168,7 @@ async function fetchGroupsByUserId(userId: Types.ObjectId) {
 
       activityLookup(),
 
-      messagesLookup(userId),
+      messagesLookup({ userId }),
 
       starredMessagesLookup(),
 
@@ -151,7 +180,7 @@ async function fetchGroupsByUserId(userId: Types.ObjectId) {
       {
         $project: {
           conversation: 0,
-          activityLog:0
+          activityLog: 0,
         },
       },
     ]);
@@ -159,6 +188,7 @@ async function fetchGroupsByUserId(userId: Types.ObjectId) {
     return groups;
   } catch (error) {
     console.log("fetchGroupsByUserId--->", error);
+    return [];
   }
 }
 
@@ -191,7 +221,7 @@ async function fetchGroups() {
 
     return groups;
   } catch (error) {
-    console.log("fetchGroupsByUserId--->", error);
+    console.log("fetchGroups--->", error);
   }
 }
 
@@ -202,7 +232,7 @@ async function updateGroupMemberRole(_groupId: string, _userId: string, isAdmin:
     const userId = new Types.ObjectId(_userId);
     const updatedGroup = await Group.findOneAndUpdate(
       { id: groupId, "members.userId": userId },
-      { $set: { "members.$.isAdmin": isAdmin } },
+      { $set: { "members.$.isAdmin": isAdmin }, $inc: { version: 1 } },
       { new: true }
     );
 
@@ -223,11 +253,12 @@ async function addMembersToGroup(groupId: Types.ObjectId, members: z.infer<typeo
         { id: groupId },
         {
           $push: { members: members.map((m) => m._id) },
+          $inc: { version: 1 },
         },
         { session, new: true }
       );
 
-      return [newMember,updatedGroup];
+      return [newMember, updatedGroup];
     });
 
     await session.endSession();
@@ -248,6 +279,7 @@ async function removeMemberFromGroup({ conversationId, userId, memberId }: Remov
         { id: conversationId },
         {
           $pull: { members: memberId, admins: userId },
+          $inc:{version:1}
         },
         { session, new: true }
       );
@@ -265,21 +297,24 @@ async function removeMemberFromGroup({ conversationId, userId, memberId }: Remov
 // updateGroup
 async function updateGroup(conversationId: Types.ObjectId, updates: Partial<IGroup>) {
   try {
-    const updatedGroup = await Group.findOneAndUpdate({ id: conversationId }, updates, { new: true });
-
-    return await Group.aggregate([
-      {
-        $match: { id: conversationId },
-      },
-      {
-        $lookup: {
-          from: "users",
-          localField: "members.id",
-          foreignField: "id",
-          as: "members",
-        },
-      },
-    ]);
+    const updatedGroup = await Group.findOneAndUpdate(
+      { id: conversationId },
+      { ...updates, $inc: { version: 1 } },
+      { new: true }
+    );
+    // return await Group.aggregate([
+    //   {
+    //     $match: { id: conversationId },
+    //   },
+    //   {
+    //     $lookup: {
+    //       from: "users",
+    //       localField: "members.id",
+    //       foreignField: "id",
+    //       as: "members",
+    //     },
+    //   },
+    // ]);
   } catch (error) {
     console.error("Error adding user to group:", error);
     throw error;
@@ -306,6 +341,7 @@ async function makeUserAdmin(conversationId: Types.ObjectId, userId: Types.Objec
       { id: conversationId },
       {
         $push: { admins: userId },
+        $inc:{version:1}
       },
       { new: true }
     );
@@ -336,6 +372,7 @@ async function removeUserAdmin(conversationId: Types.ObjectId, userId: Types.Obj
       { id: conversationId },
       {
         $pull: { admins: userId },
+        $inc:{version:1}
       },
       { new: true }
     );
@@ -387,9 +424,10 @@ async function addGroupTag(req: { id: string; tag: string }) {
         $push: {
           tags: req.tag,
         },
+        $inc:{version:1}
       }
     );
-    
+
     return res;
   } catch (error) {
     console.log("addTag---------->", error);
@@ -404,9 +442,10 @@ async function removeGroupTag(req: { id: string; tag: string }) {
         $pull: {
           tags: req.tag,
         },
+        $inc:{version:1}
       }
     );
-    
+
     return res;
   } catch (error) {
     console.log("removeGroupTag---------->", error);
@@ -414,19 +453,20 @@ async function removeGroupTag(req: { id: string; tag: string }) {
 }
 
 export {
-  createGroup,
-  generateGroupInvitationId,
-  fetchGroups,
-  fetchGroupsByUserId,
+  addGroupTag,
   addMembersToGroup,
-  removeMemberFromGroup,
-  updateGroupMemberRole,
-  updateGroup,
+  clearGroupConversation,
+  createGroup,
   deleteGroup,
   fetchGroupById,
+  fetchGroupByInvitationId,
+  fetchGroups,
+  fetchGroupsByUserId,
+  generateGroupInvitationId,
   makeUserAdmin,
-  removeUserAdmin,
-  clearGroupConversation,
-  addGroupTag,
   removeGroupTag,
+  removeMemberFromGroup,
+  removeUserAdmin,
+  updateGroup,
+  updateGroupMemberRole,
 };

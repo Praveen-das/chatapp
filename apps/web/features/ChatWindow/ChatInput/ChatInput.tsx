@@ -5,7 +5,7 @@ import { FaceSmileIcon, PhotoIcon } from "@heroicons/react/24/outline";
 import { ArrowUturnRightIcon, DocumentTextIcon, XCircleIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import useAuth from "@hooks/useAuth";
 import useSelectedConversation from "@hooks/useSelectedConversation";
-import { getParticipant } from "@lib/conversation";
+import { getMemberById, getParticipant } from "@lib/conversation";
 import { generateMessageTemplate } from "@lib/messages";
 import { getImages, parseUrl } from "@lib/utils";
 import { IUrlAttachment } from "@repo/interfaces/messageInterface";
@@ -84,7 +84,7 @@ function Input(): React.ReactNode {
   const [toggleAttachments, setToggleAttachments] = useState(false);
   const { metadata, setMetadata } = useUrlParser(messageString);
 
-  const sender = selectedConversation?.members.find((m) => m.id === replyRequest?.userId);
+  const sender = getMemberById(selectedConversation!, replyRequest?.userId!);
   const receiver = sender?.id === user?.id ? "You" : sender?.username!;
   const replyMessage = replyRequest?.message || "";
 
@@ -134,7 +134,10 @@ function Input(): React.ReactNode {
     sendMessage({
       conversation: conversation!,
       messages: [message],
-      callback: () => setLoading(false),
+      callback: () => {
+        console.log("message sent");
+        setLoading(false);
+      },
     });
 
     setSelectedUser(null);

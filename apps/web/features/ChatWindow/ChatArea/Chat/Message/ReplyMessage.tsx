@@ -3,14 +3,14 @@ import { IMessageReply } from "@repo/interfaces/messageInterface";
 import useAuth from "@hooks/useAuth";
 import { PhotoIcon } from "@heroicons/react/16/solid";
 import { useConversationStore } from "store/conversationStore";
+import { getMemberById } from "@lib/conversation";
 
 export function ReplyMessage({ reply, onClick }: { reply: IMessageReply; onClick: () => void }) {
   if (!reply) return null;
   const { user } = useAuth();
   const selectedConversation = useConversationStore((s) => s.selectedConversation);
   const replyAttachment = reply.attachment;
-  const sender =
-    selectedConversation?.host !== "system" ? selectedConversation?.members.find((m) => m.id === reply.userId) : null;
+  const sender =getMemberById(selectedConversation!,reply.userId)
   const self = user?.id === sender?.id;
   const messageString = reply.message;
 

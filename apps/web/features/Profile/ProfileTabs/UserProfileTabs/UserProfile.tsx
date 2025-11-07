@@ -14,6 +14,7 @@ import Avatar from "../../../ui/Avatar";
 import MediaSelection from "../SharedComponents/MediaSelection";
 import NotificationToggle from "../SharedComponents/NotificationToggle";
 import StarredMessages from "../SharedComponents/StarredMessages";
+import { getMemberById } from "@lib/conversation";
 
 function UserProfile({ user, showChatOption = false }: { user: IUser; showChatOption?: boolean }) {
   const { sendUserBlockRequest, sendUserUnBlockRequest, sendConversationDeleteRequest } = useSocket();
@@ -23,7 +24,7 @@ function UserProfile({ user, showChatOption = false }: { user: IUser; showChatOp
   const conversations = useConversationStore((s) => s.conversations);
   const { updateConversation, setSelectedConversation } = useConversationStore((s) => s.conversationActions);
   const userConversation = conversations.find(
-    (c) => c.host === "user" && c.members.find((m) => m.id === user.id)
+    (c) => c.host === "user" && getMemberById(c, user.id)
   ) as IUserConversation;
   const toggleProfile = useStore((s) => s.toggleProfile);
   const profileTab = useStore((s) => s.profileTab);
@@ -57,7 +58,7 @@ function UserProfile({ user, showChatOption = false }: { user: IUser; showChatOp
 
   const handleBlockingUser = () => {
     if (blockedConversation) sendUserUnBlockRequest(userConversation);
-    else sendUserBlockRequest({ userConversation });
+    else sendUserBlockRequest(userConversation);
   };
 
   function openViewProfilePictureModal() {
@@ -110,7 +111,7 @@ function UserProfile({ user, showChatOption = false }: { user: IUser; showChatOp
         </div>
 
         {/* about */}
-        {user.bio && !user?.rules?.includes('hide_bio') && (
+        {user.bio && !user?.rules?.includes("hide_bio") && (
           <div className="w-full flex flex-col max-sm:px-4 px-8">
             <p className="leading-7">{user.bio}</p>
           </div>
@@ -147,11 +148,7 @@ function UserProfile({ user, showChatOption = false }: { user: IUser; showChatOp
         {/* Actions */}
         <div className="flex flex-col gap-2 mt-auto max-sm:px-4 px-8">
           {showChatOption && (
-            <div
-              onClick={handleStartingConversation}
-              tabIndex={0}
-              className="btn btn-block bg-base-100 text-error"
-            >
+            <div onClick={handleStartingConversation} tabIndex={0} className="btn btn-block bg-base-100 text-error">
               Chat
             </div>
           )}

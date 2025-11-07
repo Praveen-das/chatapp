@@ -49,7 +49,7 @@ const GroupCreationTab = () => {
         let memberId = new ObjectID().toHexString();
         return { _id: memberId, userId: m.id, conversationId: groupId, joinedAt: Date.now() };
       });
-
+      
       const group: IGroupCreationRequest = {
         id: groupId,
         channelId,
@@ -59,8 +59,8 @@ const GroupCreationTab = () => {
         host: "group",
         members,
         createdBy: user?.id!,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
+        createdAt:Date.now(),
+        updatedAt:Date.now()
       };
 
       if (profilePicture) {
@@ -82,10 +82,8 @@ const GroupCreationTab = () => {
           conversationId: group.id,
           members: selectedGroupMembers,
           active: true,
-
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
           currentParticipation: members.find((m) => m.userId === member.id),
+          createdAt: Date.now(),
         };
 
         groupConversations.push(userConversation);

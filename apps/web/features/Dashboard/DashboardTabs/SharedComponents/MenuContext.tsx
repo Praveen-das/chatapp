@@ -37,7 +37,7 @@ function MenuContext() {
   const handleBlockingUser = (userConversation: IUserConversation) => {
     if (userConversation.blocked) sendUserUnBlockRequest(userConversation);
     else {
-      sendUserBlockRequest({ userConversation });
+      sendUserBlockRequest(userConversation);
       clearImages();
     }
   };

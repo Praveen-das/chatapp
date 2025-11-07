@@ -52,7 +52,7 @@ function useMessageHistory() {
     const response = await fetchMessages({
       conversationId,
       cursor: timestamp?.toString()!,
-      deletedAt: selectedConversation?.deletedAt!,
+      deletedAt: selectedConversation?.deletedAt || selectedConversation?.createdAt!,
       host,
     });
 
@@ -60,7 +60,7 @@ function useMessageHistory() {
 
     response.forEach((message) => {
       if (message) {
-        const { imageAttachment, urlAttachment } = parseAttachments(message, selectedConversation!);
+        const { imageAttachment, urlAttachment } = parseAttachments(message);
 
         imageAttachment && mediaStore.images.push(imageAttachment!);
         urlAttachment && mediaStore.link.push(urlAttachment!);

@@ -12,12 +12,9 @@ const userConversationSchema = new Schema<IUserConversation>(
     active: { type: Boolean, default: true },
     archived: { type: Boolean, default: false },
     starred: [Schema.Types.ObjectId],
-    blocked: { type: Boolean, default: false },
-    blockedByUser: { type: Boolean, default: false },
 
-    deletedAt: Number,
-    createdAt: Number,
-    updatedAt: Number,
+    deletedAt:  { type: Number, default: () => Date.now() },
+    createdAt:  { type: Number, default: () => Date.now() },
   },
   schemaOptions
 );

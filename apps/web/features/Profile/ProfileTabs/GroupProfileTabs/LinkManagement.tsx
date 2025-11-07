@@ -47,12 +47,16 @@ function LinkManagement({ conversationId }: { conversationId: string }) {
   function handleGeneratingInvitationLink() {
     if (!conversation) return;
     axios
-      .patch<IGroupConversation>("/db/group/generateInvitationId", {
+      .patch("/db/group/generateInvitationId", {
         conversationId: conversation.conversationId,
       })
       .then((res) => {
-        const { id, invitationId } = res.data;
-        const conversationId = useConversationStore.getState().conversations.find((c) => c.conversationId === id)?.id!;
+        if(!res) throw Error('Failed to generate group invitation Id')
+        const { groupId, invitationId } = res.data;
+        const conversationId = useConversationStore
+          .getState()
+          .conversations.find((c) => c.conversationId === groupId)?.id!;
+          
         updateGroupConversation(conversationId, { invitationId });
       })
       .catch((res) => console.log(res));

@@ -1,7 +1,5 @@
 import { create } from "zustand";
 import { IUser, IUserRules } from "@repo/interfaces/userInterface";
-import { IGroupConversation } from "@repo/interfaces/conversationInterface";
-import modals from "@features/ui/modals";
 import { IModal } from "@interfaces/modalInterface";
 
 interface State {

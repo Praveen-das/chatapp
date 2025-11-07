@@ -1,6 +1,7 @@
 import mongoose, { Schema, model } from "mongoose";
-import { IAttachment, IImageAttachment, IUrlAttachment } from "@repo/interfaces/messageInterface";
+import { IAttachment, IImageAttachment, IMessages, IUrlAttachment } from "@repo/interfaces/messageInterface";
 import { IMessage } from "../interfaces/messageInterface";
+import { syncRegistry } from "../lib/SyncRegistry";
 
 const readReceiptSchema = new Schema({
   userId: Schema.Types.ObjectId,
@@ -60,7 +61,7 @@ export const messageSchema = new Schema<IMessage>({
   from: Schema.Types.Mixed,
   to: Schema.Types.ObjectId,
   message: String,
-  timestamp: Number,
+  timestamp:  { type: Number, default: () => Date.now() },
   type: {
     type: String,
     enum: ["message", "placeholder", "service_message", "notification"],
@@ -85,6 +86,23 @@ const messageDeleteFlagSchema = new Schema<IMessageDeleteFlag>({
 });
 
 messageSchema.index({ hasAttachment: 1, timestamp: 1 });
+
+messageSchema.post("insertMany", async (messages: IMessage[]) => {
+  if (!messages?.length) return;
+
+  let recentMessage = messages.at(-1);
+
+  if (!recentMessage) return;
+
+  let conversationId = recentMessage.conversationId.toHexString();
+  let timestamp = recentMessage.timestamp;
+
+  const res = await syncRegistry.saveConversationSyncState([
+    { conversationId, fieldValues: ["messageTimestamp", timestamp] },
+  ]);
+
+  console.log("line:101-->", "inserted-->", res?.length, "conversationId-->", recentMessage);
+});
 
 const Messages = model("messages", messageSchema);
 const MessageDeleteFlag = model("messageDeleteFlag", messageDeleteFlagSchema);

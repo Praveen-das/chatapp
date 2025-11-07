@@ -4,6 +4,7 @@ import { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { createUser, fetchUser } from "./signIn";
 import { dummyUser } from "@lib/dummyData";
+import { log } from "console";
 
 declare module "next-auth" {
   interface Session {
@@ -90,8 +91,8 @@ export const authOptions: AuthOptions = {
         token.refresh_token = refresh_token;
         token.sessionId = sessionId;
       }
-
-      if (trigger === "update" && session) {
+      
+      if (trigger === "update" && session?.user) {
         token.user = session.user;
       }
 

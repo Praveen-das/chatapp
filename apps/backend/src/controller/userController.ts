@@ -110,6 +110,17 @@ const _updateUserFromKafka = async (req: string, reset: () => void) => {
   }
 };
 
+const _updateUserRule = async (req: string, reset: () => void) => {
+  try {
+    let body = JSON.parse(req);
+    // let updates = updateUserSchema.parse(body);
+    userServices.updateUserRule(body);
+  } catch (error) {
+    console.log("_updateUserRule error--->", error);
+    reset();
+  }
+};
+
 const _deleteUser = async (req: Request, res: Response) => {
   let userId = new Types.ObjectId(req.params.id);
 
@@ -126,4 +137,5 @@ export default {
   _updateUser,
   _deleteUser,
   _updateUserFromKafka,
+  _updateUserRule
 };

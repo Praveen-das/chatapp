@@ -40,8 +40,9 @@ export interface IGroup {
   host: "group";
   members: Types.ObjectId[];
   createdBy: Types.ObjectId;
-  createdAt: number;
-  updatedAt: number;
+  createdAt?: number;
+  updatedAt?: number;
+  version?: number;
 }
 
 export type JoinGroupParams = {

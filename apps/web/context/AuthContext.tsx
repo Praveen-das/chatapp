@@ -57,7 +57,11 @@ const useContextData = () => {
   }, [user]);
 
   const updateSession = async (updatedUser: IUser) => {
-    await update({ user: updatedUser });
+    try {
+      await update({ user: updatedUser });
+    } catch (error) {
+      console.log(error)
+    }
   };
 
   const updateUser = useCallback(

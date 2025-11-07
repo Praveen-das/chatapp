@@ -2,9 +2,9 @@ import { IUser } from "@repo/interfaces/userInterface";
 import { GenerateConversationProps, INewConversation, IUserConversation } from "@repo/interfaces/conversationInterface";
 import { Types } from "mongoose";
 
-export function handleGeneratingConversation(members: [IUser, IUser], props?: GenerateConversationProps) {
-  const conversation = generateConversation(members);
-  const userConversations = generateUserConversations(conversation, members, props);
+export function handleGeneratingConversation(members: [IUser, IUser], options?: GenerateConversationProps) {
+  const conversation = generateConversation(members, options);
+  const userConversations = generateUserConversations(conversation, members);
 
   return { conversation, userConversations };
 }
@@ -16,20 +16,18 @@ export function handleGeneratingSystemConversation(members: [IUser, IUser]) {
   return { conversation, userConversations };
 }
 
-export function generateConversation(members: [IUser, IUser]): INewConversation {
+export function generateConversation(members: [IUser, IUser], options?: GenerateConversationProps): INewConversation {
   return {
     id: new Types.ObjectId().toHexString(),
     host: "user",
     members: members.map(({ id }) => id),
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
+    blocked: options?.blocked,
   };
 }
 
 export function generateUserConversations(
   conversation: INewConversation,
-  members: [IUser, IUser],
-  props?: GenerateConversationProps
+  members: [IUser, IUser]
 ): IUserConversation[] {
   return members.map((member) => {
     const c: IUserConversation = {
@@ -39,16 +37,8 @@ export function generateUserConversations(
       members,
       host: conversation.host,
       active: false,
-
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      updatedAt:Date.now()
     };
-
-    if (props?.blocked) {
-      if (member.id === props.blocked.userId) c.blocked = true;
-      else c.blockedByUser = true;
-    }
-
     return c;
   });
 }
