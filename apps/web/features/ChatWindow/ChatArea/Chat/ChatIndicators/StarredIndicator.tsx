@@ -2,12 +2,9 @@
 import React from "react";
 import { StarIcon } from "@heroicons/react/16/solid";
 import useSelectedConversation from "@hooks/useSelectedConversation";
-import { useConversationStore } from "store/conversationStore";
-
 
 export function StarredIndicator({ messageId }: { messageId: string; }) {
-  const selectedConversation = useConversationStore(s=>s.selectedConversation)
-  const conversation = useSelectedConversation(selectedConversation?.id!);
+  const conversation = useSelectedConversation();
   
   if (!conversation) return;
 

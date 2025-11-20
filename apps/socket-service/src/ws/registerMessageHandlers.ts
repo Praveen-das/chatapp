@@ -1,7 +1,7 @@
 import { Server } from "socket.io";
 import produceMessage from "../kafka/kafka";
 import { ISocket } from "../interfaces/socketInterfaces";
-import { IMessage } from "@repo/interfaces/messageInterface";
+import { IMessage, MessageReadReceipt } from "@repo/interfaces/messageInterface";
 import { IDeleteForUserRequest, IDeleteRequest } from "@repo/interfaces/conversationInterface";
 
 type RegisterMessageHandlers = {
@@ -42,22 +42,21 @@ export default function registerMessageHandlers(io: Server, socket: ISocket) {
     }
   );
 
-  socket.on("change readReceipt", async (_updates: IUpdates) => {
-    const updates = new Map(_updates);
-
-    if (!updates.size) return;
-
-    updates.forEach((values, { to, conversationId }) => {
-      io.to(to).emit("change readReceipt", { conversationId, updates: values });
-      produceMessage({ messages: values }, "UPDATE_MESSAGES");
+  socket.on("change readReceipt", async (updates: MessageReadReceipt[]) => {
+    if (!updates) return;
+    
+    updates.forEach((rr) => {
+      io.to(rr.senderId).emit("change readReceipt", rr);
     });
+
+    produceMessage({ readReceipts: updates }, "UPDATE_READ_RECEIPTS");
   });
 
   socket.on("request:delete_message", async ({ conversation, messages }: IDeleteRequest) => {
     if (!messages.length) return;
 
     if (conversation.host !== "system") {
-      const receivers = conversation.members.map((m) => m.id);
+      const receivers = conversation.members.map((m) => m.userId);
 
       io.to(receivers).emit("request:delete_message", {
         conversationId: conversation.conversationId,

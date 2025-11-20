@@ -9,6 +9,10 @@ import {
 import Redis from "ioredis";
 import { Types } from "mongoose";
 import { toString } from "../lib/helper";
+import { z } from "zod";
+
+import { MessageReadReceipt } from "@repo/interfaces/messageInterface";
+import { readReceiptsSchema } from "../schemas/readReceiptSchema";
 
 {
   /**
@@ -37,6 +41,53 @@ export default class SyncRegistryCreator {
 
   private getUserVersionKey(userId: string | Types.ObjectId) {
     return `userVersion:${toString(userId)}`;
+  }
+
+  private getReadReceiptEntryKey(conversationId: string | Types.ObjectId, userId: string | Types.ObjectId) {
+    return `rrSync:${toString(conversationId)}:${toString(userId)}`;
+  }
+
+  // ####################################################################################
+
+  async saveReadReceiptEntries(readReceipts: z.infer<typeof readReceiptsSchema>) {
+    const pipeline = this.redis.pipeline();
+
+    readReceipts.forEach((receipt) => {
+      const key = this.getReadReceiptEntryKey(receipt.conversationId, receipt.senderId);
+      pipeline.sadd(key, toString(receipt.userId));
+    });
+
+    return await pipeline.exec();
+  }
+
+  async getSyncReadReceiptEntries(userId: string, conversationIds: string[]) {
+    const pipeline = this.redis.pipeline();
+    const result: { userId: Types.ObjectId; conversationId: Types.ObjectId; ids: Types.ObjectId[] }[] = [];
+
+    conversationIds.forEach((conversationId) => {
+      const key = this.getReadReceiptEntryKey(conversationId, userId);
+      pipeline.smembers(key);
+    });
+
+    const res = await pipeline.exec();
+
+    conversationIds.forEach((conversationId, idx) => {
+      if (!res?.[idx]) return;
+      let userIds = res[idx][1] as string[];
+      if (userIds?.length > 0)
+        result.push({
+          conversationId: new Types.ObjectId(conversationId),
+          userId: new Types.ObjectId(userId),
+          ids: userIds.map((id) => new Types.ObjectId(id)),
+        });
+    });
+
+    return result;
+  }
+
+  async deleteSyncReadReceiptEntries(conversationId: string, userId: string) {
+    const key = this.getReadReceiptEntryKey(conversationId, userId);
+    await this.redis.del(key);
   }
 
   async registerConversations(userId: string, userConversationIds: string[]) {
@@ -118,13 +169,7 @@ export default class SyncRegistryCreator {
   }
 
   // Get session info
-  async getUnsyncState({
-    userId,
-    idbConvRecord,
-  }: {
-    userId: string;
-    idbConvRecord: IIdbConversastionRecord;
-  }) {
+  async getUnsyncState({ userId, idbConvRecord }: { userId: string; idbConvRecord: IIdbConversastionRecord }) {
     const conversationSyncState: ConversationEntry[] = [];
 
     const userConversationData = await this.getUserConversationData(userId);

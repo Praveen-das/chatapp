@@ -69,7 +69,7 @@ function MenuContext() {
             {conversation.archived ? "Unarchive chat" : "Archive chat"}
           </Menu.Item>
           {conversation.host === "group" ? (
-            conversation.members.some((m) => m.id === user?.id) ? (
+            conversation.members.some((m) => m.userId === user?.id) ? (
               <Menu.Item onClick={() => handleExitingGroup(conversation)}>Exit group</Menu.Item>
             ) : (
               <Menu.Item onClick={() => handleDeletingGroup(conversation)}>Delete group</Menu.Item>

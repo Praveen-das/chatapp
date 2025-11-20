@@ -1,12 +1,11 @@
 import { IUserConversation } from "@interfaces/conversationInterface";
-import { getParticipant } from "@lib/conversation";
+import { getReceiverMetadata, getActiveUsers } from "@lib/conversation";
 import { ISocket } from "@lib/ws";
 import otp_socket from "@lib/ws_otp";
 import { IUserBlockRequest } from "@repo/interfaces/conversationInterface";
 import { ISession } from "@repo/interfaces/sessionInterface";
 import { IUser, IUserRuleChangeRequest } from "@repo/interfaces/userInterface";
 import { useConversationStore } from "store/conversationStore";
-import { useStore } from "store/global";
 
 export function userEmitters(socket: ISocket, user: IUser) {
   return {
@@ -27,24 +26,24 @@ export function userEmitters(socket: ISocket, user: IUser) {
     },
 
     sendUserBlockRequest: (conversation: IUserConversation) => {
-      const blockedUser = getParticipant(conversation!);
+      const blockedUser = getReceiverMetadata(conversation!);
 
       const req: IUserBlockRequest = {
         conversationId: conversation.conversationId,
         blocked: true,
-        blockedId: blockedUser?.id!,
+        blockedId: blockedUser?.userId!,
       };
 
       socket.emit("UPDATE_USER_BLOCK_STATUS", req);
     },
 
     sendUserUnBlockRequest: (conversation: IUserConversation) => {
-      const blockedUser = getParticipant(conversation!)!;
+      const blockedUser = getReceiverMetadata(conversation!)!;
 
       const req: IUserBlockRequest = {
         conversationId: conversation.conversationId,
         blocked: false,
-        blockedId: blockedUser.id,
+        blockedId: blockedUser.userId,
       };
 
       socket.emit("UPDATE_USER_BLOCK_STATUS", req);
@@ -57,26 +56,29 @@ export function userEmitters(socket: ISocket, user: IUser) {
     sendUserRuleChangeRequest: (req: IUserRuleChangeRequest) => {
       const sockets = getSocketChannels();
 
-      socket.emit("UPDATE_USER_RULE", req, sockets
-    //     , ({ userId, rule }: IUserRuleChangeRequest) => {
-    //     if (userId === user.id) {
-    //       const hasRule = user.rules?.includes(rule);
-    //       let newRules = hasRule ? user.rules?.filter((r) => r !== rule)! : [...(user.rules || []), rule];
+      socket.emit(
+        "UPDATE_USER_RULE",
+        req,
+        sockets
+        //     , ({ userId, rule }: IUserRuleChangeRequest) => {
+        //     if (userId === user.id) {
+        //       const hasRule = user.rules?.includes(rule);
+        //       let newRules = hasRule ? user.rules?.filter((r) => r !== rule)! : [...(user.rules || []), rule];
 
-    //       const update = { ...user, rules: newRules, updatedAt: Date.now() } as IUser;
-    //       updateSession(update);
-    //       return;
-    //     }
-    //   }
-    );
+        //       const update = { ...user, rules: newRules, updatedAt: Date.now() } as IUser;
+        //       updateSession(update);
+        //       return;
+        //     }
+        //   }
+      );
     },
   };
 }
 
 function getSocketChannels() {
-  const users = useStore.getState().users.map((u) => u.id);
+  const users = getActiveUsers().map((u) => u.id);
   const groupMembers = useConversationStore.getState().conversations.reduce<Set<string>>((i, c) => {
-    if (c.host !== "system") c.members.forEach((m) => i.add(m.id));
+    if (c.host !== "system") c.members.forEach((m) => i.add(m.userId));
     return i;
   }, new Set());
 

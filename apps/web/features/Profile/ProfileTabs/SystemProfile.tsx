@@ -79,7 +79,7 @@ function SystemProfile() {
         </div>
 
         <div className="space-y-1 divide-y-[1.75px] divide-[--base-300-400] max-sm:mt-2 sm:mt-4 max-sm:px-4 px-8 [&>div]:h-16">
-          <StarredMessages conversationId={conversation?.id!} />
+          <StarredMessages />
           <MediaSelection conversationId={conversation?.id!} />
         </div>
 

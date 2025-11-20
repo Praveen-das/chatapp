@@ -25,16 +25,9 @@ function ChatArea() {
   const messages = useMessages();
   const { messageHistory, fetchOlderMessages, hasNextPage, isLoading } = useMessageHistory();
   const unreadMessages = useUnreadMessages();
-  const clearUnreadMessages = useMessageStore((s) => s.clearUnreadMessages);
   const setReplyRequest = useMessageStore((s) => s.setReplyRequest);
-  
-  useEffect(
-    () => () => {
-      setReplyRequest(null);
-      clearUnreadMessages(selectedConversation?.id);
-    },
-    [selectedConversation]
-  );
+
+  useEffect(() => setReplyRequest(null), [selectedConversation]);
 
   // handles sending last seen change request
   useReadReceiptHandler();
@@ -74,7 +67,7 @@ function ChatBox({ messages, messageHistory, unreadMessages, isLoading, virtuali
   const isScrolledToBottom = useRef(true);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const canShift = useRef(false);
-  
+
   useMemo(() => {
     canShift.current = true;
   }, [messageHistory.length]);

@@ -2,10 +2,12 @@ import { z } from "zod";
 import { objectId } from "./objectId";
 
 export const memberSchema = z.object({
+  _id: objectId,
   conversationId: objectId,
   userId: objectId,
   joinedAt: z.number(),
   exitedAt: z.number().optional(),
+  clearedAt: z.number().optional(),
 });
 
 export const conversationClearReq = z.object({
@@ -34,13 +36,6 @@ export const groupConversationSchema = z.object({
   updatedAt: z.number(),
 });
 
-export const groupMemberSchema = z.object({
-  _id: objectId,
-  conversationId: objectId,
-  userId: objectId,
-  joinedAt: z.number(),
-});
-
-export const groupMembersSchema = z.array(groupMemberSchema)
+export const membersSchema = z.array(memberSchema)
 
 export const groupConversationsSchema = z.array(groupConversationSchema);

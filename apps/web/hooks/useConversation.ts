@@ -19,7 +19,7 @@ const useConversation = () => {
     else {
       const { user } = (await getSession())!;
       if (!user) return;
-      sendRequestToRegisterConversation([user, participant]);
+      sendRequestToRegisterConversation({ currentUser: user, participant });
     }
   }, []);
 

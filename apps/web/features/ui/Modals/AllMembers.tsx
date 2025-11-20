@@ -14,6 +14,7 @@ import useAuth from "@hooks/useAuth";
 import { XCircleIcon } from "@heroicons/react/24/solid";
 import ModalTitle from "./components/ModalTitle";
 import FramerWrapper from "../MotionWrapper";
+import { getUserById, getUserFromMetadata } from "@lib/conversation";
 
 export const AllMembers = () => {
   const { user } = useAuth();
@@ -26,23 +27,30 @@ export const AllMembers = () => {
   const toggleProfile = useStore((s) => s.toggleProfile);
   const { removeMemberFromGroup, makeAdmin, removeFromAdmin } = useSocket();
   const setModal = useStore((s) => s.setModal);
-  const conversationId = useConversationStore((s) => s.selectedConversation)?.id;
-  const selectedConversation = useSelectedConversation<IGroupConversation>(conversationId!);
+  const selectedConversation = useSelectedConversation<IGroupConversation>();
 
   if (!selectedConversation) return;
 
-  const members = selectedConversation?.members;
+  const members = useMemo(() => selectedConversation?.members, [selectedConversation]);
   const userIsAdmin = selectedConversation.admins.includes(user?.id!);
 
   const _members = useMemo(() => {
-    const ordered = members.reduce((i, c) => {
-      let char = c.username?.slice(0, 1)!;
+    const ordered = members.reduce((i, meta) => {
+      let member = getUserFromMetadata(meta);
+
+      if (!member) return i;
+
+      let char = member.username?.slice(0, 1)!;
       let values = i.get(char);
 
       if (values) {
-        values.push(c);
-        values.sort((a, b) => a.username!.localeCompare(b.username!));
-      } else i.set(char, [c]);
+        values.push(meta);
+        values.sort((a, b) => {
+          const usernameA = (getUserFromMetadata(a)?.username ?? "").toLowerCase();
+          const usernameB = (getUserFromMetadata(b)?.username ?? "").toLowerCase();
+          return usernameA.localeCompare(usernameB);
+        });
+      } else i.set(char, [meta]);
 
       return i;
     }, new Map<string, IGroupMember[]>());
@@ -56,17 +64,17 @@ export const AllMembers = () => {
 
   const queryResult = useMemo(() => {
     if (!query) return [];
-    return members.filter((member) => member.username.includes(query));
+    return members.filter((member) => getUserFromMetadata(member)?.username.includes(query));
   }, [query, members]);
 
   const handleSelectingUser = (member: IGroupMember) => {
-    setSelectedUser(member as IUser);
+    setSelectedUser(getUserFromMetadata(member)!);
     profileTab.push("user");
     setModal(false);
   };
 
   const handleMessagingUser = (member: IGroupMember) => {
-    setSelectedUser(member as IUser);
+    setSelectedUser(getUserFromMetadata(member)!);
     setSelectedConversation(null);
     toggleProfile(false);
 
@@ -105,7 +113,7 @@ export const AllMembers = () => {
               <Menu.Item onClick={() => handleMessagingUser(member)}>Message</Menu.Item>
               {userIsAdmin && (
                 <>
-                  <Menu.Item onClick={() => handleAdmin(member?.id!, member.isAdmin ? "remove" : "add")}>
+                  <Menu.Item onClick={() => handleAdmin(member?.userId!, member.isAdmin ? "remove" : "add")}>
                     {member?.isAdmin ? "Remove Admin" : "Make Admin"}
                   </Menu.Item>
                   <Menu.Item onClick={() => handleRemovingMember(member)}>Remove</Menu.Item>
@@ -126,7 +134,7 @@ export const AllMembers = () => {
                   <span className="w-full h-[2px] bg-black/10" />
                 </div>
                 {groupMembers.map((member) => (
-                  <Member key={member.id} member={member} onClick={(e) => handleSelecting(e, member)} />
+                  <Member key={member.userId} member={member} onClick={(e) => handleSelecting(e, member)} />
                 ))}
               </div>
             ))}
@@ -136,20 +144,22 @@ export const AllMembers = () => {
 };
 
 function Member({ member, onClick }: { member: IGroupMember; onClick: (e: MouseEvent<HTMLDivElement>) => void }) {
+  if (!member) return null;
+  const { profilePicture, username, phoneNumber } = getUserFromMetadata(member)!;
   return (
-    <div className="hover:bg-[--hover-secondary]" onClick={onClick} key={member.id}>
+    <div className="hover:bg-[--hover-secondary]" onClick={onClick} key={member.userId}>
       <div className="relative max-sm:px-4 px-10 flex items-center gap-4 w-full h-16 py-2 z-20 pointer-events-none">
-        <Avatar url={member.profilePicture} onlineIndication={false} />
+        <Avatar url={profilePicture} onlineIndication={false} />
         <div className="w-full flex gap-1 flex-col justify-between">
           <div className="flex justify-between items-center">
             <label className="text-sm " htmlFor="">
-              {member.username}
+              {username}
             </label>
-            <AdminTag isAdmin={member.isAdmin} />
+            <AdminTag isAdmin={Boolean(member.isAdmin)} />
           </div>
           <div className="flex justify-between items-center opacity-60">
             <label className="text-xs text-end" htmlFor="">
-              {member.phoneNumber}
+              {phoneNumber}
             </label>
           </div>
         </div>

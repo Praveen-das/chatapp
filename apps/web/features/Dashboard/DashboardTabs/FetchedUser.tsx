@@ -18,9 +18,7 @@ function FetchedUser() {
   const axios = useAxios();
   const { startConversation } = useConversation();
   const setDeviceTab = useStore((s) => s.setDeviceTab);
-  const users = useStore.getState().users;
-
-  const userIsFriend = users.some((u) => u.id === fetchedUser?.id);
+  const userIsFriend = useStore.getState().users.has(fetchedUser?.id!);
 
   const handleSearchQuery = debounce(async () => {
     setLoading(true);

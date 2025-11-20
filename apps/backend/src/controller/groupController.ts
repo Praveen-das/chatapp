@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { Types } from "mongoose";
 import {
   conversationClearReq,
-  groupConversationsSchema, groupMembersSchema,
+  groupConversationsSchema, membersSchema,
   groupSchema
 } from "../schemas/groupSchema";
 import {
@@ -89,7 +89,7 @@ const _deleteGroup = async (req: Request, res: Response) => {
 const _addMembersToGroup = async (req: string, reset: () => void) => {
   try {
     const parsed: { members: MemberReq; groupId: string } = JSON.parse(req);
-    const members = groupMembersSchema.parse(parsed.members);
+    const members = membersSchema.parse(parsed.members);
     const groupId = new Types.ObjectId(parsed.groupId);
 
     await addMembersToGroup(groupId, members);

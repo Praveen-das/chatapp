@@ -35,7 +35,7 @@ groupSchema.post("findOneAndUpdate", async (conversation: IGroupConversation) =>
 
   if (!res?.length) return;
 
-  console.log("line:101-->", res);
+  console.log("line:38-->", res?.length);
 });
 
 const Groups = model("groups", groupSchema);

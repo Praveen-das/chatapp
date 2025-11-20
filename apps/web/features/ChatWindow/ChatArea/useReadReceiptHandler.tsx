@@ -1,10 +1,10 @@
 import useAuth from "@hooks/useAuth";
-import { IUpdates, IReadReceiptUpdatesCollection } from "@repo/interfaces/messageInterface";
 import useSocket from "context/SocketProvider";
-import { IMessageReadReceipt } from "enums/enums";
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { useConversationStore } from "store/conversationStore";
 import { useMessageStore } from "store/messageStore";
+
+const clearUnreadMessages = useMessageStore.getState().clearUnreadMessages;
 
 export default function useReadReceiptHandler() {
   const { user } = useAuth();
@@ -13,32 +13,23 @@ export default function useReadReceiptHandler() {
 
   useEffect(() => {
     if (!selectedConversation) return;
+    if (!user) return;
+
     const conversationId = selectedConversation.id;
-    const getUnreadMessages = useMessageStore.getState().getUnreadMessages;
+    const unreadMessages = useMessageStore.getState().getUnreadMessages(conversationId);
+    const recentMessage = unreadMessages.at(-1)!;
 
-    const updates: IUpdates = new Map();
-    const unreadMessages = getUnreadMessages(conversationId);
+    clearUnreadMessages(selectedConversation?.id);
 
-    const status = IMessageReadReceipt.seen;
+    if (!recentMessage || recentMessage.from === user.id) return;
 
-    for (let { id, from } of unreadMessages || []) {
-      const isReceiver = from !== user?.id;
-
-      if (isReceiver) {
-        let update = {
-          id,
-          readReceipt: [{ userId: user?.id!, status }],
-        };
-
-        let key = {
-          conversationId: selectedConversation.conversationId,
-          to: from!,
-        };
-
-        updates.upsert(key, update);
-      }
-    }
-
-    sendReadReceiptChangeRequest(updates);
+    sendReadReceiptChangeRequest([
+      {
+        conversationId: selectedConversation.conversationId,
+        userId: user.id!,
+        senderId: recentMessage.from!,
+        lastReadMessageTimestamp: recentMessage.timestamp,
+      },
+    ]);
   }, [user, selectedConversation]);
 }

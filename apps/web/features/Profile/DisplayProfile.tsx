@@ -11,7 +11,7 @@ import StarredMessagess from "./ProfileTabs/StarredMessagess";
 import UserMedia from "./ProfileTabs/UserMedia";
 import UserProfile from "./ProfileTabs/UserProfileTabs/UserProfile";
 import { useMemo } from "react";
-import { getParticipant } from "@lib/conversation";
+import { getReceiverMetadata, getUserFromMetadata } from "@lib/conversation";
 import SystemProfile from "./ProfileTabs/SystemProfile";
 
 function DisplayProfile(TransitionComponent: React.FC<{ children: React.ReactNode }>) {
@@ -19,7 +19,10 @@ function DisplayProfile(TransitionComponent: React.FC<{ children: React.ReactNod
     const selectedUser = useStore((s) => s.selectedUser);
     const selectedConversation = useConversationStore((s) => s.selectedConversation);
 
-    const user = selectedUser ?? getParticipant(selectedConversation!);
+    const user = useMemo(
+      () => selectedUser ?? getUserFromMetadata(getReceiverMetadata(selectedConversation!)!),
+      [selectedUser, selectedConversation]
+    );
 
     return useMemo(
       () => (
@@ -45,7 +48,7 @@ export function Profile({ conversation, selectedUser }: IProfile) {
       <Tabs activeTab={profileTab.getTab()} direction="rtl">
         <Tab component="conversation">
           {conversation?.host === "group" ? (
-            <GroupProfile conversationId={conversation.id} />
+            <GroupProfile />
           ) : conversation?.host === "user" ? (
             <UserProfile user={selectedUser} />
           ) : conversation?.host === "system" ? (
@@ -59,10 +62,10 @@ export function Profile({ conversation, selectedUser }: IProfile) {
           <LinkManagement conversationId={conversation?.id} />
         </Tab>
         <Tab component="media">
-          <UserMedia conversationId={conversation?.id} />
+          <UserMedia />
         </Tab>
         <Tab component="starred_messages">
-          <StarredMessagess conversationId={conversation?.id} />
+          <StarredMessagess />
         </Tab>
       </Tabs>
     </div>

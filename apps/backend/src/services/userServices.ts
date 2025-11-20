@@ -6,6 +6,7 @@ import { updateUserSchema } from "../schemas/userSchema.js";
 import conversationServices from "./conversationServices.js";
 import messageServices from "./messageServices.js";
 import { MongoServerError } from "mongodb";
+import Conversations from "../models/ConversationModel.js";
 
 async function generateSystemConversation(userId: Types.ObjectId) {
   const MESSAGE_STRING = `Welcome to Chatvia.
@@ -57,9 +58,14 @@ async function createUser(payload: IUser) {
 }
 
 async function fetchUnsyncUsers(unsyncUsers: string[]) {
+  if (!unsyncUsers.length) return Promise.resolve(null);
+
   try {
     const result = await User.find({ id: { $in: unsyncUsers.map((id) => new Types.ObjectId(id)) } });
-    return result;
+    return result.reduce<Record<string, IUser>>((i, u: any) => {
+      if (u.id) i[u.id] = u;
+      return i;
+    }, {});
   } catch (error) {
     console.error("Error:", error);
     throw error; // Rethrow the error if needed
@@ -150,6 +156,99 @@ async function deleteUser(userId: Types.ObjectId) {
   }
 }
 
+async function getUsersFromConversations(userId: Types.ObjectId) {
+  if (!userId) return [];
+
+  try {
+    const res = (await Conversations.aggregate([
+      {
+        $unionWith: {
+          coll: "groupconversations",
+          pipeline: [],
+        },
+      },
+
+      {
+        $match: { userId },
+      },
+
+      {
+        $lookup: {
+          from: "members",
+          let: { convId: "$conversationId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [{ $eq: ["$conversationId", "$$convId"] }, { $ne: ["$userId", userId] }],
+                },
+              },
+            },
+            {
+              $lookup: {
+                from: "users",
+                localField: "userId",
+                foreignField: "id",
+                as: "user",
+              },
+            },
+            { $unwind: "$user" },
+            {
+              $project: {
+                _id: 0,
+                userId: "$userId",
+                user: "$user",
+              },
+            },
+          ],
+          as: "members",
+        },
+      },
+
+      {
+        $project: {
+          members: 1,
+        },
+      },
+
+      {
+        $unwind: "$members",
+      },
+
+      {
+        $group: {
+          _id: "$members.userId",
+          user: { $first: "$members.user" },
+        },
+      },
+
+      {
+        $group: {
+          _id: null,
+          usersArray: {
+            $push: {
+              k: { $toString: "$_id" },
+              v: "$user",
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          users: { $arrayToObject: "$usersArray" },
+        },
+      },
+    ])) as any as Awaited<Array<{ users: IUser[] }>>;
+
+    if (!res[0]?.users) return [];
+    return res[0]?.users;
+  } catch (error) {
+    console.log(error);
+    throw error;
+  }
+}
+
 export default {
   createUser,
   getAllUsers,
@@ -160,4 +259,5 @@ export default {
   getUserByPhoneNumber,
   updateUserRule,
   fetchUnsyncUsers,
+  getUsersFromConversations,
 };

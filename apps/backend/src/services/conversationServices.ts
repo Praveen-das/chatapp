@@ -10,7 +10,9 @@ import {
   conversationMessagesLookup,
   groupLookup,
   membersLookup,
+  messagedeleteflagsLookup,
   messagesLookup,
+  readReceiptLookup,
   starredMessagesLookup,
   userLookup,
 } from "../db/stages/stages.js";
@@ -27,19 +29,35 @@ import {
   systemConversationSchema,
   userConversationsSchema,
 } from "../schemas/conversationSchema";
-import { groupConversationsSchema } from "../schemas/groupSchema";
+import { groupConversationsSchema, membersSchema } from "../schemas/groupSchema";
+import { readReceiptSchema, readReceiptsSchema } from "../schemas/readReceiptSchema.js";
+import MessageReadReceipt from "../models/MessageReadReceipt.js";
+import { syncRegistry } from "../lib/SyncRegistry.js";
 
-async function saveConversations(
-  conversation: z.infer<typeof conversationSchema>,
-  userConversations: z.infer<typeof userConversationsSchema>
-) {
+async function saveConversations({
+  conversationBody,
+  userConversationsBody,
+  participantsCollection,
+}: {
+  conversationBody: z.infer<typeof conversationSchema>;
+  userConversationsBody: z.infer<typeof userConversationsSchema>;
+  participantsCollection: z.infer<typeof membersSchema>;
+}) {
   const session = await mongoose.startSession();
   try {
     const result = await session.withTransaction(async () => {
-      const result1 = await Conversations.create([conversation], { session });
-      const result2 = await UserConversation.insertMany(userConversations, { session });
+      const conversation = (await Conversations.create([conversationBody], { session }))[0];
 
-      return { conversation: result1[0], userConversations: result2 };
+      if (!conversation) throw new Error("Conversation creation failed");
+
+      const userConversations = await UserConversation.insertMany(userConversationsBody, { session });
+      const members = await Member.insertMany(participantsCollection, { session });
+
+      conversation.members = members.map((m) => m._id);
+
+      await conversation.save();
+
+      return { conversation, userConversations };
     });
 
     session.endSession();
@@ -135,9 +153,11 @@ async function getUserConversation(userId: Types.ObjectId) {
         $match: { userId },
       },
 
+      ...readReceiptLookup(),
+
       ...conversationLookup(),
 
-      userLookup({ localField: "members", as: "members" }),
+      ...membersLookup(),
 
       conversationMessagesLookup(userId),
 
@@ -145,6 +165,8 @@ async function getUserConversation(userId: Types.ObjectId) {
     ];
 
     const res = await UserConversation.aggregate(pipeline);
+
+    console.log("tUserConversation------>", res?.length);
 
     return res as IUserConversation[];
   } catch (error) {
@@ -283,15 +305,22 @@ async function unregisterStarredMessages(id: Types.ObjectId, messageId: Types.Ob
   }
 }
 
-const createPipeline = (conversationId: string, userId: Types.ObjectId, host: "user" | "group", req: any) => {
+const createPipeline = (
+  conversationId: string,
+  userId: Types.ObjectId,
+  host: "user" | "group",
+  req: any,
+  readReceiptEntries?: Types.ObjectId[]
+) => {
   const matchStage = { $match: { userId, conversationId: new Types.ObjectId(conversationId) } };
 
   if (req.newEntry) {
     if (host === "user")
       return [
         matchStage,
+        ...readReceiptLookup(readReceiptEntries),
         ...conversationLookup(),
-        userLookup({ localField: "members", as: "members" }),
+        ...membersLookup(),
         conversationMessagesLookup(userId),
         starredMessagesLookup(),
       ];
@@ -299,6 +328,7 @@ const createPipeline = (conversationId: string, userId: Types.ObjectId, host: "u
     if (host === "group")
       return [
         matchStage,
+        ...readReceiptLookup(),
         ...groupLookup(),
         ...membersLookup(),
         activityLookup(),
@@ -331,7 +361,7 @@ const createPipeline = (conversationId: string, userId: Types.ObjectId, host: "u
   if (req.lastKnownMessageTimestamp) {
     if (host === "group")
       pipeline.push(messagesLookup({ userId, lastKnownMessageTimestamp: req.lastKnownMessageTimestamp }));
-    if (host === "user") pipeline.push(conversationMessagesLookup(userId));
+    if (host === "user") pipeline.push(conversationMessagesLookup(userId, req.lastKnownMessageTimestamp));
   }
 
   if (req.needSync) {
@@ -352,16 +382,26 @@ const createPipeline = (conversationId: string, userId: Types.ObjectId, host: "u
   return pipeline;
 };
 
-async function fetchConversations(userId: Types.ObjectId, entries: ConversationEntry[]) {
+async function fetchConversations(
+  userId: Types.ObjectId,
+  conversationEntries: ConversationEntry[],
+) {
+  if (!conversationEntries.length) return [];
+
   try {
     const res: Record<string, PipelineStage[]> = {};
     const resultKeys: Set<string> = new Set();
 
-    for (const req of entries) {
+    for (const req of conversationEntries) {
       const pipeline = {
         $unionWith: {
           coll: req.host === "group" ? "groupconversations" : "userconversations",
-          pipeline: createPipeline(req.conversationId!, userId, req?.host!, req),
+          pipeline: createPipeline(
+            req.conversationId!,
+            userId,
+            req?.host!,
+            req,
+          ),
         },
       };
 
@@ -412,6 +452,33 @@ async function fetchConversations(userId: Types.ObjectId, entries: ConversationE
   }
 }
 
+async function saveMessageReadReceipt(readReceipts: z.infer<typeof readReceiptsSchema>) {
+  try {
+    const ops = readReceipts.map((doc) => ({
+      updateOne: {
+        filter: { userId: doc.userId, conversationId: doc.conversationId, senderId: doc.senderId },
+        update: {
+          $max: {
+            lastDeliveredMessageTimestamp: doc.lastDeliveredMessageTimestamp,
+            lastReadMessageTimestamp: doc.lastReadMessageTimestamp,
+          },
+        },
+        upsert: true,
+      },
+    }));
+
+    const res = await MessageReadReceipt.bulkWrite(ops);
+
+    if (res.ok) {
+      syncRegistry.saveReadReceiptEntries(readReceipts);
+    }
+    return res;
+  } catch (error) {
+    console.log("saveMessageReadReceipt--->", error);
+    throw error;
+  }
+}
+
 export default {
   saveConversations,
   createConversation,
@@ -432,4 +499,5 @@ export default {
   removeFromArchive,
   registerStarredMessages,
   unregisterStarredMessages,
+  saveMessageReadReceipt,
 };

@@ -11,37 +11,56 @@ import { objectId } from "../schemas/objectId";
 import conversationServices from "../services/conversationServices";
 import { fetchGroupsByUserId } from "../services/groupServices";
 import userServices from "../services/userServices";
+import messageServices from "../services/messageServices";
 
 const router = Router();
 
 router.post(
   "/:userId",
   async (
-    req: Request<any, any, { idbConvRecord: IIdbConversastionRecord; idbMembersRecord: IIdbUserRecordValue[] }>,
+    req: Request<
+      any,
+      any,
+      {
+        idbConvRecord: IIdbConversastionRecord;
+        idbMembersRecord: IIdbUserRecordValue[];
+        idbReadReceiptRecord: { conversationId: string; userId: string }[];
+      }
+    >,
     res
   ) => {
     try {
       const userId = req.params.userId;
+
       if (!req.body) return res.json({ error: new Error("Body not found") });
-
-      const { idbConvRecord, idbMembersRecord } = req.body;
-
       if (!userId) return res.json("userId not provided");
 
+      const { idbConvRecord, idbMembersRecord } = req.body;
       const userIdParsed = objectId.parse(userId);
-      const [unsyncEntries, unsyncUsers] = await Promise.all([
+
+      const [unsyncEntries, unsyncUsers, readReceiptRecord] = await Promise.all([
         syncRegistry.getUnsyncState({ userId, idbConvRecord }),
         syncRegistry.getUnsyncUsers(idbMembersRecord),
+        syncRegistry.getSyncReadReceiptEntries(userId, Object.keys(idbConvRecord)),
       ]);
+
+      console.log("unsyncEntries----->", unsyncEntries?.length);
+      console.log("unsyncUsers----->", unsyncUsers.length);
+      console.log("readReceiptRecord----->", readReceiptRecord);
 
       if (unsyncEntries === null || !Object.keys(idbConvRecord).length) {
         console.log("########### fetching conversations ###########");
         const conversationIds: string[] = [];
         const conversationSyncState: SaveConversationSyncState[] = [];
 
-        const newConversations = (
-          await Promise.all([conversationServices.getUserConversation(userIdParsed), fetchGroupsByUserId(userIdParsed)])
-        ).flat();
+        const result = await Promise.all([
+          conversationServices.getUserConversation(userIdParsed),
+          fetchGroupsByUserId(userIdParsed),
+          userServices.getUsersFromConversations(userIdParsed),
+        ]);
+
+        const newConversations = [...(result[0] || []), ...(result[1] || [])];
+        const globalUsers = result[2];
 
         newConversations.forEach((c) => {
           if (!c) return;
@@ -69,22 +88,26 @@ router.post(
           syncRegistry.saveConversationSyncState(conversationSyncState),
         ]);
 
-        return res.json({ newEntry: newConversations });
+        console.log("newConversations---->", newConversations.length);
+        console.log("globalUsers---->", Object.keys(globalUsers).length);
+
+        return res.json({ unsyncConversationsData: { newEntry: newConversations }, unsyncUsersData: globalUsers });
       }
 
-      if (!unsyncEntries.length) {
+      if (!unsyncEntries.length && !unsyncUsers.length && !Object.keys(readReceiptRecord).length) {
         console.log("########### conversations upto date ###########");
         return res.json(null);
       }
 
-      console.log("unsyncEntries----->", unsyncEntries.length);
       console.log("########### fetching recent conversation updates ###########");
-      const [unsyncConversationsData, unsyncUsersData] = await Promise.all([
+
+      const [unsyncConversationsData, unsyncUsersData, unsyncReadReceipts] = await Promise.all([
         conversationServices.fetchConversations(userIdParsed, unsyncEntries),
-        !!unsyncUsers.length ? userServices.fetchUnsyncUsers(unsyncUsers) : Promise.resolve(null),
+        userServices.fetchUnsyncUsers(unsyncUsers),
+        messageServices.getReadReceipts(readReceiptRecord),
       ]);
 
-      return res.json({ unsyncConversationsData, unsyncUsersData });
+      return res.json({ unsyncConversationsData, unsyncUsersData, unsyncReadReceipts });
     } catch (error) {
       console.log("Error in fetching user conversations", error);
       res.send(error);

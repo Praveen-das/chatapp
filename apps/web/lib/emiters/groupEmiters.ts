@@ -1,5 +1,5 @@
 import { IGroup } from "@interfaces/groupInterface";
-import { getMemberById } from "@lib/conversation";
+import { getMemberById, getUserById } from "@lib/conversation";
 import { ISocket } from "@lib/ws";
 import { IGroupConversation, IGroupMember } from "@repo/interfaces/conversationInterface";
 import { GroupClearReq, GroupDeleteReq, JoinGroupParams } from "@repo/interfaces/groupInterface";
@@ -27,7 +27,7 @@ export function initGroupEmitters(socket: ISocket, user: IUser) {
     makeAdmin: (conversation: IGroupConversation, userId: string) => {
       const selectedUser = getMemberById(conversation, userId);
       socket.emit("USER_MAKE_ADMIN", { conversation, userId }, (res: any) => {
-        toast.success(`${selectedUser?.username} is now an admin`);
+        toast.success(`${getUserById(selectedUser?.userId!)?.username} is now an admin`);
       });
     },
 
@@ -71,8 +71,8 @@ export function initGroupEmitters(socket: ISocket, user: IUser) {
       socket.emit("GROUP_FIND_BY_ID", conversationId);
     },
 
-    sendGroupCreationRequest: (req: any) => {
-      socket.emit("create group", req, (data: any) => {
+    sendGroupCreationRequest: (req: any, selectedGroupMembers: IUser[]) => {
+      socket.emit("create group", req, selectedGroupMembers, (data: any) => {
         console.log(data);
       });
     },

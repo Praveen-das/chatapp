@@ -9,7 +9,7 @@ import { IUserConversation } from "@repo/interfaces/conversationInterface";
 import Header from "./SharedComponents/Header";
 import { PlusIcon } from "@heroicons/react/24/solid";
 import Avatar from "@features/ui/Avatar";
-import { getParticipant } from "@lib/conversation";
+import { getReceiverMetadata, getUserFromMetadata } from "@lib/conversation";
 
 function BlockedContacts() {
   const setModal = useStore((s) => s.setModal);
@@ -32,7 +32,7 @@ function BlockedContacts() {
       <div className="flex flex-col max-sm:gap-2 sm:gap-4 max-sm:mt-2 sm:mt-4">
         <div className="grid pb-2 gap-2 overflow-y-scroll no-scrollbar">
           {blockedConversations.map((conversation) => {
-            const receiver = getParticipant(conversation);
+            const receiver = getUserFromMetadata(getReceiverMetadata(conversation)!);
             return (
               <div key={conversation.id} className="flex items-center justify-between gap-4 w-full p-3 rounded-2xl">
                 <Avatar

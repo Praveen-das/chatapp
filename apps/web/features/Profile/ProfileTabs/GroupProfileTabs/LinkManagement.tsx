@@ -13,7 +13,7 @@ import useSelectedConversation from "@hooks/useSelectedConversation";
 import { useMemo } from "react";
 
 function LinkManagement({ conversationId }: { conversationId: string }) {
-  const conversation = useSelectedConversation<IGroupConversation>(conversationId);
+  const conversation = useSelectedConversation<IGroupConversation>();
   const { updateGroupConversation } = useConversationStore((s) => s.groupActions);
 
   if (!conversation) return;

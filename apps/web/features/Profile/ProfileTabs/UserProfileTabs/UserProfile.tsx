@@ -15,17 +15,15 @@ import MediaSelection from "../SharedComponents/MediaSelection";
 import NotificationToggle from "../SharedComponents/NotificationToggle";
 import StarredMessages from "../SharedComponents/StarredMessages";
 import { getMemberById } from "@lib/conversation";
+import useUserConversation from "@hooks/useUserConversation";
 
 function UserProfile({ user, showChatOption = false }: { user: IUser; showChatOption?: boolean }) {
   const { sendUserBlockRequest, sendUserUnBlockRequest, sendConversationDeleteRequest } = useSocket();
 
   const setModal = useStore((s) => s.setModal);
   const setSelectedUser = useStore((s) => s.setSelectedUser);
-  const conversations = useConversationStore((s) => s.conversations);
+  const userConversation = useUserConversation(user.id);
   const { updateConversation, setSelectedConversation } = useConversationStore((s) => s.conversationActions);
-  const userConversation = conversations.find(
-    (c) => c.host === "user" && getMemberById(c, user.id)
-  ) as IUserConversation;
   const toggleProfile = useStore((s) => s.toggleProfile);
   const profileTab = useStore((s) => s.profileTab);
   const setDeviceTab = useStore((s) => s.setDeviceTab);
@@ -74,7 +72,7 @@ function UserProfile({ user, showChatOption = false }: { user: IUser; showChatOp
 
   const isCommonGroup = useCallback(
     (c: IConversation): c is IGroupConversation => {
-      return c.host === "group" && c.members.some((m) => m.id === user.id);
+      return c.host === "group" && c.members.some((m) => m.userId === user.id);
     },
     [user]
   );
@@ -126,7 +124,7 @@ function UserProfile({ user, showChatOption = false }: { user: IUser; showChatOp
 
         <div className="space-y-1 divide-y-[1.75px] divide-[--base-300-400] max-sm:mt-2 sm:mt-4 max-sm:px-4 px-8 [&>div]:h-16">
           <NotificationToggle id={user.id} />
-          <StarredMessages conversationId={userConversation?.id!} />
+          <StarredMessages />
           <MediaSelection conversationId={userConversation?.id!} />
         </div>
 

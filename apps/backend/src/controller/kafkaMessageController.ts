@@ -99,6 +99,9 @@ const kafkaMessageController = async ({
     case "UNREGISTER_STARRED_MESSAGES":
       conversationController._unregisterStarredMessages(message, callback);
       break;
+    case "UPDATE_READ_RECEIPTS":
+      conversationController._saveMessageReadReceipt(message, callback);
+      break;
 
     case "UPDATE_USER":
       userController._updateUserFromKafka(message, callback);

@@ -1,37 +1,22 @@
 "use client";
-import React, { useMemo } from "react";
-import { useConversationStore } from "../../../../../store/conversationStore";
-import { IMessage, IReadReceipt } from "@repo/interfaces/messageInterface";
 import Acknowledgment from "./Acknowledgment";
 import { Timestamp } from "./Timestamp";
 import { StarredIndicator } from "./StarredIndicator";
-import { IMessageReadReceipt } from "enums/enums";
+import { IMessage } from "../../../../../interfaces/messageInterface";
+import { memo } from "react";
 
-function getReadReceipt(readReceipts: IReadReceipt[]) {
-  for (const [key, value] of Object.entries(IMessageReadReceipt)) {
-    const status = parseInt(key);
-    if (!isNaN(status) && readReceipts.some((receipt) => receipt.status === status)) {
-      return value;
-    }
-  }
-  return undefined;
-}
-
-export function ChatIndicators({
+function ChatIndicators({
   chat,
   displayChatIndicators = true,
   hideIndicators,
+  readReceipt
 }: {
   chat: IMessage;
   displayChatIndicators?: boolean;
   hideIndicators?: IHideIndicators;
+  readReceipt:IMessage["readReceiptStatus"]
 }) {
-  const selectedConversation = useConversationStore((s) => s.selectedConversation);
-  const readReceipt =
-    chat.type === "service_message"
-      ? IMessageReadReceipt.seen
-      : useMemo(() => getReadReceipt(chat.readReceipt), [chat, selectedConversation]);
-
+  
   return (
     displayChatIndicators && (
       <div className={`flex items-center gap-2 whitespace-nowrap mx-1 mt-1 text-xs ${!self ? "flex-row-reverse" : ""}`}>
@@ -42,3 +27,5 @@ export function ChatIndicators({
     )
   );
 }
+
+export default memo(ChatIndicators)

@@ -39,6 +39,7 @@ async function init() {
         { topic: "ADD_GROUP_ADMIN" },
         { topic: "REMOVE_GROUP_ADMIN" },
         { topic: "UPDATE_USER_RULE" },
+        { topic: "UPDATE_READ_RECEIPTS" },
       ],
     });
 

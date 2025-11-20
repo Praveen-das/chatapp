@@ -6,7 +6,7 @@ import { IUser } from "@repo/interfaces/userInterface";
 import { useConversationStore } from "store/conversationStore";
 import { useMessageStore } from "store/messageStore";
 import { encrypt } from "@lib/e2e";
-import { IUpdates } from "@repo/interfaces/messageInterface";
+import { IUpdates, MessageReadReceipt } from "@repo/interfaces/messageInterface";
 
 const deleteUserMessages = useMessageStore.getState().deleteUserMessages;
 
@@ -36,7 +36,7 @@ export function messageEmitters(socket: ISocket) {
           receivers = [];
           messages = messages.map((m) => ({ ...m, to: "" }));
         } else {
-          receivers = conversation?.members.map(({ id }) => id);
+          receivers = conversation?.members.map(({ userId }) => userId);
         }
       } else if (conversation.host === "group") receivers = conversation.channelId;
 
@@ -78,8 +78,8 @@ export function messageEmitters(socket: ISocket) {
       });
     },
 
-    sendReadReceiptChangeRequest: (updates: IUpdates) => {
-      socket.emit("change readReceipt", Array.from(updates));
+    sendReadReceiptChangeRequest: (readReceipts: MessageReadReceipt[]) => {
+      socket.emit("change readReceipt", readReceipts);
     },
   };
 }

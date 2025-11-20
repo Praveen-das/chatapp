@@ -6,18 +6,14 @@ import {
   groupLookup,
   membersLookup,
   messagesLookup,
+  readReceiptLookup,
   starredMessagesLookup,
   userLookupPipeline,
 } from "../db/stages/stages";
 import GroupConversation from "../models/GroupConversation";
 import Group from "../models/groupModel";
 import Member from "../models/MemberModel";
-import {
-  conversationClearReq,
-  groupConversationsSchema,
-  groupMembersSchema,
-  groupSchema,
-} from "../schemas/groupSchema";
+import { conversationClearReq, groupConversationsSchema, membersSchema, groupSchema } from "../schemas/groupSchema";
 import conversationServices from "./conversationServices";
 
 // createGroup
@@ -28,15 +24,12 @@ async function createGroup(
   const session = await startSession();
   try {
     const res = await session.withTransaction(async () => {
-      const group = await Group.create([data], { session });
+      const group = await Group.create([{ ...data, members: members.map((m) => m._id) }], { session });
 
       if (!group[0] || group.length === 0) throw new Error("Group creation failed");
 
       const conversations = await conversationServices.createGroupConversation(groupConversations, session);
       const createdMembers = await Member.insertMany(members, { session });
-
-      group[0].members = createdMembers.map((m) => m._id);
-      await group[0].save();
 
       return conversations;
     });
@@ -162,6 +155,8 @@ async function fetchGroupsByUserId(userId: Types.ObjectId) {
         $match: { userId },
       },
 
+      ...readReceiptLookup(),
+
       ...groupLookup(),
 
       ...membersLookup(),
@@ -184,6 +179,8 @@ async function fetchGroupsByUserId(userId: Types.ObjectId) {
         },
       },
     ]);
+
+    console.log("groups------>", groups.length);
 
     return groups;
   } catch (error) {
@@ -243,7 +240,7 @@ async function updateGroupMemberRole(_groupId: string, _userId: string, isAdmin:
   }
 }
 
-async function addMembersToGroup(groupId: Types.ObjectId, members: z.infer<typeof groupMembersSchema>) {
+async function addMembersToGroup(groupId: Types.ObjectId, members: z.infer<typeof membersSchema>) {
   try {
     const session = await startSession();
     const res = await session.withTransaction(async () => {
@@ -279,7 +276,7 @@ async function removeMemberFromGroup({ conversationId, userId, memberId }: Remov
         { id: conversationId },
         {
           $pull: { members: memberId, admins: userId },
-          $inc:{version:1}
+          $inc: { version: 1 },
         },
         { session, new: true }
       );
@@ -341,7 +338,7 @@ async function makeUserAdmin(conversationId: Types.ObjectId, userId: Types.Objec
       { id: conversationId },
       {
         $push: { admins: userId },
-        $inc:{version:1}
+        $inc: { version: 1 },
       },
       { new: true }
     );
@@ -372,7 +369,7 @@ async function removeUserAdmin(conversationId: Types.ObjectId, userId: Types.Obj
       { id: conversationId },
       {
         $pull: { admins: userId },
-        $inc:{version:1}
+        $inc: { version: 1 },
       },
       { new: true }
     );
@@ -424,7 +421,7 @@ async function addGroupTag(req: { id: string; tag: string }) {
         $push: {
           tags: req.tag,
         },
-        $inc:{version:1}
+        $inc: { version: 1 },
       }
     );
 
@@ -442,7 +439,7 @@ async function removeGroupTag(req: { id: string; tag: string }) {
         $pull: {
           tags: req.tag,
         },
-        $inc:{version:1}
+        $inc: { version: 1 },
       }
     );
 

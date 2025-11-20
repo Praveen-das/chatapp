@@ -1,13 +1,8 @@
-import {
-  IGroupConversation,
-  IGroupMember,
-  IConversation,
-  IConversationBase,
-} from "@repo/interfaces/conversationInterface";
-import { IMessage } from "@repo/interfaces/messageInterface";
-import { IUserRules } from "@repo/interfaces/userInterface";
+import { IGroupConversation, IGroupMember, IConversationBase } from "@repo/interfaces/conversationInterface";
+import { IMessage, MessageReadReceipt } from "@repo/interfaces/messageInterface";
 import { createIndexDBStore } from "./storeCreator";
 import { updatedDiff } from "deep-object-diff";
+import { IConversation } from "@interfaces/conversationInterface";
 
 export type IConversationStore = {
   conversations: IConversation[];
@@ -21,16 +16,15 @@ export type IConversationStore = {
       userConversationId: string,
       updates: Partial<IConversationBase & { memberId: string }>
     ) => void;
-    upsertConversation: (conversation: IConversation) => void;
+    upsertConversation: (conversations: IConversation[]) => void;
     deleteConversation: (userConversationId: string) => void;
+    updateReadReceipt: (readReceipts: MessageReadReceipt) => void;
     // addBlockedUser: (conversationId: string, userId: string) => void;
     // removeBlockedUser: (conversationId: string, userId: string) => void;
     setSelectedConversation: (userConversationId: string | null) => void;
     addToStarred: (userConversationId: string, message: IMessage) => void;
     removeFromStarred: (userConversationId: string, messageId: string) => void;
     clearStarred: (userConversationId: string) => void;
-    updateConversationRule: (userId: string, rule: IUserRules) => void;
-    updateUserStatus: (userId: string, status: "online" | "offline", lastSeen?: number) => void;
     setIsLoaded: (value: boolean) => void;
     setIsHydrated: (value: boolean) => void;
   };
@@ -58,7 +52,7 @@ const store = createIndexDBStore<IConversationStore>({
         setConversation: (conversation) => {
           if (conversation.host === "group") {
             conversation.members.forEach((member) => {
-              member.isAdmin = conversation.admins.includes(member.id!);
+              member.isAdmin = conversation.admins.includes(member.userId!);
             });
           }
 
@@ -87,50 +81,7 @@ const store = createIndexDBStore<IConversationStore>({
         //   });
         //   set({ conversations });
         // },
-        updateUserStatus: (userId, status, lastSeen) => {
-          const conversations = get().conversations.map((c) => {
-            if (c.host !== "system") {
-              const members = c.members.map((m) => {
-                if (m.id === userId) {
-                  if (status === "offline") return { ...m, status, lastSeen };
-                  return { ...m, status };
-                }
-                return m;
-              });
-              return { ...c, members };
-            }
-            return c;
-          });
 
-          // @ts-ignore
-          set({ conversations });
-        },
-        updateConversationRule: (userId, rule) => {
-          const conversations = get().conversations.map((c) => {
-            if (c.host === "system") return c;
-            let updated = false;
-
-            const members: any = c.members.map((m) => {
-              if (m.id === userId) {
-                updated = true;
-                const hasRule = m.rules?.includes(rule);
-                if (hasRule) {
-                  const filteredRules = m.rules?.filter((r) => r !== rule);
-                  return { ...m, rules: filteredRules, version: m.version! + 1 };
-                }
-
-                return { ...m, rules: [...(m.rules || []), rule], version: m.version! + 1 };
-              }
-
-              return m;
-            });
-
-            if (updated) return { ...c, members, version: c.version! + 1 };
-            return c;
-          });
-
-          set({ conversations });
-        },
         updateConversation: (id, update) => {
           const _conversations = get().conversations;
           const conversations = _conversations.map((c) =>
@@ -138,26 +89,52 @@ const store = createIndexDBStore<IConversationStore>({
           );
           set({ conversations });
         },
-        upsertConversation: (newConversation) => {
-          const conversations = get().conversations.map((c) => {
-            if (c.host !== "system" && c.id === newConversation.id) {
-              let updates: Record<string, any> = {};
-              let diffs = updatedDiff(c, newConversation);
+        upsertConversation: (newConversations) => {
+          let conversations = get().conversations
 
-              Object.keys(diffs).forEach((k) => {
-                let key = k as keyof IConversation;
-                updates[key] = newConversation[key];
-              });
-
-              return { ...c, ...updates };
-            }
-            return c;
-          });
+          newConversations.forEach(conv=>{
+            conversations = conversations.map((c) => {
+              if (c.host !== "system" && c.id === conv.id) {
+                let updates: Record<string, any> = {};
+                let diffs = updatedDiff(c, conv);
+  
+                Object.keys(diffs).forEach((k) => {
+                  let key = k as keyof IConversation;
+                  updates[key] = conv[key];
+                });
+  
+                return { ...c, ...updates };
+              }
+              return c;
+            });
+          })
 
           set({ conversations });
         },
         deleteConversation: (id) => {
           const conversations = get().conversations.filter((c) => c.id !== id);
+          set({ conversations });
+        },
+        updateReadReceipt: (readReceipt) => {
+          const conversations = get().conversations.map((c) => {
+            if (readReceipt.conversationId === c.conversationId) {
+              c.readReceipt;
+              const userReadReceipt = c.readReceipt?.[readReceipt.userId];
+              if (userReadReceipt) {
+                const rr: Record<string, MessageReadReceipt> = {
+                  ...c.readReceipt,
+                  [readReceipt.userId]: { ...userReadReceipt, ...readReceipt },
+                };
+                return { ...c, readReceipt: rr };
+              } else {
+                const rr: Record<string, MessageReadReceipt> = { ...c.readReceipt, [readReceipt.userId]: readReceipt };
+                return { ...c, readReceipt: rr };
+              }
+            }
+
+            return c;
+          });
+
           set({ conversations });
         },
         setSelectedConversation: (conversationId) => {
@@ -232,7 +209,7 @@ const store = createIndexDBStore<IConversationStore>({
           const conversations = get().conversations.map((c) => {
             if (c.conversationId === conversationId && c.host === "group") {
               const admins = isAdmin ? [...c.admins, userId] : c.admins.filter((id) => id !== userId);
-              const members = c.members.map((m) => (m.id === userId ? { ...m, isAdmin } : m));
+              const members = c.members.map((m) => (m.userId === userId ? { ...m, isAdmin } : m));
               return { ...c, members, admins, version: c.version! + 1 };
             }
 
@@ -255,7 +232,7 @@ const store = createIndexDBStore<IConversationStore>({
         removeMember: (conversationId, userId) => {
           let conversations = get().conversations.map((c) => {
             if (c.id === conversationId && c.host === "group") {
-              let members = c.members.filter((m) => m.id !== userId);
+              let members = c.members.filter((m) => m.userId !== userId);
               let admins = c.admins.filter((id) => id !== userId);
               return { ...c, members, admins, version: c.version! + 1 };
             }
@@ -267,6 +244,7 @@ const store = createIndexDBStore<IConversationStore>({
       },
     };
   },
+  partialize: (state) => ({ conversations: state.conversations }),
 });
 
 export const useConversationStore = store;

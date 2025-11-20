@@ -22,6 +22,7 @@ import { CustomImage } from "../CustomImage";
 import { ArrowDownTrayIcon, ChevronLeftIcon, ChevronRightIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import FramerWrapper from "../MotionWrapper";
 import { APP_NAME } from "config/constants";
+import { getUserById } from "@lib/conversation";
 
 function ImageViewer() {
   const selectedConversation = useConversationStore((s) => s.selectedConversation);
@@ -33,8 +34,17 @@ function ImageViewer() {
   const [activeIndex, setActiveIndex] = useState(0);
   const paginationRef = useRef<HTMLDivElement>(null);
 
-  const userImages = mediaStore.get(selectedConversation?.id!)?.images || [];
   let initialSlideIdx = 0;
+  const userImages = mediaStore.get(selectedConversation?.id!)?.images || [];
+  const imageAttachement = userImages[activeIndex];
+  const sender = getUserById(imageAttachement?.senderId!);
+
+  const isSystemConversation = selectedConversation?.host === "system";
+  const isCurrentUser = sender?.id === selectedConversation?.userId;
+
+  const url = isSystemConversation ? "/" : sender?.profilePicture;
+  const profileHidden = isSystemConversation ? false : Boolean(sender?.rules?.includes("hide_profilepicture"));
+  const senderName = isSystemConversation ? APP_NAME : isCurrentUser ? "You" : sender?.username;
 
   useMemo(() => {
     userImages.forEach((img, i) => {
@@ -74,14 +84,6 @@ function ImageViewer() {
     const url = userImages[activeIndex]?.url;
     url && downloadFromUrl(url);
   };
-
-  const sender = userImages[activeIndex]?.sender;
-  const isSystemConversation = selectedConversation?.host === "system";
-  const isCurrentUser = sender?.id === selectedConversation?.userId;
-
-  const url = isSystemConversation ? "/" : sender?.profilePicture;
-  const profileHidden = isSystemConversation ? false : Boolean(sender?.rules?.includes("hide_profilepicture"));
-  const senderName = isSystemConversation ? APP_NAME : isCurrentUser ? "You" : sender?.username;
 
   return (
     <FramerWrapper

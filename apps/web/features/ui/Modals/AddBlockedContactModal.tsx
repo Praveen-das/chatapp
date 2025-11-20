@@ -11,40 +11,35 @@ import { generateConversation, generateUserConversations, handleGeneratingConver
 import { XCircleIcon } from "@heroicons/react/24/solid";
 import ModalTitle from "./components/ModalTitle";
 import FramerWrapper from "../MotionWrapper";
+import { getActiveUsers } from "@lib/conversation";
+import { useUnblockedUsers } from "@hooks/useUsers";
 
 export const AddBlockedContactModal = () => {
   const { user } = useAuth();
-  const userList = useStore((s) => s.users);
   const setModal = useStore((s) => s.setModal);
   const { sendUserBlockRequest, sendRequestToRegisterConversation } = useSocket();
   const conversations = useConversationStore((s) => s.conversations);
+  const unblockedUsers = useUnblockedUsers();
 
   const [query, setQuery] = useState("");
 
-  const users = useMemo(
-    () =>
-      userList.filter(
-        (u) =>
-          u.id !== user?.id &&
-          !conversations.some((c) => c.host === "user" && c.blocked && c.members.some((m) => m.id === u.id))
-      ),
-    [userList]
-  );
-
   const queryResult = useMemo(() => {
     if (!query) return [];
-    return users.filter((user) => user.username.includes(query));
-  }, [query, users]);
+    return unblockedUsers.filter((unblockedUser) => unblockedUser.username.includes(query));
+  }, [query, unblockedUsers]);
 
   const handleSelectedUsers = (selectedUser: IUser) => {
     const userConversation = conversations.find(
-      (c) => c.host === "user" && c.members.some((m) => m.id === selectedUser.id)
+      (c) => c.host === "user" && c.members.some((m) => m.userId === selectedUser.id)
     ) as IUserConversation;
 
     if (!userConversation) {
-      sendRequestToRegisterConversation([user!, selectedUser!], {
-        blocked: [user?.id!],
-      });
+      sendRequestToRegisterConversation(
+        { currentUser: user!, participant: selectedUser },
+        {
+          blocked: [user?.id!],
+        }
+      );
     } else {
       sendUserBlockRequest(userConversation);
     }
@@ -63,7 +58,7 @@ export const AddBlockedContactModal = () => {
         <SearchUser query={query} onChange={setQuery} />
       </div>
       <div className="w-full h-full space-y-2 overflow-y-scroll no-scrollbar mt-4 mb-2">
-        {(query ? queryResult : users).map(
+        {(query ? queryResult : unblockedUsers).map(
           (person) =>
             person.id !== user?.id && (
               <div key={person.id} onClick={() => handleSelectedUsers(person)}>

@@ -27,7 +27,7 @@ export function initConversationEmiters(socket: ISocket, user: IUser) {
       socket.emit("UNREGISTER_STARRED_MESSAGES", req);
     },
 
-    sendRequestToRegisterConversation: (members: IUser[], props?: GenerateConversationProps) => {
+    sendRequestToRegisterConversation: (members: { currentUser: IUser; participant: IUser }, props?: GenerateConversationProps) => {
       socket.emit("REGISTER_CONVERSATION", members, props);
     },
 

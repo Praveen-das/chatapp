@@ -1,30 +1,27 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import useSocket from "../../../context/SocketProvider";
-import { generateConversation, generateUserConversations } from "@repo/utils/index";
 import { useConversationStore } from "../../../store/conversationStore";
-import { useMessageStore } from "../../../store/messageStore";
 import SearchUser from "../Searchbar";
 import { useStore } from "../../../store/global";
 import { User } from "./components/User";
 import { Conversation } from "./components/Conversation";
-import useAuth from "../../../hooks/useAuth";
 import { IConversation } from "@repo/interfaces/conversationInterface";
 import { IMessage } from "@repo/interfaces/messageInterface";
 import { IUser } from "@repo/interfaces/userInterface";
 import { regenerateMessageTemplate } from "@lib/messages";
-import { XCircleIcon } from "@heroicons/react/24/solid";
 import { IModal } from "@interfaces/modalInterface";
 import { SendSolid } from "iconoir-react";
 import ModalTitle from "./components/ModalTitle";
 import FramerWrapper from "../MotionWrapper";
+import {useUsers} from "@hooks/useUsers";
 
 export const ForwardMessageModal = ({ title }: { title: string }) => {
   const { sendMessage } = useSocket();
   const conversations = useConversationStore((s) => s.conversations);
-  const users = useStore((s) => s.users);
+  const users = useUsers();
   const modal = useStore<IModal<IMessage[]> | null>((s) => s.modal);
 
   const [selectedUsers, setSelectedUsers] = useState<IUser[]>([]);

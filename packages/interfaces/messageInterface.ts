@@ -10,7 +10,6 @@ export interface IMessage {
 
   attachment?: IAttachment | null;
   reply?: IMessageReply;
-  readReceipt: IReadReceipt[];
   timestamp: number;
   deleted: boolean;
   hasAttachment?: boolean;
@@ -38,6 +37,14 @@ export interface IReadReceipt {
   userId: string;
   status: number;
 }
+
+export type MessageReadReceipt = {
+  conversationId: string;
+  senderId: string;
+  userId: string;
+  lastDeliveredMessageTimestamp?: number;
+  lastReadMessageTimestamp?: number;
+};
 
 export interface IUserMedia {
   images?: IImageAttachment[];
@@ -75,7 +82,7 @@ export interface IImagePayload {
 export type IImageAttachment = {
   id: string;
   type: "images";
-  sender?: IUser;
+  senderId?: string;
   status?: "uploading" | "success";
   loaded?: boolean;
 } & IImagePayload;

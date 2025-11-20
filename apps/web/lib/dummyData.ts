@@ -9,7 +9,7 @@ import { IUserRules } from "@repo/interfaces/userInterface";
 import { IUser } from "@repo/interfaces/userInterface";
 
 const rules:any = [] 
-
+// @ts-ignore
 export const dummyUser: any = {
   id: "user0",
   username: "user0_name",

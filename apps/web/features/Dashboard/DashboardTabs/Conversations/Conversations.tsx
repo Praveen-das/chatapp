@@ -12,6 +12,7 @@ import MotionWrapper from "../SharedComponents/Conversation/MotionWrapper";
 import Menu_Conversation from "../SharedComponents/MenuContext";
 import SearchPrompt from "../SharedComponents/SearchPrompt";
 import MainHeader from "./Header";
+import { getUserFromMetadata } from "@lib/conversation";
 
 export default function Conversations() {
   return (
@@ -33,14 +34,18 @@ function DisplayConversations() {
   let isLoaded = useConversationStore((s) => s.isLoaded);
   let users = useStore((s) => s.users);
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   useEffect(() => {
     let res: IQueryResult = { chats: [], groups: [], contacts: [] };
 
     conversations.forEach((c) => {
       if (c.host === "system") return;
 
-      let haveMember = c.members.find((m) => m.username?.includes(searchQuery) || m.phoneNumber?.includes(searchQuery));
+      let haveMember = c.members.find((m) => {
+        const member = getUserFromMetadata(m);
+        if (!member) return false;
+        member.username?.includes(searchQuery) || member.phoneNumber?.includes(searchQuery);
+      });
 
       if (haveMember) {
         if (c.host === "user") {
@@ -61,7 +66,15 @@ function DisplayConversations() {
     };
   }, [selectedConversation]);
 
-  useMemo(() => conversations.sort((a, b) => b.recentMessage?.timestamp! - a.recentMessage?.timestamp!), [conversations]);
+  useMemo(
+    () =>
+      conversations.sort((a, b) => {
+        let x = a.recentMessage?.timestamp || a.updatedAt;
+        let y = b.recentMessage?.timestamp || b.updatedAt;
+        return y - x;
+      }),
+    [conversations]
+  );
 
   return (
     <>

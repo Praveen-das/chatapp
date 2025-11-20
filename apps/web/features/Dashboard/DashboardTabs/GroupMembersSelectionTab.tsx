@@ -5,12 +5,13 @@ import Person from "./SharedComponents/Person";
 import SearchUser from "../../ui/Searchbar";
 import { IUser } from "@repo/interfaces/userInterface";
 import SecondaryHeader from "./SharedComponents/Header";
+import {useUsers} from "@hooks/useUsers";
 
 const GroupMembersSelectionTab = () => {
   const setDashboardTab = useStore((s) => s.setDashboardTab);
   const setSelectedGroupMembers = useStore((s) => s.setSelectedGroupMembers);
   const selectedGroupMembers = useStore((s) => s.selectedGroupMembers);
-  const users = useStore((s) => s.users);
+  const users = useUsers();
 
   const [query, setQuery] = useState("");
 

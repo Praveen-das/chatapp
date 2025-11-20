@@ -12,8 +12,6 @@ interface IPerson {
 }
 
 export default function Person({ person, onClick, isSelected }: IPerson): React.JSX.Element {
-  const isOnline = person.status === "online";
-
   return (
     <div
       onClick={onClick}
@@ -22,8 +20,7 @@ export default function Person({ person, onClick, isSelected }: IPerson): React.
       <Avatar
         url={person.profilePicture}
         profileHidden={Boolean(person?.rules?.includes("hide_profilepicture"))}
-        online={isOnline}
-        // onlineIndication={false}
+        onlineIndication={false}
       />
       <div className="flex-1 space-y-1 w-full">
         <h1 className="text-sm">{person.self ? "yourself " + person.username : person.username}</h1>

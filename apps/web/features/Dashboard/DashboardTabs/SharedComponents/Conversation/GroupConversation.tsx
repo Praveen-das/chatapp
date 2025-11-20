@@ -11,7 +11,7 @@ import { useMenu } from "store/menu";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
 import { DisplayRecentMessage } from "./DisplayRecentMessage";
 import useAuth from "@hooks/useAuth";
-import { getMemberById } from "@lib/conversation";
+import { getMemberById, getUserById, getUserFromMetadata } from "@lib/conversation";
 
 interface IGroupProps {
   conversation: IGroupConversation;
@@ -27,6 +27,11 @@ function GroupConversation({ conversation, isSelectedGroup }: IGroupProps): Reac
   const toggleProfile = useStore((s) => s.toggleProfile);
   const setDeviceTab = useStore((s) => s.setDeviceTab);
   const setMenu = useMenu((s) => s.setMenu);
+
+  const recentMessage = useMemo(() => conversation.recentMessage, [conversation]);
+  const from = useMemo(() => getUserById(recentMessage?.from!)!, [conversation, recentMessage]);
+
+  const sender = from.id === user?.id ? "You" : from.username;
 
   const handleSelectedConversation = useCallback(() => {
     setDeviceTab("chatarea");
@@ -46,8 +51,6 @@ function GroupConversation({ conversation, isSelectedGroup }: IGroupProps): Reac
     }
   }, [unreadMessagesStore, isSelectedGroup]);
 
-  const recentMessage = conversation.recentMessage;
-
   const handleOpeningMenu = (e: MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
     setMenu({
@@ -56,12 +59,6 @@ function GroupConversation({ conversation, isSelectedGroup }: IGroupProps): Reac
       id: "conversation",
     });
   };
-
-  ///////////////////////////////////////////
-
-  const from = getMemberById(conversation,recentMessage?.from!)!;
-
-  const sender = from.id === user?.id ? "You" : from.username;
 
   return (
     <div onClick={handleSelectedConversation} className="flex">

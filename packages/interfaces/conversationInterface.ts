@@ -6,7 +6,7 @@ import { MemberReq } from "./groupInterface";
 export interface INewConversation {
   id: string;
   host: "user";
-  members: string[];
+  members: [string,string];
   blocked?: [string];
 }
 
@@ -43,7 +43,7 @@ export interface IConversationBase {
 
 export interface IUserConversation extends IConversationBase {
   host: "user";
-  members: [IUser, IUser];
+  members: [IMember, IMember];
   displayName?: string;
 
   blockedList?: string[];
@@ -80,9 +80,21 @@ export interface IDeleteRequest {
   messages: Partial<IMessage>[];
 }
 
-export interface IGroupMember extends IUser {
-  isAdmin: boolean;
-  memberId?: string;
+export interface IMember {
+  _id?: string;
+  conversationId: string;
+  userId: string;
+  joinedAt: number;
+  clearedAt?: number;
+}
+
+export interface IGroupMember {
+  _id: string;
+  isAdmin?: boolean;
+  conversationId: string;
+  userId: string;
+  joinedAt: number;
+  exitedAt?: number;
 }
 
 export interface IClearConversationRequest {

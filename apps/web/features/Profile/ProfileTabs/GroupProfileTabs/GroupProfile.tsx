@@ -17,9 +17,10 @@ import { Member } from "./components/Member";
 import { AvatarWrapper } from "./components/AvatarWrapper";
 import { IModalKey } from "@interfaces/modalInterface";
 import useAuth from "@hooks/useAuth";
+import { getUserFromMetadata } from "@lib/conversation";
 
-function GroupProfile({ conversationId }: { conversationId: string }) {
-  const conversation = useSelectedConversation<IGroupConversation>(conversationId);
+function GroupProfile() {
+  const conversation = useSelectedConversation<IGroupConversation>();
   const { user } = useAuth();
 
   if (!conversation) return;
@@ -44,7 +45,7 @@ function GroupProfile({ conversationId }: { conversationId: string }) {
   const members = useMemo(() => sortGroupMembers([...conversation.members]), [conversation.members.length]);
 
   const userIsAdmin = conversation.admins.includes(user?.id!);
-  const userIsMember = conversation.members.some((m) => m.id === user?.id!);
+  const userIsMember = conversation.members.some((m) => m.userId === user?.id!);
   const userCanEdit = userIsAdmin && userIsMember;
   const totalMembers = conversation.members.length;
 
@@ -53,7 +54,10 @@ function GroupProfile({ conversationId }: { conversationId: string }) {
     return members.sort((a, b) => {
       if (a.isAdmin && !b.isAdmin) return -1;
       if (!a.isAdmin && b.isAdmin) return 1;
-      return a.username.localeCompare(b.username);
+      const usernameA = (getUserFromMetadata(a)?.username || "").toLowerCase();
+      const usernameB = (getUserFromMetadata(b)?.username || "").toLowerCase();
+
+      return usernameA.localeCompare(usernameB);
     });
   }
 
@@ -93,7 +97,7 @@ function GroupProfile({ conversationId }: { conversationId: string }) {
   }
 
   function handleRemovingMember(user: IGroupMember) {
-    removeMemberFromGroup(conversation!, user, user.memberId!);
+    removeMemberFromGroup(conversation!, user, user._id);
   }
 
   function handleAddingTag(tag: string) {
@@ -171,7 +175,7 @@ function GroupProfile({ conversationId }: { conversationId: string }) {
         {/* Media */}
         <div className="space-y-1 divide-y-[1.75px] divide-[--base-300-400] max-sm:mt-2 sm:mt-4 max-sm:px-4 px-8 [&>div]:h-16">
           <NotificationToggle id={conversation.id} />
-          <StarredMessages conversationId={conversation?.id!} />
+          <StarredMessages />
           <MediaSelection conversationId={conversation?.id!} />
         </div>
 
@@ -180,7 +184,7 @@ function GroupProfile({ conversationId }: { conversationId: string }) {
           <Menu<IGroupMember> id="groupProfile">
             {(member) => (
               <>
-                <Menu.Item onClick={() => handleAdmin(member.id!, member.isAdmin ? "remove" : "add")}>
+                <Menu.Item onClick={() => handleAdmin(member.userId!, member.isAdmin ? "remove" : "add")}>
                   {member.isAdmin ? "Remove Admin" : "Make Admin"}
                 </Menu.Item>
                 <Menu.Item onClick={() => handleRemovingMember(member)}>Remove</Menu.Item>
@@ -226,7 +230,15 @@ function GroupProfile({ conversationId }: { conversationId: string }) {
 
             <div>
               {members.map(
-                (member, i) => i < 5 && <Member showOptions={userIsAdmin} key={member.id} member={member} />
+                (member, i) =>
+                  i < 5 && (
+                    <Member
+                      isAdmin={conversation.admins.includes(member.userId)}
+                      showOptions={userIsAdmin}
+                      key={member.userId}
+                      member={member}
+                    />
+                  )
               )}
             </div>
             <div

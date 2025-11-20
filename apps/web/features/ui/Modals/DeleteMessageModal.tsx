@@ -12,8 +12,7 @@ import FramerWrapper from "../MotionWrapper";
 
 export const DeleteMessageModal = () => {
   const { user } = useAuth();
-  const conversationId = useConversationStore((s) => s.selectedConversation)?.id!;
-  const selectedConversation = useSelectedConversation(conversationId);
+  const selectedConversation = useSelectedConversation();
 
   if (!selectedConversation) return null;
 

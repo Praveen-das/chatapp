@@ -10,6 +10,7 @@ import useMediaQuery from "@hooks/useMediaQuery";
 import Chat from "@features/ChatWindow/ChatArea/Chat/Chat";
 import { scrolleToIndexHelper } from "@lib/events";
 import useSelectedConversation from "@hooks/useSelectedConversation";
+import { getUserFromMetadata } from "@lib/conversation";
 
 function findParticipants(conversation: IConversation, from: string, to: string) {
   let sender = null;
@@ -17,7 +18,8 @@ function findParticipants(conversation: IConversation, from: string, to: string)
 
   if (conversation.host === "system") return { sender: null, receiver: null };
 
-  for (let member of conversation.members) {
+  for (let meta of conversation.members) {
+    const member = getUserFromMetadata(meta)!;
     if (member.id === conversation.userId) member.self = true;
     if (member.id === from) sender = member;
     if (member.id === to) receiver = member;
@@ -29,8 +31,8 @@ function findParticipants(conversation: IConversation, from: string, to: string)
 
 const formatName = (member: IUser) => (member?.self ? "You" : member?.username || "Unknown");
 
-function StarredMessagess({ conversationId }: { conversationId: string }) {
-  const conversation = useSelectedConversation(conversationId);
+function StarredMessagess() {
+  const conversation = useSelectedConversation();
 
   if (!conversation) return;
 

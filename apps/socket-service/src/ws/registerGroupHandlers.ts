@@ -5,10 +5,10 @@ import { ISocket } from "../interfaces/socketInterfaces";
 import { IMessage } from "@repo/interfaces/messageInterface";
 import { GroupDeleteReq, JoinGroupParams, MemberReq } from "@repo/interfaces/groupInterface";
 import { IGroupConversation } from "../interfaces/conversationInterfaces";
-import { IGroupMember } from "@repo/interfaces/conversationInterface";
+import { IGroup } from "../interfaces/groupInterface";
 
 export default function registerGroupHandlers(io: Server, socket: ISocket) {
-  socket.on("create group", async (groupConversations: IGroupConversation[]) => {
+  socket.on("create group", async (groupConversations: IGroupConversation[], users: IUser[]) => {
     if (!socket.userId) return;
 
     const sockets = io.sockets.sockets;
@@ -18,10 +18,8 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
         if (_socket.userId === conversation.userId) _socket.join(conversation.channelId!);
       });
 
-      io.to(conversation.userId).emit("group created", conversation);
+      io.to(conversation.userId).emit("group created", conversation, users, conversation.userId === socket.userId);
     });
-
-    // produceMessage({ groupConversations }, "CREATE_GROUP_CONVERSATION");
   });
 
   socket.on(
@@ -41,7 +39,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
         produceMessage(body, "UPDATE_GROUP_INFO");
 
         const updatedProperty = Object.keys(updates)[0]!;
-        
+
         function getUpdateMessage(key: string) {
           switch (key) {
             case "displayName":
@@ -162,36 +160,44 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
 
   socket.on(
     "GROUP_ADD_MEMBERS",
-    async ({ group, members, admin }: { group: IGroup; members: IGroupMember[]; admin: IUser }) => {
+    async ({
+      group,
+      existingUsers,
+      selectedUsers,
+      admin,
+    }: {
+      group: IGroup;
+      existingUsers: IUser[];
+      selectedUsers: IUser[];
+      admin: IUser;
+    }) => {
       const groupConversations: IGroupConversation[] = [];
-      const groupMembers: MemberReq[] = [];
+      const conversationMembers: MemberReq[] = [];
 
-      const _members = members.map(({ id }) => id);
+      const newMemberIds: string[] = [];
       const sockets = io.sockets.sockets;
       const conversationId = group.id;
+      const users = [...existingUsers, ...selectedUsers];
 
-      _members.forEach((id) => {
+      selectedUsers.forEach((member) => {
+        newMemberIds.push(member.id);
+
         sockets.forEach((_socket: ISocket) => {
-          if (_socket.userId === id) _socket.join(group.channelId!);
+          if (_socket.userId === member.id) _socket.join(group.channelId!);
+        });
+
+        let memberId = new Types.ObjectId().toHexString();
+
+        conversationMembers.push({
+          _id: memberId,
+          conversationId,
+          userId: member.id,
+          joinedAt: Date.now(),
         });
       });
 
-      // message to new members ///////////////////////////////////////////////////////
-      members = members.map((m) => {
-        let memberId = new Types.ObjectId().toHexString();
-
-        m.memberId = memberId;
-
-        let member = {
-          _id: memberId,
-          conversationId,
-          userId: m.id,
-          joinedAt: Date.now(),
-        };
-
-        groupMembers.push(member);
-
-        const receiverMessage = members.map((m) => ({
+      selectedUsers.forEach((m) => {
+        const receiverMessage = selectedUsers.map((m) => ({
           id: crypto.randomUUID(),
           conversationId,
           from: "system",
@@ -204,22 +210,26 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
           id: new Types.ObjectId().toHexString(),
           conversationId,
           userId: m.id,
-          members: [...(group.members as IGroupMember[]), m],
+          members: [...group.members, ...conversationMembers],
           active: true,
           updatedAt: Date.now(),
           createdAt: Date.now(),
-          currentParticipation: member,
+          currentParticipation: conversationMembers.find((member) => m.id === member.userId)!,
         };
 
         groupConversations.push(groupConversation);
 
-        io.to(m.id).emit("JOIN_GROUP", groupConversation, receiverMessage, false);
-
-        return m;
+        io.to(m.id).emit(
+          "JOIN_GROUP",
+          groupConversation,
+          users.filter((u) => u.id !== m.id),
+          receiverMessage,
+          false
+        );
       });
 
       // message to members//////////////////////////////
-      const messages: Partial<IMessage>[] = members.map((m) => ({
+      const messages: Partial<IMessage>[] = selectedUsers.map((m) => ({
         id: crypto.randomUUID(),
         conversationId,
         from: "system",
@@ -228,11 +238,11 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
       }));
 
       io.to(group.channelId!)
-        .except([..._members, socket.userId!])
-        .emit("GROUP_ADD_MEMBERS", { conversationId, members }, messages);
+        .except([...newMemberIds, socket.userId!])
+        .emit("GROUP_ADD_MEMBERS", { conversationId, members: conversationMembers, newUsers: selectedUsers }, messages);
 
       // message to admin ///////////////////////////////////////////////////////
-      const userMessages = members.map((m) => ({
+      const userMessages = selectedUsers.map((m) => ({
         id: crypto.randomUUID(),
         conversationId,
         from: "system",
@@ -240,11 +250,15 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
         message: `You added ${m.username} to the group`,
       }));
 
-      socket.emit("GROUP_ADD_MEMBERS", { conversationId, members }, userMessages);
+      socket.emit(
+        "GROUP_ADD_MEMBERS",
+        { conversationId, members: conversationMembers, newUsers: selectedUsers },
+        userMessages
+      );
 
       const body = {
         groupId: conversationId,
-        members: groupMembers,
+        members: conversationMembers,
       };
 
       produceMessage({ groupConversations }, "CREATE_GROUP_CONVERSATION");

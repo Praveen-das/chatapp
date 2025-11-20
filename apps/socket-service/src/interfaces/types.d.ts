@@ -126,22 +126,6 @@ interface IUserConversation extends IConversationBase {
   blockedByUser?: boolean;
 }
 
-
-interface IGroup {
-  _id?: string,
-  id: string,
-  channelId: string,
-  invitationId?: string,
-  displayName:string,
-  profilePicture: string,
-  admins: string[],
-  host: "group",
-  members: IUser[],
-  createdBy: string,
-  createdAt: number,
-  updatedAt: number,
-}
-
 type IConversation = IUserConversation | IGroupConversation 
 
 interface IBlocked {

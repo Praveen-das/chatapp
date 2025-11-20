@@ -1,5 +1,5 @@
 "use client";
-import React, { MouseEvent, useMemo, useState } from "react";
+import { MouseEvent, useMemo, useState } from "react";
 import { useStore } from "../../../store/global";
 import useSocket from "../../../context/SocketProvider";
 import useAuth from "../../../hooks/useAuth";
@@ -12,8 +12,7 @@ import Header from "./SharedComponents/Header";
 import { Input } from "../../ui/Input";
 import useAxios from "@hooks/useAxios";
 import { toast } from "react-toastify";
-import { IGroup, IGroupCreationRequest } from "@interfaces/groupInterface";
-import { IGroupConversation } from "@repo/interfaces/conversationInterface";
+import { IGroupCreationRequest } from "@interfaces/groupInterface";
 import axiosClient from "@lib/axiosClient";
 
 const GroupCreationTab = () => {
@@ -49,7 +48,7 @@ const GroupCreationTab = () => {
         let memberId = new ObjectID().toHexString();
         return { _id: memberId, userId: m.id, conversationId: groupId, joinedAt: Date.now() };
       });
-      
+
       const group: IGroupCreationRequest = {
         id: groupId,
         channelId,
@@ -59,8 +58,8 @@ const GroupCreationTab = () => {
         host: "group",
         members,
         createdBy: user?.id!,
-        createdAt:Date.now(),
-        updatedAt:Date.now()
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
 
       if (profilePicture) {
@@ -80,7 +79,7 @@ const GroupCreationTab = () => {
           id: new ObjectID().toHexString(),
           userId: member.id,
           conversationId: group.id,
-          members: selectedGroupMembers,
+          members,
           active: true,
           currentParticipation: members.find((m) => m.userId === member.id),
           createdAt: Date.now(),
@@ -91,7 +90,7 @@ const GroupCreationTab = () => {
 
       const res = await axiosClient.post("/db/group/create", { group, groupConversations });
 
-      if (res.status === 200) sendGroupCreationRequest(groupConversations);
+      if (res.status === 200) sendGroupCreationRequest(groupConversations, selectedGroupMembers);
       else throw Error("Failed to create group");
     } catch (error) {
       console.log(error);

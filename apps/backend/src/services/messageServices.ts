@@ -8,6 +8,9 @@ import client from "../redis/client";
 import { systemMessagesSchema } from "../schemas/systemMessageSchema";
 import { messagesSchema } from "../schemas/userMessageSchema";
 import { LIMIT } from "../../const";
+import { syncRegistry } from "../lib/SyncRegistry";
+import MessageReadReceipt from "../models/MessageReadReceipt";
+import { MessageReadReceipt as IMessageReadReceipt } from "@repo/interfaces/messageInterface";
 
 async function generateMockMessages(messages: z.infer<typeof messagesSchema>) {
   try {
@@ -20,9 +23,8 @@ async function generateMockMessages(messages: z.infer<typeof messagesSchema>) {
 
 async function saveUserMessage(messages: z.infer<typeof messagesSchema>) {
   try {
-    console.log('aaaaaaa->',messages)
     const res = await Messages.insertMany(messages);
-    console.log('saveUserMessage------>',res.length)
+    console.log("saveUserMessage------>", res.length);
     return res;
   } catch (error) {
     console.log("saveUserMessage error----->", error);
@@ -67,12 +69,12 @@ async function getUserMessages({
         $gte: deletedAt,
       },
     };
-    
+
     if (cursor) {
       query.timestamp.$lt = cursor;
     }
 
-    const pipeline:any = [
+    const pipeline: any = [
       {
         $match: query,
       },
@@ -93,10 +95,10 @@ async function getUserMessages({
           timestamp: -1,
         },
       },
-    ]
+    ];
 
     const res = await Messages.aggregate(pipeline);
-    
+
     return res;
   } catch (error) {
     console.log("getUserMessages---->", error);
@@ -119,7 +121,7 @@ async function getGroupMessages({
 
       activityLookup(),
 
-      messagesLookup({userId, cursor}),
+      messagesLookup({ userId, cursor }),
 
       { $project: { messages: 1 } },
     ]);
@@ -203,6 +205,26 @@ const deleteMessagesForUser = async (collections: { userId: string; messageId: s
   }
 };
 
+const getReadReceipts = async (
+  readReceiptEntries: Awaited<ReturnType<typeof syncRegistry.getSyncReadReceiptEntries>>
+) => {
+  if (readReceiptEntries.length === 0) return await Promise.resolve([]);
+
+  const receipts: IMessageReadReceipt[] = await MessageReadReceipt.aggregate([
+    {
+      $match: {
+        $or: readReceiptEntries.map((item) => ({
+          senderId: item.userId,
+          conversationId: item.conversationId,
+          userId: { $in: item.ids },
+        })),
+      },
+    },
+  ]);
+
+  return receipts
+};
+
 export default {
   generateMockMessages,
   getMessages,
@@ -213,4 +235,5 @@ export default {
   updateUserMessages,
   deleteUserMessages,
   deleteMessagesForUser,
+  getReadReceipts,
 };

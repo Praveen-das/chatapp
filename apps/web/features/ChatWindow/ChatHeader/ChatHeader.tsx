@@ -2,7 +2,7 @@
 import { ArrowLeftIcon, EllipsisVerticalIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import { IGroupConversation, IUserConversation } from "@repo/interfaces/conversationInterface";
 import { generateConversation, generateUserConversations, handleGeneratingConversation } from "@repo/utils/index";
-import { getParticipant } from "@lib/conversation";
+import { getReceiverMetadata, getUserById } from "@lib/conversation";
 import { getRelativeTime } from "@lib/utils";
 import { MouseEvent, memo, useMemo } from "react";
 import { useAttachments } from "store/attachments";
@@ -16,6 +16,7 @@ import { useMessageStore } from "../../../store/messageStore";
 import Avatar from "../../ui/Avatar";
 import Menu from "../../ui/Menu";
 import { APP_NAME } from "config/constants";
+import { IUser } from "@repo/interfaces/userInterface";
 
 const { setDeviceTab, setSelectedUser } = useStore.getState();
 
@@ -35,8 +36,10 @@ function ChatHeader({ showMenu = true, onClose }: { showMenu: boolean; onClose?:
   const clearImages = useAttachments((s) => s.clearImages);
   const setMenu = useMenu((s) => s.setMenu);
 
-  const conversationId = useConversationStore((s) => s.selectedConversation)?.id!;
-  const selectedConversation = useSelectedConversation(conversationId);
+  const selectedConversation = useSelectedConversation();
+  const selectedUser = useStore((s) => s.selectedUser);
+  const receiver = getReceiverMetadata(selectedConversation!);
+  const user = getUserById(receiver?.userId!);
 
   const isUserConversation = selectedConversation?.host === "user";
   const isGroupConversation = selectedConversation?.host === "group";
@@ -65,9 +68,13 @@ function ChatHeader({ showMenu = true, onClose }: { showMenu: boolean; onClose?:
           <ArrowLeftIcon className="size-5" />
         </span>
         {isGroupConversation ? (
-          <GroupInfo conversationId={conversationId} />
+          <GroupInfo />
         ) : isUserConversation ? (
-          <UserInfo conversationId={conversationId} />
+          <UserInfo
+            user={(selectedUser || user)!}
+            blocked={Boolean(selectedConversation.blocked)}
+            blockedByUser={Boolean(selectedConversation.blockedByUser)}
+          />
         ) : isSystem ? (
           <SystemInfo />
         ) : null}
@@ -102,25 +109,14 @@ function SystemInfo() {
   );
 }
 
-function UserInfo({ conversationId }: { conversationId: string }) {
-  const selectedUser = useStore((s) => s.selectedUser);
-  const selectedConversation = useSelectedConversation<IUserConversation>(conversationId);
+function UserInfo({ user, blocked, blockedByUser }: { user: IUser; blocked: boolean; blockedByUser: boolean }) {
+  const { username, profilePicture, rules, status } = user;
 
-  const receiver = useMemo(
-    () => getParticipant(selectedConversation!) || selectedUser,
-    [selectedConversation, selectedUser]
-  );
-
-  if (!receiver) return null;
-
-  const { username, profilePicture, rules, status } = receiver;
-  const lastSeen = getRelativeTime(receiver?.lastSeen!);
+  const lastSeen = getRelativeTime(user?.lastSeen!);
   const isOnline = status === "online";
   const isHidden = Boolean(rules?.includes("hide_profilepicture"));
-  const canShowLastSeen =
-    (isOnline || !rules?.includes("hide_lastseen")) &&
-    !selectedConversation?.blockedByUser &&
-    !selectedConversation?.blocked;
+
+  const canShowLastSeen = (isOnline || !rules?.includes("hide_lastseen")) && !blockedByUser && !blocked;
 
   return (
     <>
@@ -135,8 +131,8 @@ function UserInfo({ conversationId }: { conversationId: string }) {
   );
 }
 
-function GroupInfo({ conversationId }: { conversationId: string }) {
-  const selectedConversation = useSelectedConversation<IGroupConversation>(conversationId);
+function GroupInfo() {
+  const selectedConversation = useSelectedConversation<IGroupConversation>();
 
   if (!selectedConversation) return null;
 
@@ -148,7 +144,10 @@ function GroupInfo({ conversationId }: { conversationId: string }) {
           {selectedConversation.displayName}
         </label>
         <label className="pointer-events-none whitespace-nowrap truncate" htmlFor="members">
-          {selectedConversation?.members.map((m, i, a) => (i !== a.length - 1 ? `${m.username}, ` : m.username))}
+          {selectedConversation?.members.map((m, i, a) => {
+            let displayName = getUserById(m.userId)?.username || "";
+            return i !== a.length - 1 ? `${displayName}, ` : displayName;
+          })}
         </label>
       </div>
     </>
@@ -165,16 +164,15 @@ function HeaderMenuContext() {
     sendRequestToRegisterConversation,
   } = useSocket();
 
-  const currentUser = useAuth().user;
+  const currentUser = useAuth().user!;
   const selectedUser = useStore((s) => s.selectedUser);
-  const conversationId = useConversationStore((s) => s.selectedConversation)?.id!;
 
-  const selectedConversation = useSelectedConversation(conversationId);
+  const selectedConversation = useSelectedConversation();
   const isGroupConversation = selectedConversation?.host === "group";
   const isUserConversation = selectedConversation?.host === "user";
   const isSystemConversation = selectedConversation?.host === "system";
   const isBlocked = isUserConversation && selectedConversation.blocked;
-  const isGroupMember = isGroupConversation && selectedConversation?.members.some((m) => m.id === currentUser?.id);
+  const isGroupMember = isGroupConversation && selectedConversation?.members.some((m) => m.userId === currentUser?.id);
 
   const selectedChats = useMessageStore((s) => s.selectedChats);
 
@@ -188,12 +186,14 @@ function HeaderMenuContext() {
     if (selectedConversation?.host === "group") return;
     if (isSystemConversation) return;
 
-    if (selectedConversation)
-      return sendUserBlockRequest(selectedConversation);
+    if (selectedConversation) return sendUserBlockRequest(selectedConversation);
 
-    sendRequestToRegisterConversation([currentUser!, selectedUser!], {
-      blocked: [currentUser?.id!],
-    });
+    sendRequestToRegisterConversation(
+      { currentUser, participant: selectedUser! },
+      {
+        blocked: [currentUser?.id!],
+      }
+    );
   };
 
   const handleUnblockingUser = () => {
@@ -211,12 +211,12 @@ function HeaderMenuContext() {
   const handleClearChat = () => {
     isGroupConversation
       ? sendRequestToClearGroupConversation({
-          conversationId: conversationId!,
+          conversationId: selectedConversation.id!,
           groupId: selectedConversation.conversationId!,
           userId: currentUser?.id!,
           recentMember: selectedConversation.currentParticipation?._id!,
         })
-      : sendRequestToClearUserConversation(conversationId);
+      : sendRequestToClearUserConversation(selectedConversation!.id);
   };
 
   function handleClosingChat() {

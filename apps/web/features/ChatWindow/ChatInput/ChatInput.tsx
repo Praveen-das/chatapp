@@ -5,7 +5,7 @@ import { FaceSmileIcon, PhotoIcon } from "@heroicons/react/24/outline";
 import { ArrowUturnRightIcon, DocumentTextIcon, XCircleIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import useAuth from "@hooks/useAuth";
 import useSelectedConversation from "@hooks/useSelectedConversation";
-import { getMemberById, getParticipant } from "@lib/conversation";
+import { getMemberById, getReceiverMetadata, getUserById } from "@lib/conversation";
 import { generateMessageTemplate } from "@lib/messages";
 import { getImages, parseUrl } from "@lib/utils";
 import { IUrlAttachment } from "@repo/interfaces/messageInterface";
@@ -26,15 +26,14 @@ import useUrlParser from "./useUrlParser";
 
 function ChatInput() {
   const { user } = useAuth();
-  const conversationId = useConversationStore((s) => s.selectedConversation)?.id!;
-  const selectedConversation = useSelectedConversation(conversationId);
+  const selectedConversation = useSelectedConversation();
 
   const isBlockedConversation = selectedConversation?.host === "user" && selectedConversation.blocked;
   const isGroup = selectedConversation?.host === "group";
   const isSystemConversation = selectedConversation?.host === "system";
-  const isMember = isGroup && selectedConversation?.members.some((m) => m.id === user?.id);
+  const isMember = isGroup && selectedConversation?.members.some((m) => m.userId === user?.id);
 
-  const username = getParticipant(selectedConversation!)?.username;
+  const username = getUserById(getReceiverMetadata(selectedConversation!)?.userId!)?.username;
 
   return (
     <div className="flex flex-col w-full mx-auto shadow-lg bg-[--base-200-300] sm:rounded-2xl">
@@ -84,7 +83,7 @@ function Input(): React.ReactNode {
   const [toggleAttachments, setToggleAttachments] = useState(false);
   const { metadata, setMetadata } = useUrlParser(messageString);
 
-  const sender = getMemberById(selectedConversation!, replyRequest?.userId!);
+  const sender = getUserById(replyRequest?.userId!);
   const receiver = sender?.id === user?.id ? "You" : sender?.username!;
   const replyMessage = replyRequest?.message || "";
 
@@ -114,7 +113,7 @@ function Input(): React.ReactNode {
     let conversation = conversations.find(
       (c) =>
         c.id === selectedConversation?.id ||
-        (c.host !== "system" && c.members.find((m) => m.id === selectedUser?.id! && c.host === "user"))
+        (c.host !== "system" && c.members.find((m) => m.userId === selectedUser?.id! && c.host === "user"))
     );
 
     const url = parseUrl(messageString);

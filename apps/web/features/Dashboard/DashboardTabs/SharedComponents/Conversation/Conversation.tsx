@@ -9,7 +9,7 @@ import { IConversation } from "@repo/interfaces/conversationInterface";
 import { useMenu } from "store/menu";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
 import { DisplayRecentMessage } from "./DisplayRecentMessage";
-import { getDisplayName, getParticipant } from "@lib/conversation";
+import { getDisplayName, getReceiverMetadata, getUserFromMetadata } from "@lib/conversation";
 import classNames from "classnames";
 import { useTheme } from "@hooks/useTheme";
 import { RenderAvatar } from "./RenderAvatar";
@@ -40,20 +40,20 @@ function Conversation({ conversation, isSelected }: IConve): React.JSX.Element {
 
   const recentMessage = conversation.recentMessage;
   const isUserConversation = conversation.host === "user";
-  const receiver = isUserConversation ? getParticipant(conversation)! : null;
-  const displayName = getDisplayName(conversation)
-
+  const receiver = isUserConversation ? getReceiverMetadata(conversation)! : null;
+  const displayName = getDisplayName(conversation);
+  
   const class_selected = classNames({
     "sm:bg-base-200": isDarkMode && isSelected,
     "sm:bg-primary text-white [--avatarBg:oklch(1_0_0_/_0.20)]": isLightMode && isSelected,
   });
-
+  
   return (
     <div
       onClick={handleSelectedConversation}
       className={`group flex gap-4 items-center w-full max-sm:py-2 max-sm:pr-2 sm:px-4 sm:min-h-[75px] rounded-2xl cursor-pointer bg-[--l-base-300] z-10 ${class_selected}`}
     >
-      <RenderAvatar conversation={conversation} receiver={receiver} />
+      <RenderAvatar conversation={conversation} receiver={getUserFromMetadata(receiver!)} />
       <div className="min-w-0 w-full space-y-1">
         <div className="flex gap-4 justify-between items-center">
           <h1 className="text-sm truncate" title={displayName}>

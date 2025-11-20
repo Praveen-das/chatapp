@@ -1,16 +1,26 @@
 import AdminTag from "@features/ui/AdminTag";
 import Avatar from "@features/ui/Avatar";
 import { ChevronDownIcon } from "@heroicons/react/16/solid";
+import { getUserFromMetadata } from "@lib/conversation";
 import { IGroupMember } from "@repo/interfaces/conversationInterface";
 import { IUser } from "@repo/interfaces/userInterface";
-import { MouseEvent } from "react";
+import { MouseEvent, useMemo } from "react";
 import { useStore } from "store/global";
 import { useMenu } from "store/menu";
 
-export function Member({ member, showOptions = false }: { member: IGroupMember; showOptions?: boolean }) {
+export function Member({
+  member: _member,
+  isAdmin = false,
+  showOptions = false,
+}: {
+  member: IGroupMember;
+  isAdmin: boolean;
+  showOptions?: boolean;
+}) {
   const setSelectedUser = useStore((s) => s.setSelectedUser);
   const profileTab = useStore((s) => s.profileTab);
   const setMenu = useMenu((s) => s.setMenu);
+  const member = useMemo(() => getUserFromMetadata(_member)!, [_member]);
 
   function handleSelectedUser() {
     setSelectedUser(member as IUser);
@@ -43,7 +53,7 @@ export function Member({ member, showOptions = false }: { member: IGroupMember; 
           <label className="py-1" htmlFor="member name">
             {member.username}
           </label>
-          <AdminTag isAdmin={member.isAdmin} />
+          <AdminTag isAdmin={isAdmin} />
         </div>
         <div className="flex justify-between items-center">
           {member.phoneNumber ? (

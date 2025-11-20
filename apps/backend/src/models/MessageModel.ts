@@ -1,5 +1,5 @@
 import mongoose, { Schema, model } from "mongoose";
-import { IAttachment, IImageAttachment, IMessages, IUrlAttachment } from "@repo/interfaces/messageInterface";
+import { IAttachment, IImageAttachment, IUrlAttachment } from "@repo/interfaces/messageInterface";
 import { IMessage } from "../interfaces/messageInterface";
 import { syncRegistry } from "../lib/SyncRegistry";
 
@@ -101,7 +101,7 @@ messageSchema.post("insertMany", async (messages: IMessage[]) => {
     { conversationId, fieldValues: ["messageTimestamp", timestamp] },
   ]);
 
-  console.log("line:101-->", "inserted-->", res?.length, "conversationId-->", recentMessage);
+  console.log("line:104-->", "inserted-->", res?.length);
 });
 
 const Messages = model("messages", messageSchema);

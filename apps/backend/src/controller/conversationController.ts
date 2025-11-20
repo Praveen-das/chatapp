@@ -2,11 +2,12 @@ import { Request, Response } from "express";
 import conversationServices from "../services/conversationServices";
 import { Types } from "mongoose";
 import { conversationSchema, userConversationsSchema, conversationBlockRequest } from "../schemas/conversationSchema";
-import { groupConversationsSchema } from "../schemas/groupSchema";
+import { groupConversationsSchema, membersSchema } from "../schemas/groupSchema";
 import { objectId } from "../schemas/objectId";
 import { syncRegistry } from "../lib/SyncRegistry";
 import { handleUpdatingGroupConversationSyncState } from "../services/utils/conversation";
 import { SaveConversationSyncState } from "@repo/interfaces/syncRegistryInterface";
+import { readReceiptSchema, readReceiptsSchema } from "../schemas/readReceiptSchema";
 
 const _createConversation = async (req: string, reset: () => void) => {
   try {
@@ -14,16 +15,22 @@ const _createConversation = async (req: string, reset: () => void) => {
 
     if (!parsed.conversation) throw Error("Conversation empty");
     if (!parsed.userConversations) throw Error("UserConversations empty");
+    if (!parsed.participants) throw Error("participants empty");
 
-    let conversation = conversationSchema.parse(parsed.conversation);
-    const userConversations = userConversationsSchema.parse(parsed.userConversations);
+    let conversationBody = conversationSchema.parse(parsed.conversation);
+    const userConversationsBody = userConversationsSchema.parse(parsed.userConversations);
+    const participantsCollection = membersSchema.parse(parsed.participants);
 
-    const response = await conversationServices.saveConversations(conversation, userConversations);
+    const response = await conversationServices.saveConversations({
+      conversationBody,
+      userConversationsBody,
+      participantsCollection,
+    });
 
     if (response) {
       const c = response.conversation!;
       const state: SaveConversationSyncState[] = [
-        { conversationId: c?.id!, fieldValues: ["conversationId", c.id, "version",c.version] },
+        { conversationId: c?.id!, fieldValues: ["conversationId", c.id, "version", c.version] },
       ];
       syncRegistry.saveConversationSyncState(state);
     }
@@ -146,7 +153,7 @@ const _updateUserConversationBlockStatus = async (req: string, reset: () => void
     const body = JSON.parse(req);
 
     const updates = conversationBlockRequest.parse(body);
-    
+
     const response = await conversationServices.updateUserConversationBlockStatus(updates);
   } catch (error) {
     console.log(error);
@@ -181,6 +188,18 @@ const _unregisterStarredMessages = async (req: string, reset: () => void) => {
   }
 };
 
+const _saveMessageReadReceipt = async (req: string, reset: () => void) => {
+  try {
+    const parsed = JSON.parse(req);
+    const readReceipts = readReceiptsSchema.parse(parsed.readReceipts);
+
+    const response = await conversationServices.saveMessageReadReceipt(readReceipts);
+  } catch (error) {
+    console.log(error);
+    reset();
+  }
+};
+
 export default {
   _createConversation,
   // _createUserConversation,
@@ -194,4 +213,5 @@ export default {
   _clearConversation,
   _registerStarredMessages,
   _unregisterStarredMessages,
+  _saveMessageReadReceipt
 };

@@ -7,19 +7,29 @@ import { IUser } from "@repo/interfaces/userInterface";
 import { handleGeneratingConversation } from "@repo/utils";
 
 export default function registerConversationHandlers(io: Server, socket: ISocket) {
-  socket.on("REGISTER_CONVERSATION", (members: [IUser, IUser],props:any) => {
-    const { conversation, userConversations } = handleGeneratingConversation(members,props);
-
-    userConversations.forEach((userConversation) => {
-      io.to(userConversation.userId).emit(
-        "CREATE_USER_CONVERSATION",
-        userConversation,
-        userConversation.userId === socket.userId
+  socket.on(
+    "REGISTER_CONVERSATION",
+    ({ currentUser, participant }: { currentUser: IUser; participant: IUser }, props: any) => {
+      
+      const { conversation, userConversations, participants } = handleGeneratingConversation(
+        [currentUser, participant],
+        props
       );
-    });
 
-    produceMessage({ conversation, userConversations }, "CREATE_CONVERSATION");
-  });
+      userConversations.forEach((userConversation) => {
+        let self = userConversation.userId === socket.userId;
+
+        io.to(userConversation.userId).emit(
+          "CREATE_USER_CONVERSATION",
+          userConversation,
+          self ? participant : currentUser,
+          self
+        );
+      });
+
+      produceMessage({ conversation, participants, userConversations }, "CREATE_CONVERSATION");
+    }
+  );
 
   // socket.on("REGISTER_USER_CONVERSATION", (conversations: IUserConversation[]) => {
   //   const userConversations: any[] = [];

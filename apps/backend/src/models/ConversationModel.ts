@@ -27,7 +27,7 @@ conversationSchema.post("findOneAndUpdate", async (conversation: IUserConversati
 
   if (!res?.length) return;
 
-  console.log("line:101-->", res);
+  console.log("line:30-->", res?.length);
 });
 
 const Conversations = model("conversation", conversationSchema);

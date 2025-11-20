@@ -1,9 +1,9 @@
 import useSelectedConversation from "@hooks/useSelectedConversation";
 import { useStore } from "../../../../store/global";
 
-function StarredMessages({ conversationId }: { conversationId: string }) {
+function StarredMessages() {
   const profileTab = useStore((s) => s.profileTab);
-  const conversation = useSelectedConversation(conversationId);
+  const conversation = useSelectedConversation();
 
   if (!conversation) return;
 

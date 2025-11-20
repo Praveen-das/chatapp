@@ -8,8 +8,8 @@ import { IImageAttachment, IUrlAttachment } from "@repo/interfaces/messageInterf
 import useSelectedConversation from "@hooks/useSelectedConversation";
 import { CustomImage } from "@features/ui/CustomImage";
 
-function UserMedia({ conversationId }: { conversationId: string }) {
-  const conversation = useSelectedConversation(conversationId);
+function UserMedia() {
+  const conversation = useSelectedConversation();
 
   if (!conversation) return;
 

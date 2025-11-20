@@ -10,7 +10,7 @@ import { IModal } from "@interfaces/modalInterface";
 import { IGroup } from "@interfaces/groupInterface";
 import FramerWrapper from "../MotionWrapper";
 import ObjectID from "bson-objectid";
-import { getMemberById } from "@lib/conversation";
+import { getMemberById, getUserFromMetadata } from "@lib/conversation";
 import { IGroupConversation } from "@repo/interfaces/conversationInterface";
 
 export const JoinGroupModal = () => {
@@ -42,7 +42,7 @@ export const JoinGroupModal = () => {
     delete group._id;
 
     const existingConversation = conversations.find((c) => c.conversationId === group.id);
-    
+
     const members = [...group.members, { ...user, memberId }];
 
     if (!existingConversation) {
@@ -74,7 +74,9 @@ export const JoinGroupModal = () => {
     (async () => {
       try {
         setLoading(true);
-        const fetchedGroup = await axios<IGroup[]>(`/db/group/group-invitations/${invitationId}`).then((res) => res.data[0]);
+        const fetchedGroup = await axios<IGroup[]>(`/db/group/group-invitations/${invitationId}`).then(
+          (res) => res.data[0]
+        );
 
         if (fetchedGroup) {
           if (getMemberById(fetchedGroup as IGroupConversation, user?.id!)) {
@@ -117,15 +119,17 @@ export const JoinGroupModal = () => {
             <span className="whitespace-nowrap">{moment(new Date(group.createdAt!)).format("LT")}</span>
           </label>
           <div className="avatar-group -space-x-4 rtl:space-x-reverse">
-            {group.members.map((member, i) =>
-              i > 4 ? null : (
+            {group.members.map((meta, i) => {
+              let member = getUserFromMetadata(meta);
+              if (!member) return null;
+              return i > 4 ? null : (
                 <div key={member.id} className="avatar rounded-full bg-base-200 border-base-200">
                   <div>
                     <Avatar size="38px" url={member.profilePicture} onlineIndication={false} />
                   </div>
                 </div>
-              )
-            )}
+              );
+            })}
             {group.members.length > 5 && (
               <div className="avatar border-base-300 placeholder">
                 <div className="bg-base-200 text-neutral-content w-[38px]">

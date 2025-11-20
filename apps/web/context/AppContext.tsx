@@ -4,20 +4,17 @@ import useAuth from "@hooks/useAuth";
 import useAxios from "@hooks/useAxios";
 import { IConversation } from "@interfaces/conversationInterface";
 import { IMessage } from "@interfaces/messageInterface";
-import { getParticipant } from "@lib/conversation";
+import { getGlobalUsers, handleSettingGroupAdmin } from "@lib/conversation";
 import { processMessagesForUser, registerMessages } from "@lib/messages";
 import socket from "@lib/ws";
-import { IUpdates } from "@repo/interfaces/messageInterface";
+import { MessageReadReceipt } from "@repo/interfaces/messageInterface";
 import { ISession } from "@repo/interfaces/sessionInterface";
 import {
   ConversationFetchResponse,
   IIdbConversastionRecord,
-  IIdbUserRecord,
   IIdbUserRecordValue,
   IdbValues,
 } from "@repo/interfaces/syncRegistryInterface";
-import { ConversationEntry } from "@repo/interfaces/syncRegistryInterface.js";
-import { IMessageReadReceipt } from "enums/enums";
 import { PropsWithChildren, useEffect, useState } from "react";
 import { useAttachments } from "store/attachments";
 import { useConversationStore } from "store/conversationStore";
@@ -32,15 +29,16 @@ const { setConversations, updateConversation, upsertConversation } =
   useConversationStore.getState().conversationActions;
 const { setUnreadMessages, setMessageHistory } = useMessageStore.getState();
 const { setMediaStore } = useAttachments.getState();
-const { addNewUser } = useStore.getState();
+const { setUsers } = useStore.getState();
 
 type AppPostReq = {
   unsyncConversationsData: Record<keyof ConversationFetchResponse, IConversation[]>;
-  unsyncUsersData: IUser[];
+  unsyncUsersData: Record<string, IUser>;
+  unsyncReadReceipts: MessageReadReceipt[];
 };
 
 export const AppContext = ({ children }: PropsWithChildren) => {
-  const { session } = useAuth();
+  const { session, updateSession } = useAuth();
   const { sendReadReceiptChangeRequest, sendPresence, sendConversationActivationRequest } = useSocket();
   const setIsLoaded = useConversationStore((s) => s.conversationActions.setIsLoaded);
   const isLoaded = useConversationStore((s) => s.isLoaded);
@@ -102,7 +100,7 @@ export const AppContext = ({ children }: PropsWithChildren) => {
       const channels: string[] = [];
 
       conversations.forEach((conversation) => {
-        if (conversation.host !== "system") conversation.members.forEach((c) => connections.add(c.id));
+        if (conversation.host !== "system") conversation.members.forEach((m) => connections.add(m.userId));
         if (conversation.host === "group") channels.push(conversation.channelId!);
       });
 
@@ -111,16 +109,15 @@ export const AppContext = ({ children }: PropsWithChildren) => {
 
     function initConversations(conversations: IConversation[]) {
       const messageStore: Map<string, IMessage[]> = new Map();
-      const updatesCollection: IUpdates = new Map();
-      const conversationscollection: IConversation[] = [];
+      const conversationsCollection: IConversation[] = [];
+      const readReceiptUpdates: MessageReadReceipt[] = [];
 
       conversations.forEach((conversation) => {
         let conversationId = conversation.id;
 
         const { unreadMessages, messages, imageAttachments, urlAttachments } = processMessagesForUser(
           conversation.messages,
-          user?.id!,
-          IMessageReadReceipt.received
+          conversation
         );
 
         const mediaStore = { images: imageAttachments, link: urlAttachments };
@@ -130,27 +127,24 @@ export const AppContext = ({ children }: PropsWithChildren) => {
 
         if (!conversation.active && !!messages.length) {
           sendConversationActivationRequest(conversationId);
-          conversation.active = true;
-        }
+          updateConversation(conversationId, { recentMessage, active: true });
+        } else updateConversation(conversationId, { recentMessage });
 
-        if (conversation.host === "group") {
-          conversation.members.forEach((member) => {
-            member.isAdmin = conversation.admins.includes(member.id!);
-          });
-        }
-
-        if (conversation.host === "user") {
-          const receiver = getParticipant(conversation);
-          console.log(receiver);
-          if (receiver) addNewUser(receiver);
-        }
+        handleSettingGroupAdmin(conversation);
 
         if (recentMessage) {
+          if (!!unreadMessages.length && recentMessage?.from !== user?.id)
+            readReceiptUpdates.push({
+              conversationId: conversation.conversationId,
+              userId: user?.id!,
+              senderId: recentMessage?.from!,
+              lastDeliveredMessageTimestamp: recentMessage.timestamp,
+            });
+
           conversation.recentMessage = recentMessage;
-          // conversation.updatedAt = recentMessage.timestamp;
         }
 
-        conversationscollection.push(conversation);
+        conversationsCollection.push(conversation);
         setMediaStore(conversationId, mediaStore);
 
         !!unreadMessages.length && setUnreadMessages(conversationId, unreadMessages);
@@ -158,16 +152,44 @@ export const AppContext = ({ children }: PropsWithChildren) => {
         delete conversation.messages;
       });
 
-      !!updatesCollection?.size && sendReadReceiptChangeRequest(updatesCollection);
+      sendReadReceiptChangeRequest(readReceiptUpdates);
+      setMessageHistory(messageStore);
+      setConversations(conversationsCollection);
+    }
 
-      return { conversationscollection, messageStore };
+    function updateMessagesForConversation(messagesCollection: IConversation[]) {
+      const readReceiptUpdates: MessageReadReceipt[] = [];
+
+      messagesCollection.forEach((c) => {
+        let conversationId = c.conversationId;
+        let userConversationId = c.id;
+
+        const res = registerMessages({ messages: c.messages!, conversationId });
+
+        if (!res) return;
+
+        const { recentMessage } = res;
+
+        readReceiptUpdates.push({
+          conversationId: c.conversationId,
+          userId: user?.id!,
+          senderId: recentMessage?.from!,
+          lastDeliveredMessageTimestamp: recentMessage?.timestamp,
+        });
+
+        if (!res.conversation.active) {
+          sendConversationActivationRequest(userConversationId);
+          updateConversation(userConversationId, { recentMessage, active: true });
+        } else updateConversation(userConversationId, { recentMessage });
+      });
+
+      sendReadReceiptChangeRequest(readReceiptUpdates);
     }
 
     async function init() {
       try {
         const userId = user?.id;
 
-        // no conversationId required
         const idbConvRecord = useConversationStore.getState().conversations.reduce<IIdbConversastionRecord>((i, c) => {
           let meta: IdbValues = { lastKnownVersion: c.version! };
           if (c.recentMessage?.timestamp) meta.lastKnownMessageTimestamp = c.recentMessage.timestamp || c.updatedAt;
@@ -175,16 +197,14 @@ export const AppContext = ({ children }: PropsWithChildren) => {
           return i;
         }, {});
 
-        const idbMembersRecord = useConversationStore.getState().conversations.reduce<IIdbUserRecordValue[]>((i, c) => {
-          if (c.host === "user") {
-            let member = getParticipant(c);
-            if (!member) return i;
-            i.push({ userId: member.id, version: member.version! });
-          }
+        const idbMembersRecord = getGlobalUsers().reduce<IIdbUserRecordValue[]>((i, user) => {
+          i.push({ userId: user.id, version: user.version! });
           return i;
         }, []);
 
-        const [{ unsyncConversationsData, unsyncUsersData }, sessions] = await Promise.all([
+        idbMembersRecord.push({ userId: userId!, version: user?.version! });
+
+        const [unsyncEntries, sessions] = await Promise.all([
           axios
             .post<AppPostReq>(
               `/db/conversation/${userId}`,
@@ -197,66 +217,56 @@ export const AppContext = ({ children }: PropsWithChildren) => {
           ),
         ]);
 
-        const { currentSession, activeSessions } = initSessions(sessions);
+        const { unsyncConversationsData, unsyncUsersData, unsyncReadReceipts } = unsyncEntries || {
+          unsyncConversationsData: null,
+          unsyncUsersData: null,
+        };
 
-        setCurrentSession(currentSession!);
-        setActiveSessions(activeSessions);
+        if (unsyncUsersData && !!Object.values(unsyncUsersData).length) {
+          const users = new Map(Object.entries(unsyncUsersData));
 
-        if (unsyncConversationsData) {
-          const { needSync, newEntry, messages } = unsyncConversationsData;
-
-          console.log(unsyncConversationsData);
-
-          if (!!newEntry?.length) {
-            const { conversationscollection, messageStore } = initConversations(newEntry);
-            setMessageHistory(messageStore);
-            setConversations(conversationscollection);
+          if (users.has(userId!) && users.get(userId!)?.version! > user?.version!) {
+            updateSession(users.get(userId!)!);
+          } else {
+            users.set(userId!, user!);
           }
 
-          if (!!needSync?.length) {
-            needSync.forEach((c) => {
-              upsertConversation(c);
-            });
-            // const { conversationscollection, messageStore } = initConversations(newEntry);
-            // setMessageHistory(messageStore);
-            // setConversations(conversationscollection);
-          }
-
-          if (!!messages?.length) {
-            // data.conversations.forEach(setConversation);
-            messages.forEach((c) => {
-              let conversationId = c.conversationId;
-              let userConversationId = c.id;
-
-              const res = registerMessages({ messages: c.messages!, conversationId });
-
-              if (!res) return;
-
-              const { recentMessage, readReceiptUpdates } = res;
-
-              const conversationUpdates = { recentMessage };
-
-              if (!res.conversation.active) {
-                sendConversationActivationRequest(userConversationId);
-                updateConversation(userConversationId, { ...conversationUpdates, active: true });
-              } else updateConversation(userConversationId, conversationUpdates);
-
-              sendReadReceiptChangeRequest(readReceiptUpdates);
-            });
-          }
+          setUsers(users);
         }
 
-        const storedConversations = useConversationStore.getState().conversations;
+        if (unsyncConversationsData && !!Object.values(unsyncConversationsData).length) {
+          const { needSync, newEntry, messages: messagesCollection } = unsyncConversationsData;
 
-        if (storedConversations.length) {
-          console.log("connecting websock");
-          const { channels, connections } = getSocketMetadata(storedConversations);
+          if (newEntry?.length > 0) initConversations(newEntry);
 
-          sendPresence([...connections], currentSession!);
-          socket.auth = { userId, channels };
-          if (!socket.connected) socket.connect();
+          if (needSync?.length > 0) upsertConversation(needSync);
+
+          if (messagesCollection?.length > 0) updateMessagesForConversation(messagesCollection);
         }
-        // ////////////////////
+
+        if (unsyncReadReceipts && !!Object.values(unsyncReadReceipts).length) {
+          const updateReadReceipt = useConversationStore.getState().conversationActions.updateReadReceipt;
+          unsyncReadReceipts.forEach((receipt) => {
+            updateReadReceipt(receipt);
+          });
+        }
+
+        if (sessions.length > 0) {
+          const { currentSession, activeSessions } = initSessions(sessions);
+          const storedConversations = useConversationStore.getState().conversations;
+
+          setCurrentSession(currentSession!);
+          setActiveSessions(activeSessions);
+
+          if (storedConversations.length) {
+            console.log("connecting websock");
+            const { channels, connections } = getSocketMetadata(storedConversations);
+
+            sendPresence([...connections], currentSession!);
+            socket.auth = { userId, channels };
+            if (!socket.connected) socket.connect();
+          }
+        }
       } catch (error) {
         console.log("Sessions setter error", error);
       } finally {

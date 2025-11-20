@@ -23,4 +23,5 @@ export const topics = [
   "ADD_GROUP_ADMIN",
   "REMOVE_GROUP_ADMIN",
   "UPDATE_USER_RULE",
+  "UPDATE_READ_RECEIPTS",
 ];

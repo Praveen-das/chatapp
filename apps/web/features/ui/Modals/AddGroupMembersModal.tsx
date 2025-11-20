@@ -11,19 +11,22 @@ import FramerWrapper from "../MotionWrapper";
 import SearchUser from "../Searchbar";
 import ModalTitle from "./components/ModalTitle";
 import { User } from "./components/User";
+import {  getActiveUsers } from "@lib/conversation";
 
 export const AddGroupMembersModal = () => {
   const setModal = useStore((s) => s.setModal);
   const { addMembersToGroup } = useSocket();
 
   const { user } = useAuth();
-  const conversationId = useConversationStore((s) => s.selectedConversation)?.id;
-  const selectedConversation = useSelectedConversation<IGroupConversation>(conversationId!);
+  const selectedConversation = useSelectedConversation<IGroupConversation>();
 
   if (!selectedConversation) return null;
 
-  const members = selectedConversation.members;
-  const users = useStore((s) => s.users).filter((u) => u.id !== user?.id && !members?.find((m) => m.id === u.id));
+  const members = useMemo(() => selectedConversation.members, [selectedConversation]);
+  const users = useMemo(
+    () => getActiveUsers().filter((u) => u.id !== user?.id && !members?.find((m) => m.userId === u.id)),
+    [user, members]
+  );
   const [selectedUsers, setSelectedUsers] = useState<IUser[]>([]);
   const [query, setQuery] = useState("");
 
@@ -41,12 +44,23 @@ export const AddGroupMembersModal = () => {
   };
 
   async function onSubmit() {
-    const { admins, channelId, displayName, host, conversationId, members, profilePicture, desc, invitationId, tags, createdBy } =
-      selectedConversation!;
+    const {
+      admins,
+      channelId,
+      displayName,
+      host,
+      conversationId,
+      members,
+      profilePicture,
+      desc,
+      invitationId,
+      tags,
+      createdBy,
+    } = selectedConversation!;
 
     addMembersToGroup(
       {
-        id:conversationId,
+        id: conversationId,
         admins,
         channelId: channelId!,
         displayName: displayName!,
@@ -60,7 +74,7 @@ export const AddGroupMembersModal = () => {
       },
       selectedUsers
     );
-    
+
     setModal(false);
   }
 

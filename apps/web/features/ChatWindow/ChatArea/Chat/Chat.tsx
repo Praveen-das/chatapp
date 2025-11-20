@@ -7,7 +7,7 @@ import ImageAttachment from "./Attachments/ImageAttachment";
 import UrlAttachment from "./Attachments/UrlAttachment";
 import { ArrowUturnLeftIcon } from "@heroicons/react/24/solid";
 import { EllipsisVerticalIcon } from "@heroicons/react/24/solid";
-import { ChatIndicators } from "./ChatIndicators/ChatIndicators";
+import ChatIndicators from "./ChatIndicators/ChatIndicators";
 import { DeletedMessage } from "./Message/DeletedMessage";
 import { ReplyMessage } from "./Message/ReplyMessage";
 import { RenderMessage } from "./Message/RenderMessage";
@@ -20,6 +20,7 @@ import { useStore } from "store/global";
 import { IUser } from "@repo/interfaces/userInterface";
 import { scrolleToIndexHelper } from "@lib/events";
 import { IMessage } from "@interfaces/messageInterface";
+import { getUserById } from "@lib/conversation";
 
 interface IChatProps {
   reply?: IMessageReply;
@@ -36,6 +37,7 @@ export interface IChat extends IChatProps {
   avatarVisibility?: "hidden" | "visible" | "none";
   style?: any;
   isSelected?: boolean;
+  readReceipt?:IMessage["readReceiptStatus"]
 }
 
 function Chat({
@@ -44,9 +46,10 @@ function Chat({
   avatarVisibility = "none",
   style,
   isSelected,
+  readReceipt,
   ...chatProps
 }: IChat & IChatProps): JSX.Element {
-  const receiver = chat.user;
+  const receiver = getUserById(chat.from!);
   const displayAvatar = avatarVisibility !== "none";
   const hideIndicators: IHideIndicators = self ? null : ["acknowledgment"];
 
@@ -77,6 +80,7 @@ function Chat({
           <RenderChat chat={chat} self={self} {...chatProps} />
           <ChatIndicators
             chat={chat}
+            readReceipt={readReceipt}
             displayChatIndicators={chat.type !== "notification"}
             hideIndicators={hideIndicators}
           />
@@ -93,6 +97,7 @@ function RenderChat({ chat, ...chatProps }: { chat: IMessage } & IChatProps) {
   const messageString = chat.message;
   const isEmoji = matchEmoji(messageString);
   const haveAttachment = !!chat.attachment;
+  const receiver = getUserById(chat.from!);
 
   const { reply, displayUsername = false, noColorChange = false, self } = chatProps;
 
@@ -142,7 +147,7 @@ function RenderChat({ chat, ...chatProps }: { chat: IMessage } & IChatProps) {
             <UrlAttachment attachment={attachment as IUrlAttachment} />
             {chat.message && (
               <div className={messagePadding}>
-                {displayUsername && <DisplaySenderName user={chat.user!} />}
+                {displayUsername && <DisplaySenderName user={receiver!} />}
                 <RenderMessage text={messageString} isEmoji={isEmoji} />
               </div>
             )}

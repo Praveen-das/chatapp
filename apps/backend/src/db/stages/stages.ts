@@ -196,7 +196,7 @@ export const messagesLookup = ({
 
       ...messagedeleteflagsLookup(userId),
 
-      userLookup({ localField: "from", as: "user" }),
+      // userLookup({ localField: "from", as: "user" }),
 
       {
         $unwind: {
@@ -247,7 +247,7 @@ export const recentMessagesLookup = (userId: Types.ObjectId, lastKnownMessageTim
         $limit: LIMIT + 1,
       },
 
-      userLookup({ localField: "from", as: "user" }),
+      // userLookup({ localField: "from", as: "user" }),
 
       {
         $unwind: {
@@ -270,22 +270,33 @@ export const membersLookup = () => [
   {
     $lookup: {
       from: "members",
-      let: { memberIds: "$members" },
-      pipeline: [
-        {
-          $match: {
-            $expr: {
-              $in: ["$_id", { $ifNull: ["$$memberIds", []] }],
-            },
-          },
-        },
-        ...userLookupPipeline(),
-      ],
+      localField: "members",
+      foreignField: "_id",
       as: "members",
     },
   },
-  { $addFields: { members: "$members.user" } },
 ];
+
+// export const membersLookup = () => [
+//   {
+//     $lookup: {
+//       from: "members",
+//       let: { memberIds: "$members" },
+//       pipeline: [
+//         {
+//           $match: {
+//             $expr: {
+//               $in: ["$_id", { $ifNull: ["$$memberIds", []] }],
+//             },
+//           },
+//         },
+//         ...userLookupPipeline(),
+//       ],
+//       as: "members",
+//     },
+//   },
+//   { $addFields: { members: "$members.user" } },
+// ];
 
 export const userLookupPipeline = () => [
   {
@@ -328,12 +339,13 @@ export const userLookupPipeline = () => [
   },
 ];
 
-export const conversationMessagesLookup = (userId: Types.ObjectId): any => ({
+export const conversationMessagesLookup = (userId: Types.ObjectId, lastKnownMessageTimestamp?: number): any => ({
   $lookup: {
     from: "messages",
     let: {
       deletedAt: "$deletedAt",
       conversationId: "$conversationId",
+      lastKnownMessageTimestamp,
     },
     pipeline: [
       {
@@ -344,7 +356,17 @@ export const conversationMessagesLookup = (userId: Types.ObjectId): any => ({
                 $eq: ["$conversationId", "$$conversationId"],
               },
               {
-                $gt: ["$timestamp", "$$deletedAt"],
+                $cond: [
+                  {
+                    $ifNull: ["$$lastKnownMessageTimestamp", false],
+                  },
+                  {
+                    $gt: ["$timestamp", "$$lastKnownMessageTimestamp"],
+                  },
+                  {
+                    $gt: ["$timestamp", "$$deletedAt"],
+                  },
+                ],
               },
               {
                 $or: [
@@ -375,7 +397,7 @@ export const conversationMessagesLookup = (userId: Types.ObjectId): any => ({
         $limit: LIMIT + 1,
       },
 
-      userLookup({ localField: "from", as: "user" }),
+      // userLookup({ localField: "from", as: "user" }),
 
       {
         $unwind: {
@@ -459,3 +481,100 @@ export const starredMessagesLookup = () => ({
     as: "starred",
   },
 });
+
+export const readReceiptLookup = (readReceiptEntries?: Types.ObjectId[]) => [
+  {
+    $lookup: {
+      from: "messagereadreceipts",
+      let: {
+        userId: "$userId",
+        readReceiptEntries,
+        conversationId: "$conversationId",
+      },
+      pipeline: [
+        {
+          $match: {
+            $expr: {
+              $and: [
+                { $eq: ["$conversationId", "$$conversationId"] },
+                {
+                  $cond: [
+                    {
+                      $ifNull: ["$$readReceiptEntries", false],
+                    },
+                    { $in: ["$senderId", "$$readReceiptEntries"] },
+                    { $eq: ["$senderId", "$$userId"] },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+        ...recentReadReceiptForUser()
+      ],
+      as: "readReceiptValues",
+    },
+  },
+  ...transformReadReceiptsArray(),
+];
+
+export function recentReadReceiptForUser() {
+  return [
+    {
+      $unionWith: {
+        coll: "messagereadreceipts",
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  {
+                    $eq: ["$conversationId", "$$conversationId"],
+                  },
+                  {
+                    $eq: ["$userId", "$$userId"],
+                  },
+                ],
+              },
+            },
+          },
+          {
+            $limit: 1,
+          },
+          {
+            $sort: {
+              lastDeliveredMessageTimestamp: -1,
+              lastReadMessageTimestamp: -1,
+            },
+          },
+        ],
+      },
+    },
+  ];
+}
+
+export function transformReadReceiptsArray() {
+  return [
+    {
+      $addFields: {
+        readReceipt: {
+          $arrayToObject: {
+            $map: {
+              input: "$readReceiptValues",
+              as: "m",
+              in: {
+                k: { $toString: "$$m.userId" }, // key
+                v: "$$m",
+              },
+            },
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        readReceiptValues: 0,
+      },
+    },
+  ];
+}

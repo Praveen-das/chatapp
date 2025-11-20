@@ -1,19 +1,15 @@
 import { indexDBStorage } from "db/idb";
 import { create, StateCreator } from "zustand";
-import { persist, createJSONStorage, subscribeWithSelector } from "zustand/middleware";
+import { persist, subscribeWithSelector } from "zustand/middleware";
 
-export const createIndexDBStore = <T extends object>({
-  name,
-  handler,
-}: {
-  name: string;
-  handler: StateCreator<T>;
-}) =>
+type CreateIndexDBStoreProps<T> = { name: string; handler: StateCreator<T>; partialize?: (state: T) => Partial<T> };
+
+export const createIndexDBStore = <T extends object>({ name, handler,partialize }: CreateIndexDBStoreProps<T>) =>
   create(
     persist(subscribeWithSelector(handler), {
       name,
       storage: indexDBStorage,
-      partialize: (state: any) => ({ conversations: state.conversations }),
+      partialize,
       onRehydrateStorage: (state) => {
         return (_, error) => {
           if (error) {

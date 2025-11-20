@@ -24,11 +24,17 @@ import {
   IReadReceiptUpdatesCollection,
   ISystemMessage,
   IUpdates,
+  MessageReadReceipt,
 } from "@repo/interfaces/messageInterface";
 import { IUser, IUserRuleChangeRequest } from "@repo/interfaces/userInterface";
 import { GroupClearReq, GroupDeleteReq, IGroupCreationReq, JoinGroupParams } from "@repo/interfaces/groupInterface";
 import { processMessagesForUser, registerMessages } from "@lib/messages";
-import { getConversationByConversationId, getMemberById, getParticipant } from "@lib/conversation";
+import {
+  getConversationByConversationId,
+  getMemberById,
+  getReceiverMetadata,
+  getUserFromMetadata,
+} from "@lib/conversation";
 import useIndexedDb from "@lib/idb";
 import { useSessionStore } from "store/sessionStore";
 import { toast } from "react-toastify";
@@ -54,14 +60,9 @@ Map.prototype.upsert = function (key, value) {
   return this;
 };
 
-const {
-  setConversation,
-  updateConversation,
-  setSelectedConversation,
-  deleteConversation,
-  updateUserStatus,
-  updateConversationRule,
-} = useConversationStore.getState().conversationActions;
+const { setConversation, updateConversation, setSelectedConversation, deleteConversation } =
+  useConversationStore.getState().conversationActions;
+const { updateUserStatus, updateUserRule } = useStore.getState();
 
 const {
   setAdmin,
@@ -71,16 +72,16 @@ const {
   addGroupTag: _addGroupTag,
   removeGroupTag: _removeGroupTag,
 } = useConversationStore.getState().groupActions;
+const { addNewUser, setUsers } = useStore.getState();
 
 const useContextData = () => {
   const { user, updateSession, signOut } = useAuth();
-  const {update} = useSession()
+  const { update } = useSession();
   const userRef = useRef<IUser | null>(null);
-  const addNewUser = useStore((s) => s.addNewUser);
 
   const setMessageStore = useMessageStore((s) => s.setMessageStore);
   const updateUserMessages = useMessageStore((s) => s.updateUserMessages);
-  const updateReadReceipt = useMessageStore((s) => s.updateReadReceipt);
+  const updateReadReceipt = useConversationStore((s) => s.conversationActions.updateReadReceipt);
   const userNotificationPref = usePersistentStore((s) => s.userNotificationPref);
   const idb = useIndexedDb();
 
@@ -106,18 +107,13 @@ const useContextData = () => {
     }
 
     async function onMessageReceive(params: { messages: IMessage[]; conversationId: string }) {
-      const isSelectedUser = params.conversationId === socket.selectedConversation?.id;
-      const readReceiptStatus = isSelectedUser
-        ? !userRef.current?.rules?.includes("hide_readreceipts")
-          ? IMessageReadReceipt.seen
-          : IMessageReadReceipt.unseen
-        : IMessageReadReceipt.received;
+      const isSelectedConversation = params.conversationId === socket.selectedConversation?.conversationId;
 
-      const res = registerMessages({ ...params, readReceiptStatus });
-
+      const res = registerMessages({ ...params, isSelectedConversation });
+      
       if (!res) return;
-
-      const { recentMessage, conversation, readReceiptUpdates } = res;
+      
+      const { recentMessage, conversation } = res;
 
       const conversationId = conversation.id;
       const conversationUpdates = { recentMessage, updatedAt: recentMessage?.timestamp };
@@ -127,13 +123,30 @@ const useContextData = () => {
         updateConversation(conversationId, { ...conversationUpdates, active: true });
       } else updateConversation(conversationId, conversationUpdates);
 
-      emitters.sendReadReceiptChangeRequest(readReceiptUpdates);
+      if (recentMessage?.from !== user?.id) {
+        const receiptChangeRequest: MessageReadReceipt = isSelectedConversation
+          ? {
+              conversationId: conversation.conversationId,
+              userId: user?.id!,
+              senderId: recentMessage?.from!,
+              lastReadMessageTimestamp: recentMessage?.timestamp!,
+            } 
+            : {
+              conversationId: conversation.conversationId,
+              userId: user?.id!,
+              senderId: recentMessage?.from!,
+              lastDeliveredMessageTimestamp: recentMessage?.timestamp!,
+            };
 
-      if (!isSelectedUser) {
+        emitters.sendReadReceiptChangeRequest([receiptChangeRequest]);
+      }
+
+      if (!isSelectedConversation) {
         let receiver = { id: "", displayName: "", icon: "" };
 
         if (conversation.host === "user") {
-          const member = getParticipant(conversation);
+          const member = getUserFromMetadata(getReceiverMetadata(conversation)!);
+
           if (!member) return;
           receiver.id = member.id;
           receiver.displayName = member.username;
@@ -144,7 +157,7 @@ const useContextData = () => {
           receiver.icon = conversation.profilePicture;
         }
 
-        if (!receiver) return;
+        if (!receiver.id) return;
 
         const text = recentMessage?.message!;
         const notificationPermissionGranted = Notification.permission === "granted";
@@ -158,17 +171,8 @@ const useContextData = () => {
       }
     }
 
-    function onReadReceiptChangeRequest({
-      conversationId,
-      updates,
-    }: {
-      conversationId: string;
-      updates: IReadReceiptUpdatesCollection[];
-    }) {
-      const id = useConversationStore
-        .getState()
-        .conversations.find((c) => c.host !== "system" && c.conversationId === conversationId)?.id!;
-      updateReadReceipt(id, updates);
+    function onReadReceiptChangeRequest(req: MessageReadReceipt) {
+      updateReadReceipt(req);
     }
 
     function handleUpdatingBlockStatus(conversationId: string, updates: Partial<IUserConversation>) {
@@ -196,8 +200,15 @@ const useContextData = () => {
       updateUserMessages(conversation.id, messages);
     }
 
-    function handleCreatingGroup(group: IUserConversation) {
-      setConversation(group);
+    function handleCreatingGroup(conversation: IGroupConversation, users: IUser[], self: boolean) {
+      const groupMemberEntries = new Map(users.map((member) => [member.id, member]));
+      setUsers(groupMemberEntries);
+      setConversation(conversation);
+
+      if (self) {
+        setSelectedConversation(conversation.id);
+        socket.selectedConversation = conversation;
+      }
     }
 
     function handleUpdatingGroup({ id, ...updates }: IGroupConversation, systemMessage: IMessage) {
@@ -253,11 +264,11 @@ const useContextData = () => {
       updateConversation(conversationId, update);
     }
 
-    function handleCreatingUserConversation(conversation: IUserConversation, select: boolean) {
-      const receiver = getParticipant(conversation);
+    function handleCreatingUserConversation(conversation: IUserConversation, user: IUser, select: boolean) {
+      // const receiver = getReceiverMetadata(conversation);
 
+      addNewUser(user);
       setConversation(conversation);
-      addNewUser(receiver!);
 
       if (select) {
         setSelectedConversation(conversation.id);
@@ -353,14 +364,14 @@ const useContextData = () => {
       if (userId === user.id) {
         const hasRule = user.rules?.includes(rule);
         let newRules = hasRule ? user.rules?.filter((r) => r !== rule)! : [...(user.rules || []), rule];
-        
+
         const updates = { ...user, rules: newRules };
-        
+
         await updateSession(updates);
         return;
       }
 
-      updateConversationRule(userId, rule);
+      updateUserRule(userId, rule);
     }
 
     function handleDeletingGroupConversation(conversationId: string) {
@@ -376,7 +387,10 @@ const useContextData = () => {
       if (existingConversation) {
         const cid = existingConversation.id;
         updateGroupConversation(cid, { members, currentParticipation });
-        if (self) setSelectedConversation(cid);
+        if (self) {
+          setSelectedConversation(cid);
+          socket.selectedConversation = existingConversation;
+        }
         setMessageStore(cid, systemMessages);
       } else {
         setConversation(conversation);
