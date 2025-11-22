@@ -1,8 +1,13 @@
-import { IGroup } from "@interfaces/groupInterface";
-import { getMemberById, getUserById } from "@lib/conversation";
+import { AddGroupMemberProps, IGroup } from "@interfaces/groupInterface";
+import { getMemberById, getUserById, getUserFromMetadata } from "@lib/conversation";
 import { ISocket } from "@lib/ws";
-import { IGroupConversation, IGroupMember } from "@repo/interfaces/conversationInterface";
-import { GroupClearReq, GroupDeleteReq, JoinGroupParams } from "@repo/interfaces/groupInterface";
+import { IGroupConversation, IGroupMember, IMember } from "@repo/interfaces/conversationInterface";
+import {
+  GroupClearReq,
+  GroupDeleteReq,
+  GroupLeftReq,
+  JoinGroupParams,
+} from "@repo/interfaces/groupInterface";
 import { IUser } from "@repo/interfaces/userInterface";
 import { toast } from "react-toastify";
 
@@ -35,36 +40,32 @@ export function initGroupEmitters(socket: ISocket, user: IUser) {
       socket.emit("USER_REMOVE_FROM_ADMIN", { conversation, userId });
     },
 
-    removeMemberFromGroup: (conversation: IGroupConversation, user: IGroupMember, memberId?: string) => {
-      socket.emit("GROUP_REMOVE_MEMBER", {
+    removeMemberFromGroup: (conversation: IGroupConversation, member: IMember) => {
+      const selectedUser = getUserFromMetadata(member);
+
+      if (!selectedUser) return;
+      if (!conversation) return;
+
+      const req: GroupLeftReq = {
         conversation,
-        user,
-        memberId,
+        user: selectedUser,
+        memberId: member._id!,
         admin: user,
-      });
+      };
+
+      socket.emit("GROUP_REMOVE_MEMBER", { ...req, admin: user });
     },
 
-    addMembersToGroup: (group: Partial<IGroup>, members: IUser[]) => {
-      // const member = selectedUsers.map(u=>({
-      //   _id: new ObjectID().toHexString(),
-      //   conversationId: group.id,
-      //   userId: user!.id,
-      //   joinedAt: Date.now(),
-      // }));
-
-      socket.emit("GROUP_ADD_MEMBERS", {
-        group,
-        members,
-        admin: user,
-      });
+    addMembersToGroup: (req: AddGroupMemberProps) => {
+      socket.emit("GROUP_ADD_MEMBERS", req);
     },
 
-    sendGroupjoinRequest: ({ conversation, user, create = false }: JoinGroupParams) => {
-      socket.emit("JOIN_GROUP", { conversation, user, create });
+    sendGroupjoinRequest: (req: JoinGroupParams) => {
+      socket.emit("JOIN_GROUP", req);
     },
 
-    leaveGroup: (conversation: IGroupConversation, user: IUser) => {
-      socket.emit("LEAVE_GROUP", { conversation, user });
+    leaveGroup: (req: GroupLeftReq) => {
+      socket.emit("LEAVE_GROUP", req);
     },
 
     findGroupById: (conversationId: string) => {
@@ -72,9 +73,7 @@ export function initGroupEmitters(socket: ISocket, user: IUser) {
     },
 
     sendGroupCreationRequest: (req: any, selectedGroupMembers: IUser[]) => {
-      socket.emit("create group", req, selectedGroupMembers, (data: any) => {
-        console.log(data);
-      });
+      socket.emit("create group", req, selectedGroupMembers);
     },
 
     sendGroupInfoUpdateRequest: (conversation: IGroupConversation, updates: Partial<IGroupConversation>) => {

@@ -48,5 +48,16 @@ export interface IGroup {
 export type JoinGroupParams = {
   conversation: IGroupConversation;
   user: IUser;
+  users: IUser[];
+  member: IGroupMember;
   create: boolean;
+};
+
+export type GroupLeftReq = { conversation: IGroupConversation; user: IUser; admin?: IUser; memberId: string };
+
+export type AddGroupMemberProps = {
+  group: IGroup;
+  existingUsers: IUser[];
+  selectedUsers: IUser[];
+  admin: IUser;
 };

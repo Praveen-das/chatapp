@@ -3,9 +3,9 @@ import produceMessage from "../kafka/kafka";
 import { Types } from "mongoose";
 import { ISocket } from "../interfaces/socketInterfaces";
 import { IMessage } from "@repo/interfaces/messageInterface";
-import { GroupDeleteReq, JoinGroupParams, MemberReq } from "@repo/interfaces/groupInterface";
+import { GroupDeleteReq, GroupLeftReq, JoinGroupParams, MemberReq } from "@repo/interfaces/groupInterface";
 import { IGroupConversation } from "../interfaces/conversationInterfaces";
-import { IGroup } from "../interfaces/groupInterface";
+import { AddGroupMemberProps, IGroup } from "../interfaces/groupInterface";
 
 export default function registerGroupHandlers(io: Server, socket: ISocket) {
   socket.on("create group", async (groupConversations: IGroupConversation[], users: IUser[]) => {
@@ -77,12 +77,12 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
     socket.leave(req.channelId);
   });
 
-  socket.on("JOIN_GROUP", async ({ conversation, user, create }: JoinGroupParams) => {
+  socket.on("JOIN_GROUP", async ({ conversation, user, member, create, users }: JoinGroupParams) => {
     const conversationId = conversation.conversationId;
 
     if (create) produceMessage({ groupConversations: [conversation] }, "CREATE_GROUP_CONVERSATION");
 
-    produceMessage({ members: [conversation.currentParticipation], groupId: conversationId }, "JOIN_GROUP");
+    produceMessage({ members: [member], groupId: conversationId }, "JOIN_GROUP");
 
     socket.join(conversation.channelId!);
 
@@ -96,7 +96,7 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
       },
     ];
 
-    io.to(user.id).emit("JOIN_GROUP", conversation, userMessage, true);
+    io.to(user.id).emit("JOIN_GROUP", conversation, users, userMessage, true);
 
     const broadcastMessage: Partial<IMessage>[] = [
       {
@@ -114,17 +114,18 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
         "GROUP_ADD_MEMBERS",
         {
           conversationId,
-          members: [{ ...user, memberId: conversation.currentParticipation?._id }],
+          members: [member],
+          users: [user],
         },
         broadcastMessage
       );
   });
 
-  socket.on("LEAVE_GROUP", async ({ conversation, user }: { conversation: IGroupConversation; user: IUser }) => {
+  socket.on("LEAVE_GROUP", async ({ conversation, memberId, user }: GroupLeftReq) => {
     const req = {
       userId: user.id,
       conversationId: conversation.conversationId,
-      memberId: conversation.currentParticipation?._id,
+      memberId,
     };
 
     produceMessage(req, "LEAVE_GROUP");
@@ -158,192 +159,155 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
     socket.emit("GROUP_REMOVE_MEMBER", { conversationId: conversation.conversationId, userId: user.id }, userMessage);
   });
 
-  socket.on(
-    "GROUP_ADD_MEMBERS",
-    async ({
-      group,
-      existingUsers,
-      selectedUsers,
-      admin,
-    }: {
-      group: IGroup;
-      existingUsers: IUser[];
-      selectedUsers: IUser[];
-      admin: IUser;
-    }) => {
-      const groupConversations: IGroupConversation[] = [];
-      const conversationMembers: MemberReq[] = [];
+  socket.on("GROUP_ADD_MEMBERS", async ({ group, existingUsers, selectedUsers, admin }: AddGroupMemberProps) => {
+    const groupConversations: IGroupConversation[] = [];
+    const conversationMembers: MemberReq[] = [];
 
-      const newMemberIds: string[] = [];
-      const sockets = io.sockets.sockets;
-      const conversationId = group.id;
-      const users = [...existingUsers, ...selectedUsers];
+    const to: string[] = [];
+    const sockets = io.sockets.sockets;
+    const conversationId = group.id;
+    const users = [...existingUsers, ...selectedUsers];
 
-      selectedUsers.forEach((member) => {
-        newMemberIds.push(member.id);
-
-        sockets.forEach((_socket: ISocket) => {
-          if (_socket.userId === member.id) _socket.join(group.channelId!);
-        });
-
-        let memberId = new Types.ObjectId().toHexString();
-
-        conversationMembers.push({
-          _id: memberId,
-          conversationId,
-          userId: member.id,
-          joinedAt: Date.now(),
-        });
-      });
-
-      selectedUsers.forEach((m) => {
-        const receiverMessage = selectedUsers.map((m) => ({
-          id: crypto.randomUUID(),
-          conversationId,
-          from: "system",
-          type: "notification",
-          message: `${admin.username} added ${m.id === m.id ? "you" : m.username} to the group`,
-        }));
-
-        const groupConversation: IGroupConversation = {
-          ...group,
-          id: new Types.ObjectId().toHexString(),
-          conversationId,
-          userId: m.id,
-          members: [...group.members, ...conversationMembers],
-          active: true,
-          updatedAt: Date.now(),
-          createdAt: Date.now(),
-          currentParticipation: conversationMembers.find((member) => m.id === member.userId)!,
-        };
-
-        groupConversations.push(groupConversation);
-
-        io.to(m.id).emit(
-          "JOIN_GROUP",
-          groupConversation,
-          users.filter((u) => u.id !== m.id),
-          receiverMessage,
-          false
-        );
-      });
-
-      // message to members//////////////////////////////
-      const messages: Partial<IMessage>[] = selectedUsers.map((m) => ({
-        id: crypto.randomUUID(),
-        conversationId,
-        from: "system",
-        type: "notification",
-        message: `${admin.username} added ${m.username} to the group`,
-      }));
-
-      io.to(group.channelId!)
-        .except([...newMemberIds, socket.userId!])
-        .emit("GROUP_ADD_MEMBERS", { conversationId, members: conversationMembers, newUsers: selectedUsers }, messages);
-
-      // message to admin ///////////////////////////////////////////////////////
-      const userMessages = selectedUsers.map((m) => ({
-        id: crypto.randomUUID(),
-        conversationId,
-        from: "system",
-        type: "notification",
-        message: `You added ${m.username} to the group`,
-      }));
-
-      socket.emit(
-        "GROUP_ADD_MEMBERS",
-        { conversationId, members: conversationMembers, newUsers: selectedUsers },
-        userMessages
-      );
-
-      const body = {
-        groupId: conversationId,
-        members: conversationMembers,
-      };
-
-      produceMessage({ groupConversations }, "CREATE_GROUP_CONVERSATION");
-      produceMessage(body, "JOIN_GROUP");
-    }
-  );
-
-  socket.on(
-    "GROUP_REMOVE_MEMBER",
-    async ({
-      conversation,
-      user,
-      memberId,
-      admin,
-    }: {
-      conversation: IGroupConversation;
-      user: IUser;
-      memberId: string;
-      admin: IUser;
-    }) => {
-      const req = {
-        userId: user.id,
-        conversationId: conversation.conversationId,
-        memberId,
-      };
-
-      produceMessage(req, "LEAVE_GROUP");
-
-      const broadcastMessage: Partial<IMessage>[] = [
-        {
-          id: crypto.randomUUID(),
-          conversationId: conversation.id,
-          from: "system",
-          type: "notification",
-          message: `${admin.username} removed ${user.username} from the group`,
-        },
-      ];
-
-      io.to(conversation.channelId!)
-        .except([user.id, socket.userId!])
-        .emit(
-          "GROUP_REMOVE_MEMBER",
-          { conversationId: conversation.conversationId, userId: user.id },
-          broadcastMessage
-        );
-
-      const adminMessage: Partial<IMessage>[] = [
-        {
-          id: crypto.randomUUID(),
-          conversationId: conversation.id,
-          from: "system",
-          type: "notification",
-          message: `You removed ${user.username} from the group`,
-        },
-      ];
-
-      socket.emit(
-        "GROUP_REMOVE_MEMBER",
-        { conversationId: conversation.conversationId, userId: user.id },
-        adminMessage
-      );
-
-      const userMessage: Partial<IMessage>[] = [
-        {
-          id: crypto.randomUUID(),
-          conversationId: conversation.id,
-          from: "system",
-          type: "notification",
-          message: `${admin.username} removed you from the group`,
-        },
-      ];
-
-      io.to(user.id).emit(
-        "GROUP_REMOVE_MEMBER",
-        { conversationId: conversation.conversationId, userId: user.id },
-        userMessage
-      );
-
-      const sockets = io.sockets.sockets;
-
+    selectedUsers.forEach((member) => {
       sockets.forEach((_socket: ISocket) => {
-        if (_socket.userId === user.id) _socket.leave(conversation.channelId!);
+        if (_socket.userId === member.id) _socket.join(group.channelId!);
       });
-    }
-  );
+
+      to.push(member.id);
+
+      conversationMembers.push({
+        _id: new Types.ObjectId().toHexString(),
+        conversationId,
+        userId: member.id,
+        joinedAt: Date.now(),
+      });
+    });
+
+    selectedUsers.forEach((m) => {
+      const receiverMessage = selectedUsers.map((m) => ({
+        id: crypto.randomUUID(),
+        conversationId,
+        from: "system",
+        type: "notification",
+        message: `${admin.username} added ${m.id === m.id ? "you" : m.username} to the group`,
+      }));
+
+      const groupConversation: IGroupConversation = {
+        ...group,
+        id: new Types.ObjectId().toHexString(),
+        conversationId,
+        userId: m.id,
+        members: [...group.members, ...conversationMembers],
+        active: true,
+        updatedAt: Date.now(),
+        createdAt: Date.now(),
+      };
+
+      groupConversations.push(groupConversation);
+
+      io.to(m.id).emit(
+        "JOIN_GROUP",
+        groupConversation,
+        users.filter((u) => u.id !== m.id),
+        receiverMessage,
+        false
+      );
+    });
+
+    // message to members//////////////////////////////
+    const messages: Partial<IMessage>[] = selectedUsers.map((m) => ({
+      id: crypto.randomUUID(),
+      conversationId,
+      from: "system",
+      type: "notification",
+      message: `${admin.username} added ${m.username} to the group`,
+    }));
+
+    io.to(group.channelId!)
+      .except([...to, socket.userId!])
+      .emit("GROUP_ADD_MEMBERS", { conversationId, members: conversationMembers, users: selectedUsers }, messages);
+
+    // message to admin ///////////////////////////////////////////////////////
+    const userMessages = selectedUsers.map((m) => ({
+      id: crypto.randomUUID(),
+      conversationId,
+      from: "system",
+      type: "notification",
+      message: `You added ${m.username} to the group`,
+    }));
+
+    socket.emit(
+      "GROUP_ADD_MEMBERS",
+      { conversationId, members: conversationMembers, users: selectedUsers },
+      userMessages
+    );
+
+    const body = {
+      groupId: conversationId,
+      members: conversationMembers,
+    };
+
+    produceMessage({ groupConversations }, "CREATE_GROUP_CONVERSATION");
+    produceMessage(body, "JOIN_GROUP");
+  });
+
+  socket.on("GROUP_REMOVE_MEMBER", async ({ conversation, user, memberId, admin }: GroupLeftReq) => {
+    const req = {
+      userId: user.id,
+      conversationId: conversation.conversationId,
+      memberId,
+    };
+
+    produceMessage(req, "LEAVE_GROUP");
+
+    const broadcastMessage: Partial<IMessage>[] = [
+      {
+        id: crypto.randomUUID(),
+        conversationId: conversation.id,
+        from: "system",
+        type: "notification",
+        message: `${admin?.username} removed ${user.username} from the group`,
+      },
+    ];
+
+    io.to(conversation.channelId!)
+      .except([user.id, socket.userId!])
+      .emit("GROUP_REMOVE_MEMBER", { conversationId: conversation.conversationId, userId: user.id }, broadcastMessage);
+
+    const adminMessage: Partial<IMessage>[] = [
+      {
+        id: crypto.randomUUID(),
+        conversationId: conversation.id,
+        from: "system",
+        type: "notification",
+        message: `You removed ${user.username} from the group`,
+      },
+    ];
+
+    socket.emit("GROUP_REMOVE_MEMBER", { conversationId: conversation.conversationId, userId: user.id }, adminMessage);
+
+    const userMessage: Partial<IMessage>[] = [
+      {
+        id: crypto.randomUUID(),
+        conversationId: conversation.id,
+        from: "system",
+        type: "notification",
+        message: `${admin?.username} removed you from the group`,
+      },
+    ];
+
+    io.to(user.id).emit(
+      "GROUP_REMOVE_MEMBER",
+      { conversationId: conversation.conversationId, userId: user.id },
+      userMessage
+    );
+
+    const sockets = io.sockets.sockets;
+
+    sockets.forEach((_socket: ISocket) => {
+      if (_socket.userId === user.id) _socket.leave(conversation.channelId!);
+    });
+  });
 
   type CUProps = { conversation: IGroupConversation; userId: string };
 

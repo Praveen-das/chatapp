@@ -11,14 +11,16 @@ import FramerWrapper from "../MotionWrapper";
 import SearchUser from "../Searchbar";
 import ModalTitle from "./components/ModalTitle";
 import { User } from "./components/User";
-import {  getActiveUsers } from "@lib/conversation";
+import { getActiveUsers, getUserFromMetadata } from "@lib/conversation";
 
 export const AddGroupMembersModal = () => {
-  const setModal = useStore((s) => s.setModal);
-  const { addMembersToGroup } = useSocket();
-
   const { user } = useAuth();
+  const { addMembersToGroup } = useSocket();
+  const setModal = useStore((s) => s.setModal);
   const selectedConversation = useSelectedConversation<IGroupConversation>();
+
+  const [selectedUsers, setSelectedUsers] = useState<IUser[]>([]);
+  const [query, setQuery] = useState("");
 
   if (!selectedConversation) return null;
 
@@ -27,8 +29,6 @@ export const AddGroupMembersModal = () => {
     () => getActiveUsers().filter((u) => u.id !== user?.id && !members?.find((m) => m.userId === u.id)),
     [user, members]
   );
-  const [selectedUsers, setSelectedUsers] = useState<IUser[]>([]);
-  const [query, setQuery] = useState("");
 
   const queryResult = useMemo(() => {
     if (!query) return [];
@@ -45,11 +45,11 @@ export const AddGroupMembersModal = () => {
 
   async function onSubmit() {
     const {
+      conversationId,
       admins,
       channelId,
       displayName,
       host,
-      conversationId,
       members,
       profilePicture,
       desc,
@@ -58,22 +58,32 @@ export const AddGroupMembersModal = () => {
       createdBy,
     } = selectedConversation!;
 
-    addMembersToGroup(
-      {
-        id: conversationId,
-        admins,
-        channelId: channelId!,
-        displayName: displayName!,
-        host,
-        members,
-        profilePicture,
-        desc,
-        invitationId,
-        tags,
-        createdBy: createdBy!,
-      },
-      selectedUsers
-    );
+    const existingUsers = members.reduce<IUser[]>((i, m) => {
+      const u = getUserFromMetadata(m);
+      if (u) i.push(u);
+      return i;
+    }, []);
+
+    const group = {
+      id: conversationId,
+      admins,
+      channelId: channelId!,
+      displayName: displayName!,
+      host,
+      members,
+      profilePicture,
+      desc,
+      invitationId,
+      tags,
+      createdBy: createdBy!,
+    };
+
+    addMembersToGroup({
+      group,
+      admin: user!,
+      selectedUsers,
+      existingUsers,
+    });
 
     setModal(false);
   }

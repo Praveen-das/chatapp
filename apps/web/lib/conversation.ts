@@ -84,12 +84,20 @@ export function getDisplayName(conversation: IConversation): string {
 }
 
 export function getReadReceiptState(
-  readReceipts: Record<string, MessageReadReceipt>,
+  conversation: IConversation,
   userId: string
 ): Pick<MessageReadReceipt, "lastDeliveredMessageTimestamp" | "lastReadMessageTimestamp"> {
   // Calculate min values across all members except sender
+  const readReceipts = conversation.readReceipt || {};
+
   let minDelivered = Infinity;
   let minRead = Infinity;
+
+  if (conversation.host !== "system" && Object.keys(readReceipts).length !== conversation.members.length - 1)
+    return {
+      lastDeliveredMessageTimestamp: undefined,
+      lastReadMessageTimestamp: undefined,
+    };
 
   if (!readReceipts)
     return {
@@ -121,4 +129,8 @@ export function handleSettingGroupAdmin(conversation: IConversation) {
       member.isAdmin = conversation.admins.includes(member.userId!);
     });
   }
+}
+
+export function getGroupMember(conversation: IGroupConversation, userId: string) {
+  return conversation.members.find((m) => m.userId === userId);
 }

@@ -1,5 +1,5 @@
 import { IGroupMember } from "@repo/interfaces/conversationInterface";
-import { IGroup as _IGroup, MemberReq } from "@repo/interfaces/groupInterface";
+import { IGroup as _IGroup, AddGroupMemberProps as _AddGroupMemberProps, MemberReq } from "@repo/interfaces/groupInterface";
 import { Override } from "@repo/interfaces/type";
 
 export type IActivityLog = { joinedAt: number; exitedAt: number }
@@ -22,3 +22,11 @@ export type IGroupCreationRequest = Override<
     members:MemberReq[]
   }
 >;
+
+export type AddGroupMemberProps = Override<
+  _AddGroupMemberProps,
+  {
+    group:IGroup
+  }
+>;
+

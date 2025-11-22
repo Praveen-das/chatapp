@@ -12,6 +12,7 @@ import FramerWrapper from "../MotionWrapper";
 import ObjectID from "bson-objectid";
 import { getMemberById, getUserFromMetadata } from "@lib/conversation";
 import { IGroupConversation } from "@repo/interfaces/conversationInterface";
+import { IUser } from "@repo/interfaces/userInterface";
 
 export const JoinGroupModal = () => {
   const axios = useAxios();
@@ -21,7 +22,7 @@ export const JoinGroupModal = () => {
   const { invitationId } = useStore<IModal<{ invitationId: string }> | null>((s) => s.modal)?.state!;
   const conversations = useConversationStore((s) => s.conversations);
   const { setSelectedConversation } = useConversationStore((s) => s.conversationActions);
-  const [group, setGroup] = useState<IGroup | null>(null);
+  const [group, setGroup] = useState<(IGroup & { users: IUser[] }) | null>(null);
   const [loading, setLoading] = useState(false);
 
   function handleJoiningGroup() {
@@ -43,7 +44,7 @@ export const JoinGroupModal = () => {
 
     const existingConversation = conversations.find((c) => c.conversationId === group.id);
 
-    const members = [...group.members, { ...user, memberId }];
+    const members = [...group.members, member];
 
     if (!existingConversation) {
       groupConversation = {
@@ -55,15 +56,16 @@ export const JoinGroupModal = () => {
         active: true,
         joinedAt: Date.now(),
         updatedAt: Date.now(),
-        currentParticipation: member,
       };
     } else {
-      groupConversation = { ...existingConversation, currentParticipation: member, members };
+      groupConversation = { ...existingConversation, members };
     }
 
     sendGroupjoinRequest({
       conversation: groupConversation!,
+      member,
       user,
+      users:group.users,
       create: !existingConversation,
     });
 
@@ -77,7 +79,7 @@ export const JoinGroupModal = () => {
         const fetchedGroup = await axios<IGroup[]>(`/db/group/group-invitations/${invitationId}`).then(
           (res) => res.data[0]
         );
-
+        
         if (fetchedGroup) {
           if (getMemberById(fetchedGroup as IGroupConversation, user?.id!)) {
             const conversationId = useConversationStore
@@ -87,7 +89,7 @@ export const JoinGroupModal = () => {
             setSelectedConversation(conversationId);
             setModal(false);
           } else {
-            setGroup(fetchedGroup);
+            setGroup(fetchedGroup as any);
           }
         } else {
           setGroup(null);
@@ -119,13 +121,18 @@ export const JoinGroupModal = () => {
             <span className="whitespace-nowrap">{moment(new Date(group.createdAt!)).format("LT")}</span>
           </label>
           <div className="avatar-group -space-x-4 rtl:space-x-reverse">
-            {group.members.map((meta, i) => {
-              let member = getUserFromMetadata(meta);
+            {group.users.map((member: any, i) => {
+              // let member = getUserFromMetadata(meta);
               if (!member) return null;
               return i > 4 ? null : (
                 <div key={member.id} className="avatar rounded-full bg-base-200 border-base-200">
                   <div>
-                    <Avatar size="38px" url={member.profilePicture} onlineIndication={false} />
+                    <Avatar
+                      size="38px"
+                      url={member.profilePicture}
+                      profileHidden={member.rules.includes("hide_profilepicture")}
+                      onlineIndication={false}
+                    />
                   </div>
                 </div>
               );

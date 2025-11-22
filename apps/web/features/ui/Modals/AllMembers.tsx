@@ -82,7 +82,10 @@ export const AllMembers = () => {
   };
 
   function handleRemovingMember(member: IGroupMember) {
-    removeMemberFromGroup(selectedConversation!, member);
+    if (!selectedConversation) return;
+    if (!member) return;
+
+    removeMemberFromGroup(selectedConversation, member);
   }
 
   function handleAdmin(userId: string, action: string) {

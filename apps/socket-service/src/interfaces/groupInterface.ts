@@ -1,5 +1,5 @@
 import { Override } from "@repo/interfaces/type";
-import { IGroup as _IGroup } from "@repo/interfaces/groupInterface";
+import { IGroup as _IGroup, AddGroupMemberProps as _AddGroupMemberProps } from "@repo/interfaces/groupInterface";
 import { IGroupMember } from "@repo/interfaces/conversationInterface";
 
 export type IGroup = Override<
@@ -12,5 +12,12 @@ export type IGroup = Override<
     members: IGroupMember[];
     admins: string[];
     createdBy: string;
+  }
+>;
+
+export type AddGroupMemberProps = Override<
+  _AddGroupMemberProps,
+  {
+    group: IGroup;
   }
 >;

@@ -112,21 +112,13 @@ async function fetchGroupByInvitationId(groupId: string) {
       {
         $match: { invitationId: id },
       },
+      ...membersLookup(),
       {
         $lookup: {
-          from: "members",
-          let: { memberIds: "$members" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $in: ["$_id", "$$memberIds"],
-                },
-              },
-            },
-            ...userLookupPipeline(),
-          ],
-          as: "members",
+          from: 'users',
+          localField: 'members.userId',
+          foreignField: 'id',
+          as: 'users',
         },
       },
       {
@@ -135,11 +127,11 @@ async function fetchGroupByInvitationId(groupId: string) {
           preserveNullAndEmptyArrays: true,
         },
       },
-      {
-        $addFields: {
-          members: "$members.user",
-        },
-      },
+      // {
+      //   $addFields: {
+      //     members: "$members.user",
+      //   },
+      // },
     ]);
 
     return groups;
@@ -167,11 +159,6 @@ async function fetchGroupsByUserId(userId: Types.ObjectId) {
 
       starredMessagesLookup(),
 
-      {
-        $addFields: {
-          currentParticipation: { $arrayElemAt: ["$activityLog", -1] },
-        },
-      },
       {
         $project: {
           conversation: 0,

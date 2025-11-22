@@ -96,8 +96,11 @@ function GroupProfile() {
     else removeFromAdmin(conversation!, userId);
   }
 
-  function handleRemovingMember(user: IGroupMember) {
-    removeMemberFromGroup(conversation!, user, user._id);
+  function handleRemovingMember(member: IGroupMember) {
+    if (!conversation) return;
+    if (!member) return;
+
+    removeMemberFromGroup(conversation, member);
   }
 
   function handleAddingTag(tag: string) {

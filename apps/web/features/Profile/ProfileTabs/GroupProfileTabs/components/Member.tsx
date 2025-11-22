@@ -31,7 +31,7 @@ export function Member({
     e.stopPropagation();
     setMenu({
       reference: e,
-      data: member,
+      data: _member,
       id: "groupProfile",
     });
   }

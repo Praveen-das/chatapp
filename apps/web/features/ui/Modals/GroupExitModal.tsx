@@ -4,6 +4,7 @@ import { useStore } from "../../../store/global";
 import { IGroupConversation } from "@repo/interfaces/conversationInterface";
 import { IModal } from "@interfaces/modalInterface";
 import FramerWrapper from "../MotionWrapper";
+import { getGroupMember } from "@lib/conversation";
 
 const GroupExitModal = () => {
   const setModal = useStore((s) => s.setModal);
@@ -14,7 +15,10 @@ const GroupExitModal = () => {
   const conversation = modal?.state!;
 
   const handleExitingGroup = () => {
-    leaveGroup(conversation, user!);
+    if (!user) return;
+    const member = getGroupMember(conversation, user.id);
+    if (!member) return;
+    leaveGroup({ conversation, user, memberId: member._id });
     setModal(false);
   };
 

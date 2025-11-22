@@ -81,7 +81,6 @@ const GroupCreationTab = () => {
           conversationId: group.id,
           members,
           active: true,
-          currentParticipation: members.find((m) => m.userId === member.id),
           createdAt: Date.now(),
         };
 

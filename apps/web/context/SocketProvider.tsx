@@ -110,9 +110,9 @@ const useContextData = () => {
       const isSelectedConversation = params.conversationId === socket.selectedConversation?.conversationId;
 
       const res = registerMessages({ ...params, isSelectedConversation });
-      
+
       if (!res) return;
-      
+
       const { recentMessage, conversation } = res;
 
       const conversationId = conversation.id;
@@ -130,8 +130,8 @@ const useContextData = () => {
               userId: user?.id!,
               senderId: recentMessage?.from!,
               lastReadMessageTimestamp: recentMessage?.timestamp!,
-            } 
-            : {
+            }
+          : {
               conversationId: conversation.conversationId,
               userId: user?.id!,
               senderId: recentMessage?.from!,
@@ -202,6 +202,7 @@ const useContextData = () => {
 
     function handleCreatingGroup(conversation: IGroupConversation, users: IUser[], self: boolean) {
       const groupMemberEntries = new Map(users.map((member) => [member.id, member]));
+
       setUsers(groupMemberEntries);
       setConversation(conversation);
 
@@ -225,20 +226,23 @@ const useContextData = () => {
       {
         conversationId,
         members,
+        users,
       }: {
         conversationId: string;
         members: IGroupMember[];
+        users: IUser[];
       },
       systemMessages: IMessage[]
     ) {
-      console.log(conversationId, members);
       const existingConversation = useConversationStore
         .getState()
         .conversations.find((c) => c.host === "group" && c.conversationId === conversationId);
 
       if (existingConversation) {
+        const groupMemberEntries = new Map(users.map((member) => [member.id, member]));
         addMembers(conversationId, members);
-        if (systemMessages) setMessageStore(existingConversation?.id!, systemMessages);
+        setUsers(groupMemberEntries);
+        if (systemMessages) setMessageStore(existingConversation.id, systemMessages);
       }
     }
 
@@ -378,21 +382,29 @@ const useContextData = () => {
       clearConversationData(conversationId);
     }
 
-    function handleJoiningGroup(conversation: IGroupConversation, systemMessages: IMessage[], self = false) {
-      const { id, conversationId, members, currentParticipation } = conversation;
+    function handleJoiningGroup(
+      conversation: IGroupConversation,
+      users: IUser[],
+      systemMessages: IMessage[],
+      self = false
+    ) {
+      const { id, conversationId, members } = conversation;
       const existingConversation = useConversationStore
         .getState()
         .conversations.find((c) => c.conversationId === conversationId);
 
       if (existingConversation) {
         const cid = existingConversation.id;
-        updateGroupConversation(cid, { members, currentParticipation });
+        updateGroupConversation(cid, { members });
         if (self) {
           setSelectedConversation(cid);
           socket.selectedConversation = existingConversation;
         }
         setMessageStore(cid, systemMessages);
       } else {
+        const groupMemberEntries = new Map(users.map((member) => [member.id, member]));
+
+        setUsers(groupMemberEntries);
         setConversation(conversation);
         setMessageStore(id, systemMessages);
       }

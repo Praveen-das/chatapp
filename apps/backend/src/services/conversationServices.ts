@@ -334,7 +334,6 @@ const createPipeline = (
         activityLookup(),
         messagesLookup({ userId }),
         starredMessagesLookup(),
-        { $set: { currentParticipation: { $arrayElemAt: ["$activityLog", -1] } } },
         { $project: { conversation: 0, activityLog: 0 } },
       ];
 
@@ -347,9 +346,7 @@ const createPipeline = (
 
   if (req.needSync) {
     if (host === "group")
-      pipeline.push(...groupLookup(), ...membersLookup(), starredMessagesLookup(), {
-        $set: { currentParticipation: { $arrayElemAt: ["$activityLog", -1] } },
-      });
+      pipeline.push(...groupLookup(), ...membersLookup(), starredMessagesLookup());
     if (host === "user")
       pipeline.push(
         ...conversationLookup(),

@@ -1,10 +1,9 @@
 "use client";
 import { ArrowLeftIcon, EllipsisVerticalIcon, XMarkIcon } from "@heroicons/react/24/solid";
-import { IGroupConversation, IUserConversation } from "@repo/interfaces/conversationInterface";
-import { generateConversation, generateUserConversations, handleGeneratingConversation } from "@repo/utils/index";
-import { getReceiverMetadata, getUserById } from "@lib/conversation";
+import { IGroupConversation } from "@repo/interfaces/conversationInterface";
+import { getMemberById, getReceiverMetadata, getUserById } from "@lib/conversation";
 import { getRelativeTime } from "@lib/utils";
-import { MouseEvent, memo, useMemo } from "react";
+import { MouseEvent, memo, useEffect, useMemo } from "react";
 import { useAttachments } from "store/attachments";
 import { useMenu } from "store/menu";
 import useSocket from "../../../context/SocketProvider";
@@ -133,7 +132,7 @@ function UserInfo({ user, blocked, blockedByUser }: { user: IUser; blocked: bool
 
 function GroupInfo() {
   const selectedConversation = useSelectedConversation<IGroupConversation>();
-
+  
   if (!selectedConversation) return null;
 
   return (
@@ -209,14 +208,20 @@ function HeaderMenuContext() {
   };
 
   const handleClearChat = () => {
-    isGroupConversation
-      ? sendRequestToClearGroupConversation({
-          conversationId: selectedConversation.id!,
-          groupId: selectedConversation.conversationId!,
-          userId: currentUser?.id!,
-          recentMember: selectedConversation.currentParticipation?._id!,
-        })
-      : sendRequestToClearUserConversation(selectedConversation!.id);
+    if (isGroupConversation) {
+      const member = getMemberById(selectedConversation, currentUser?.id);
+      if (!member) return;
+
+      sendRequestToClearGroupConversation({
+        conversationId: selectedConversation.id!,
+        groupId: selectedConversation.conversationId!,
+        userId: currentUser?.id!,
+        recentMember: member._id!,
+      });
+
+      return;
+    }
+    sendRequestToClearUserConversation(selectedConversation!.id);
   };
 
   function handleClosingChat() {

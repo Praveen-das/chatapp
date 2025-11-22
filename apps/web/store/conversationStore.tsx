@@ -221,10 +221,12 @@ const store = createIndexDBStore<IConversationStore>({
         addMembers: (conversationId, members) => {
           const conversations = get().conversations.map((c) => {
             if (c.conversationId === conversationId && c.host === "group") {
-              c.members.push(...members);
-              c.version = c.version! + 1;
+              const existingMembers = c.members ?? [];
+              const newMembers = [...existingMembers, ...members];
+              console.log(newMembers)
+              return { ...c, members: newMembers, version: (c.version ?? 0) + 1 };
             }
-            return { ...c };
+            return c;
           });
 
           set({ conversations });

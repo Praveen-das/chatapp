@@ -68,7 +68,6 @@ export interface IGroupConversation extends IConversationBase {
   admins: string[];
   createdBy?: string;
   profilePicture: string;
-  currentParticipation?: MemberReq;
 }
 
 export interface ISystemConversation extends IConversationBase {
