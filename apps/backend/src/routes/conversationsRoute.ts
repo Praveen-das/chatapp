@@ -1,4 +1,5 @@
 import {
+  IdbReadReceiptRecord,
   IIdbConversastionRecord,
   IIdbUserRecord,
   IIdbUserRecordValue,
@@ -24,7 +25,7 @@ router.post(
       {
         idbConvRecord: IIdbConversastionRecord;
         idbMembersRecord: IIdbUserRecordValue[];
-        idbReadReceiptRecord: { conversationId: string; userId: string }[];
+        idbReadReceiptRecord: IdbReadReceiptRecord;
       }
     >,
     res
@@ -35,18 +36,18 @@ router.post(
       if (!req.body) return res.json({ error: new Error("Body not found") });
       if (!userId) return res.json("userId not provided");
 
-      const { idbConvRecord, idbMembersRecord } = req.body;
+      const { idbConvRecord, idbMembersRecord, idbReadReceiptRecord } = req.body;
       const userIdParsed = objectId.parse(userId);
 
-      const [unsyncEntries, unsyncUsers, readReceiptRecord] = await Promise.all([
+      const [unsyncEntries, unsyncUsers, readReceiptEntries] = await Promise.all([
         syncRegistry.getUnsyncState({ userId, idbConvRecord }),
         syncRegistry.getUnsyncUsers(idbMembersRecord),
-        syncRegistry.getSyncReadReceiptEntries(userId, Object.keys(idbConvRecord)),
+        syncRegistry.getSyncReadReceiptEntries(userId, idbReadReceiptRecord),
       ]);
 
       console.log("unsyncEntries----->", unsyncEntries?.length);
       console.log("unsyncUsers----->", unsyncUsers.length);
-      console.log("readReceiptRecord----->", readReceiptRecord);
+      console.log("readReceiptRecord----->", readReceiptEntries);
 
       if (unsyncEntries === null || !Object.keys(idbConvRecord).length) {
         console.log("########### fetching conversations ###########");
@@ -94,7 +95,7 @@ router.post(
         return res.json({ unsyncConversationsData: { newEntry: newConversations }, unsyncUsersData: globalUsers });
       }
 
-      if (!unsyncEntries.length && !unsyncUsers.length && !Object.keys(readReceiptRecord).length) {
+      if (!unsyncEntries.length && !unsyncUsers.length && !readReceiptEntries.length) {
         console.log("########### conversations upto date ###########");
         return res.json(null);
       }
@@ -104,7 +105,7 @@ router.post(
       const [unsyncConversationsData, unsyncUsersData, unsyncReadReceipts] = await Promise.all([
         conversationServices.fetchConversations(userIdParsed, unsyncEntries),
         userServices.fetchUnsyncUsers(unsyncUsers),
-        messageServices.getReadReceipts(readReceiptRecord),
+        messageServices.getReadReceipts(readReceiptEntries),
       ]);
 
       return res.json({ unsyncConversationsData, unsyncUsersData, unsyncReadReceipts });

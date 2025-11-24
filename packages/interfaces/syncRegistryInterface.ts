@@ -38,3 +38,5 @@ export type SaveConversationSyncState = {
   conversationId: Types.ObjectId | string;
   fieldValues: SaveConversationSyncStateFieldValues;
 };
+
+export type IdbReadReceiptRecord = Record<string, { userId: string; version: number }[]>

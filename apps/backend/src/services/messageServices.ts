@@ -11,6 +11,7 @@ import { LIMIT } from "../../const";
 import { syncRegistry } from "../lib/SyncRegistry";
 import MessageReadReceipt from "../models/MessageReadReceipt";
 import { MessageReadReceipt as IMessageReadReceipt } from "@repo/interfaces/messageInterface";
+import { IdbReadReceiptRecord } from "@repo/interfaces/syncRegistryInterface";
 
 async function generateMockMessages(messages: z.infer<typeof messagesSchema>) {
   try {
@@ -208,21 +209,33 @@ const deleteMessagesForUser = async (collections: { userId: string; messageId: s
 const getReadReceipts = async (
   readReceiptEntries: Awaited<ReturnType<typeof syncRegistry.getSyncReadReceiptEntries>>
 ) => {
-  if (readReceiptEntries.length === 0) return await Promise.resolve([]);
+  if (readReceiptEntries.length === 0) return [];
 
-  const receipts: IMessageReadReceipt[] = await MessageReadReceipt.aggregate([
+  const receipts = await MessageReadReceipt.aggregate([
     {
       $match: {
-        $or: readReceiptEntries.map((item) => ({
-          senderId: item.userId,
-          conversationId: item.conversationId,
-          userId: { $in: item.ids },
-        })),
+        $or: readReceiptEntries.map((item) => {
+          const query: any = {
+            senderId: item.userId,
+            conversationId: item.conversationId,
+          };
+
+          if (item.ids && item.ids.length > 0) {
+            query.userId = { $in: item.ids };
+          }
+
+          return query;
+        }),
       },
     },
   ]);
 
-  return receipts
+  if (receipts) {
+    syncRegistry.saveReadReceiptEntries(receipts);
+    return receipts;
+  }
+
+  return [];
 };
 
 export default {

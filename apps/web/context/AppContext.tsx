@@ -14,6 +14,7 @@ import {
   IIdbConversastionRecord,
   IIdbUserRecordValue,
   IdbValues,
+  IdbReadReceiptRecord,
 } from "@repo/interfaces/syncRegistryInterface";
 import { PropsWithChildren, useEffect, useState } from "react";
 import { useAttachments } from "store/attachments";
@@ -204,11 +205,27 @@ export const AppContext = ({ children }: PropsWithChildren) => {
 
         idbMembersRecord.push({ userId: userId!, version: user?.version! });
 
+        const idbReadReceiptRecord = useConversationStore
+          .getState()
+          .conversations.reduce<IdbReadReceiptRecord>((i, c) => {
+            if (c.readReceipt) {
+              const receipts = Object.values(c.readReceipt)
+                .filter((r) => r.version !== undefined)
+                .map((r) => ({ userId: r.userId, version: r.version! }));
+
+              if (receipts.length > 0) {
+                i[c.conversationId] = receipts;
+              }
+            }
+
+            return i;
+          }, {});
+
         const [unsyncEntries, sessions] = await Promise.all([
           axios
             .post<AppPostReq>(
               `/db/conversation/${userId}`,
-              { idbConvRecord, idbMembersRecord },
+              { idbConvRecord, idbMembersRecord, idbReadReceiptRecord },
               { signal: conversationController.signal }
             )
             .then((res) => res.data),

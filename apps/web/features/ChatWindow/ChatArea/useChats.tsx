@@ -1,15 +1,12 @@
 "use client";
-import { Fragment, PointerEvent, TouchEvent, useCallback, useEffect, useMemo, useRef } from "react";
+import useSelectedConversation from "@hooks/useSelectedConversation";
+import { getReadReceiptState } from "@lib/conversation";
+import { Fragment, PointerEvent, useMemo, useRef } from "react";
 import { useMessageStore } from "store/messageStore";
 import useAuth from "../../../hooks/useAuth";
 import { IMessage } from "../../../interfaces/messageInterface";
-import { useConversationStore } from "../../../store/conversationStore";
 import Chat from "./Chat/Chat";
 import SystemMessage from "./Chat/Message/SystemMessage";
-import useSelectedConversation from "@hooks/useSelectedConversation";
-import { MessageReadReceipt } from "@repo/interfaces/messageInterface";
-import { IConversation } from "@interfaces/conversationInterface";
-import { getReadReceiptState } from "@lib/conversation";
 
 export function useChats(
   messages: IMessage[],

@@ -1,5 +1,6 @@
 import {
   ConversationEntry,
+  IdbReadReceiptRecord,
   IIdbConversastionRecord,
   IIdbUserRecord,
   IIdbUserRecordValue,
@@ -13,16 +14,6 @@ import { z } from "zod";
 
 import { MessageReadReceipt } from "@repo/interfaces/messageInterface";
 import { readReceiptsSchema } from "../schemas/readReceiptSchema";
-
-{
-  /**
-  
-  userId--->[userConversationId]
-  userConversationId-------->[{conversationId,newEntry,needUpdate}]
-  conversationId:{recentMessageTimestamp}
-
-  */
-}
 
 export default class SyncRegistryCreator {
   private redis: Redis;
@@ -53,33 +44,76 @@ export default class SyncRegistryCreator {
     const pipeline = this.redis.pipeline();
 
     readReceipts.forEach((receipt) => {
+      if (!receipt.userId) throw new Error("receipt userId undefined");
+      if (!receipt.version) throw new Error("receipt version undefined");
+      if (!receipt.conversationId) throw new Error("receipt conversationId undefined");
+      if (!receipt.senderId) throw new Error("receipt senderId undefined");
+
       const key = this.getReadReceiptEntryKey(receipt.conversationId, receipt.senderId);
-      pipeline.sadd(key, toString(receipt.userId));
+
+      pipeline.hset(key, toString(receipt.userId), receipt.version);
     });
 
     return await pipeline.exec();
   }
 
-  async getSyncReadReceiptEntries(userId: string, conversationIds: string[]) {
+  async getSyncReadReceiptEntries(userId: string, idbReadReceiptRecord: IdbReadReceiptRecord) {
     const pipeline = this.redis.pipeline();
-    const result: { userId: Types.ObjectId; conversationId: Types.ObjectId; ids: Types.ObjectId[] }[] = [];
+    const result: { userId: Types.ObjectId; conversationId: Types.ObjectId; ids?: Types.ObjectId[] }[] = [];
+    const idbReadReceiptCollection = Object.entries(idbReadReceiptRecord);
 
-    conversationIds.forEach((conversationId) => {
+    idbReadReceiptCollection.forEach(([conversationId]) => {
       const key = this.getReadReceiptEntryKey(conversationId, userId);
-      pipeline.smembers(key);
+      pipeline.hgetall(key);
     });
 
-    const res = await pipeline.exec();
+    const response = await pipeline.exec();
 
-    conversationIds.forEach((conversationId, idx) => {
-      if (!res?.[idx]) return;
-      let userIds = res[idx][1] as string[];
-      if (userIds?.length > 0)
-        result.push({
-          conversationId: new Types.ObjectId(conversationId),
-          userId: new Types.ObjectId(userId),
-          ids: userIds.map((id) => new Types.ObjectId(id)),
-        });
+    idbReadReceiptCollection.forEach((record, idx) => {
+      if (!response?.[idx]) return;
+
+      const [err, redisResult] = response[idx];
+
+      if (err) {
+        console.error(`Error fetching read receipts for conversation ${record[0]}:`, err);
+        return;
+      }
+
+      const [conversationId, entries] = record;
+      const ids: string[] = [];
+
+      let cachedReadReceipts = redisResult as Record<string, string>;
+
+      try {
+        if (cachedReadReceipts && Object.keys(cachedReadReceipts).length > 0) {
+          // Create a map for faster lookup of client versions
+          const entryMap = new Map<string, number>();
+          entries.forEach((e) => entryMap.set(e.userId, e.version));
+
+          Object.entries(cachedReadReceipts).forEach(([rUserId, rVersionStr]) => {
+            const rVersion = Number(rVersionStr);
+            const clientVersion = entryMap.get(rUserId) ?? -1; // Default to -1 if client doesn't have it
+
+            if (rVersion && !isNaN(rVersion) && rVersion > clientVersion) {
+              ids.push(rUserId);
+            }
+          });
+
+          result.push({
+            conversationId: new Types.ObjectId(conversationId),
+            userId: new Types.ObjectId(userId),
+            ids: ids.length > 0 ? ids.map((id) => new Types.ObjectId(id)) : undefined,
+          });
+        } else {
+          result.push({
+            conversationId: new Types.ObjectId(conversationId),
+            userId: new Types.ObjectId(userId),
+            ids: undefined,
+          });
+        }
+      } catch (error) {
+        console.error(`Skipping invalid ObjectId in sync read receipts for conversation ${conversationId}`);
+      }
     });
 
     return result;

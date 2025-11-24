@@ -90,24 +90,24 @@ const store = createIndexDBStore<IConversationStore>({
           set({ conversations });
         },
         upsertConversation: (newConversations) => {
-          let conversations = get().conversations
+          let conversations = get().conversations;
 
-          newConversations.forEach(conv=>{
+          newConversations.forEach((conv) => {
             conversations = conversations.map((c) => {
               if (c.host !== "system" && c.id === conv.id) {
                 let updates: Record<string, any> = {};
                 let diffs = updatedDiff(c, conv);
-  
+
                 Object.keys(diffs).forEach((k) => {
                   let key = k as keyof IConversation;
                   updates[key] = conv[key];
                 });
-  
+
                 return { ...c, ...updates };
               }
               return c;
             });
-          })
+          });
 
           set({ conversations });
         },
@@ -118,16 +118,19 @@ const store = createIndexDBStore<IConversationStore>({
         updateReadReceipt: (readReceipt) => {
           const conversations = get().conversations.map((c) => {
             if (readReceipt.conversationId === c.conversationId) {
-              c.readReceipt;
               const userReadReceipt = c.readReceipt?.[readReceipt.userId];
+
               if (userReadReceipt) {
                 const rr: Record<string, MessageReadReceipt> = {
                   ...c.readReceipt,
-                  [readReceipt.userId]: { ...userReadReceipt, ...readReceipt },
+                  [readReceipt.userId]: { ...userReadReceipt, ...readReceipt, version: userReadReceipt.version! + 1 },
                 };
                 return { ...c, readReceipt: rr };
               } else {
-                const rr: Record<string, MessageReadReceipt> = { ...c.readReceipt, [readReceipt.userId]: readReceipt };
+                const rr: Record<string, MessageReadReceipt> = {
+                  ...c.readReceipt,
+                  [readReceipt.userId]: { ...readReceipt, version: 1 },
+                };
                 return { ...c, readReceipt: rr };
               }
             }
@@ -223,7 +226,7 @@ const store = createIndexDBStore<IConversationStore>({
             if (c.conversationId === conversationId && c.host === "group") {
               const existingMembers = c.members ?? [];
               const newMembers = [...existingMembers, ...members];
-              console.log(newMembers)
+              console.log(newMembers);
               return { ...c, members: newMembers, version: (c.version ?? 0) + 1 };
             }
             return c;

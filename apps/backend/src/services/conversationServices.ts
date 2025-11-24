@@ -345,8 +345,7 @@ const createPipeline = (
   if (host === "group") pipeline.push(activityLookup());
 
   if (req.needSync) {
-    if (host === "group")
-      pipeline.push(...groupLookup(), ...membersLookup(), starredMessagesLookup());
+    if (host === "group") pipeline.push(...groupLookup(), ...membersLookup(), starredMessagesLookup());
     if (host === "user")
       pipeline.push(
         ...conversationLookup(),
@@ -379,10 +378,7 @@ const createPipeline = (
   return pipeline;
 };
 
-async function fetchConversations(
-  userId: Types.ObjectId,
-  conversationEntries: ConversationEntry[],
-) {
+async function fetchConversations(userId: Types.ObjectId, conversationEntries: ConversationEntry[]) {
   if (!conversationEntries.length) return [];
 
   try {
@@ -393,12 +389,7 @@ async function fetchConversations(
       const pipeline = {
         $unionWith: {
           coll: req.host === "group" ? "groupconversations" : "userconversations",
-          pipeline: createPipeline(
-            req.conversationId!,
-            userId,
-            req?.host!,
-            req,
-          ),
+          pipeline: createPipeline(req.conversationId!, userId, req?.host!, req),
         },
       };
 
@@ -459,6 +450,7 @@ async function saveMessageReadReceipt(readReceipts: z.infer<typeof readReceiptsS
             lastDeliveredMessageTimestamp: doc.lastDeliveredMessageTimestamp,
             lastReadMessageTimestamp: doc.lastReadMessageTimestamp,
           },
+          $inc: { version: 1 },
         },
         upsert: true,
       },

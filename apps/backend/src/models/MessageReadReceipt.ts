@@ -6,11 +6,6 @@ export const messageReadReceiptSchema = new Schema({
   conversationId: Types.ObjectId,
   lastDeliveredMessageTimestamp: Number,
   lastReadMessageTimestamp: Number,
-});
-
-export const readReceiptSchema = new Schema({
-  conversationId: Types.ObjectId,
-  readReceipts: [{ type: Types.ObjectId, ref: "messageReadReceipt" }],
   version: { type: Number, default: 0 },
 });
 
