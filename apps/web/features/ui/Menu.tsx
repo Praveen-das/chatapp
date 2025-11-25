@@ -1,4 +1,4 @@
-import { Placement, flip, shift, useDismiss, useFloating, useInteractions } from "@floating-ui/react";
+import { Placement, autoUpdate, flip, shift, useDismiss, useFloating, useInteractions } from "@floating-ui/react";
 import React, { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useMenu } from "../../store/menu";
 
@@ -11,23 +11,56 @@ interface MenuProps<T> {
   stopScroll?: boolean;
   placement?: Placement;
   children: ReactNode | ((data: T) => ReactNode);
+  onClose?: () => void;
 }
 
-function Menu<T>({ children, placement = "bottom-start", clientPoint = false, stopScroll = false, id }: MenuProps<T>) {
+function Menu<T>({
+  children,
+  placement = "bottom-start",
+  clientPoint = false,
+  stopScroll = false,
+  id,
+  onClose,
+}: MenuProps<T>) {
   const menu = useMenu((s) => s.menu);
   const setMenu = useMenu((s) => s.setMenu);
   const wrapper = useRef<HTMLDivElement | null>(null);
   const reference = menu?.reference;
   const open = Boolean(id === menu?.id);
+  const lastPlacementRef = useRef<Placement>(placement);
 
   const { refs, floatingStyles, context } = useFloating({
     open,
-    onOpenChange: (o) => !o && setMenu(null),
-    middleware: [flip(), shift()],
-    placement,
+    onOpenChange: (o) => !o && handleClose(),
+    middleware: [
+      flip({ padding: 50 }),
+      shift({ padding: 50 }),
+      savePlacementMiddleware((placement) => {
+        lastPlacementRef.current = placement;
+      }),
+    ],
+    placement: lastPlacementRef.current,
     elements: { reference: clientPoint ? wrapper.current : reference?.target },
     transform: false,
+    whileElementsMounted: (reference, floating, update) =>
+      autoUpdate(reference, floating, update, {
+        ancestorResize: true,
+        ancestorScroll: false,
+        elementResize: true,
+        layoutShift: false,
+      }),
   });
+
+  function savePlacementMiddleware(onPlacement: (p: Placement) => void) {
+    return {
+      name: "savePlacement",
+      async fn(state: any) {
+        onPlacement(state.placement);
+        return {};
+      },
+    };
+  }
+
   const dismiss = useDismiss(context, { enabled: open });
   const { getFloatingProps } = useInteractions([dismiss]);
 
@@ -42,6 +75,12 @@ function Menu<T>({ children, placement = "bottom-start", clientPoint = false, st
     wrapper.current.style.left = x;
     wrapper.current.style.top = y;
   }, [reference, clientPoint]);
+
+  const handleClose = () => {
+    onClose?.();
+    setMenu(null);
+    lastPlacementRef.current = placement;
+  };
 
   const variants = useMemo(() => {
     const _variants = {
@@ -81,7 +120,6 @@ function Menu<T>({ children, placement = "bottom-start", clientPoint = false, st
             exit="hidden"
             animate="visible"
             transition={{ duration: 0.08 }}
-            onClick={() => setMenu(null)}
             variants={variants}
             ref={refs.setFloating}
             {...getFloatingProps()}
@@ -99,10 +137,32 @@ Menu.propTypes = {
   children: PropTypes.oneOfType([PropTypes.node, PropTypes.func]).isRequired,
 };
 
-function Item({ onClick, children }: { children: ReactNode; onClick?: () => void }) {
+function Item({
+  onClick,
+  children,
+  canClose = true,
+  canSelect = true,
+  className,
+}: {
+  children: ReactNode;
+  onClick?: () => void;
+  canClose?: boolean;
+  canSelect?: boolean;
+  className?: string;
+}) {
+  const setMenu = useMenu((s) => s.setMenu);
+
+  function handleClick() {
+    if (!canSelect) return;
+    onClick?.();
+    if (canClose) {
+      setMenu(null);
+    }
+  }
+
   return (
-    <li onClick={onClick}>
-      <a className="pl-3 pr-6 py-3 whitespace-nowrap">{children}</a>
+    <li onClick={handleClick}>
+      <a className={`pl-3 pr-6 py-3 whitespace-nowrap ${className}`}>{children}</a>
     </li>
   );
 }

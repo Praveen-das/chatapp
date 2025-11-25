@@ -5,6 +5,7 @@ import { useStore } from "store/global";
 import { IGroupConversation, IMember } from "@repo/interfaces/conversationInterface";
 import { IUser } from "@repo/interfaces/userInterface";
 import { MessageReadReceipt } from "@repo/interfaces/messageInterface";
+import { IMessage } from "@interfaces/messageInterface";
 
 export function findUserConversation(userId: string) {
   const conversations = useConversationStore.getState().conversations;
@@ -121,6 +122,25 @@ export function getReadReceiptState(
     lastDeliveredMessageTimestamp: minDelivered === Infinity ? undefined : minDelivered,
     lastReadMessageTimestamp: minRead === Infinity ? undefined : minRead,
   };
+}
+
+export function getUserReadReceiptState(conversation: IConversation, chat: IMessage) {
+  const userId = chat.to;
+
+  if (!userId) return null;
+
+  const readReceipt = conversation.readReceipt?.[userId];
+
+  if (!readReceipt) return null;
+
+  const userReadReceiptState: Record<string, number> = {};
+
+  if (readReceipt.lastReadMessageTimestamp && readReceipt.lastReadMessageTimestamp >= chat.timestamp)
+    userReadReceiptState.lastReadMessageTimestamp = readReceipt.lastReadMessageTimestamp;
+  if (readReceipt.lastDeliveredMessageTimestamp && readReceipt.lastDeliveredMessageTimestamp >= chat.timestamp)
+    userReadReceiptState.lastDeliveredMessageTimestamp = readReceipt.lastDeliveredMessageTimestamp;
+
+  return Object.keys(userReadReceiptState).length > 0 ? userReadReceiptState : null;
 }
 
 export function handleSettingGroupAdmin(conversation: IConversation) {

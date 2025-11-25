@@ -19,6 +19,12 @@ import useReadReceiptHandler from "./useReadReceiptHandler";
 import useScrollForNewMessages from "./useScrollForNewMessages";
 import useScrollHandler from "./useScrollHandler";
 import useScrollToReply from "./useScrollToReply";
+import useAuth from "@hooks/useAuth";
+import Acknowledgment from "./Chat/ChatIndicators/Acknowledgment";
+import { getReadReceiptState, getUserReadReceiptState } from "@lib/conversation";
+import moment from "moment";
+import { MessageReadReceipt } from "@repo/interfaces/messageInterface";
+import useSelectedConversation from "@hooks/useSelectedConversation";
 
 function ChatArea() {
   const selectedConversation = useConversationStore((s) => s.selectedConversation);
@@ -166,10 +172,12 @@ function UnreadMessageBadge({ count, onClick }: { count: number; onClick?: () =>
 }
 
 function MenuContext() {
+  const { user } = useAuth();
   const { sendRequestToUnRegisterStarredMessage, sendRequestToRegisterStarredMessage } = useSocket();
-  const selectedConversation = useConversationStore((s) => s.selectedConversation);
+  const selectedConversation = useSelectedConversation();
   const setSelectedChats = useMessageStore((s) => s.setSelectedChats);
   const setModal = useStore((s) => s.setModal);
+  const [selectedChatReadReceipt, setSelectedChatReadReceipt] = useState<Record<string, number> | null>(null);
 
   function handleDeletingChat(chat: IMessage) {
     setModal({ activeModal: "deleteMessageModal", state: [chat], open: true });
@@ -207,30 +215,78 @@ function MenuContext() {
     [selectedConversation]
   );
 
-  return (
-    <Menu<IMessage> id="chatarea" stopScroll>
-      {(chat) => {
-        const conversation = useConversationStore
-          .getState()
-          .conversations.find((c) => c.id === selectedConversation?.id)!;
-        let starred = conversation.starred?.find((m) => m.id === chat.id);
+  const handleOpenInfo = useCallback((readReceipt: Record<string, number> | null) => {
+    setSelectedChatReadReceipt(readReceipt);
+  }, []);
 
-        return chat.deleted ? (
-          <Menu.Item onClick={() => handleDeletingChat(chat)}>Delete</Menu.Item>
-        ) : (
-          <>
-            <Menu.Item onClick={() => setSelectedChats(chat)}>Select</Menu.Item>
-            {chat.attachment?.type == "images" && (
-              <Menu.Item onClick={() => downloadFromUrl(chat.attachment?.url!)}>Download</Menu.Item>
+  const handleCloseInfo = useCallback(() => {
+    setSelectedChatReadReceipt(null);
+  }, []);
+
+  return (
+    <Menu<IMessage> id="chatarea" onClose={handleCloseInfo} stopScroll>
+      {selectedChatReadReceipt ? (
+        <Menu.Item
+          className="pointer-events-none !p-2 !rounded-none"
+          canClose={false}
+          canSelect={false}
+          onClick={handleCloseInfo}
+        >
+          <div className="grid grid-cols-2 gap-2">
+            {selectedChatReadReceipt.lastReadMessageTimestamp && (
+              <>
+                <span className="flex items-center gap-2">
+                  Read
+                  <Acknowledgment readReceipt="seen" />
+                </span>
+                <span className="justify-self-end">
+                  {moment(selectedChatReadReceipt.lastReadMessageTimestamp).format("h:mm A")}
+                </span>
+              </>
             )}
-            <Menu.Item onClick={() => handleForward(chat)}>Forward</Menu.Item>
-            <Menu.Item onClick={() => (starred ? handleRemoveStarred(chat) : handleMarkAsStarred(chat))}>
-              {starred ? "Unstar" : "Star"}
-            </Menu.Item>
+            {selectedChatReadReceipt.lastDeliveredMessageTimestamp && (
+              <>
+                <span className="flex items-center gap-2">
+                  Delivered
+                  <Acknowledgment readReceipt="received" />
+                </span>
+                <span className="justify-self-end">
+                  {moment(selectedChatReadReceipt.lastDeliveredMessageTimestamp).format("h:mm A")}
+                </span>
+              </>
+            )}
+          </div>
+        </Menu.Item>
+      ) : (
+        (chat) => {
+          const conversation = useConversationStore
+            .getState()
+            .conversations.find((c) => c.id === selectedConversation?.id)!;
+          let starred = conversation.starred?.find((m) => m.id === chat.id);
+          const readReceipt = getUserReadReceiptState(selectedConversation!, chat);
+
+          return chat.deleted ? (
             <Menu.Item onClick={() => handleDeletingChat(chat)}>Delete</Menu.Item>
-          </>
-        );
-      }}
+          ) : (
+            <>
+              <Menu.Item onClick={() => setSelectedChats(chat)}>Select</Menu.Item>
+              {chat.attachment?.type == "images" && (
+                <Menu.Item onClick={() => downloadFromUrl(chat.attachment?.url!)}>Download</Menu.Item>
+              )}
+              <Menu.Item onClick={() => handleForward(chat)}>Forward</Menu.Item>
+              <Menu.Item onClick={() => (starred ? handleRemoveStarred(chat) : handleMarkAsStarred(chat))}>
+                {starred ? "Unstar" : "Star"}
+              </Menu.Item>
+              <Menu.Item onClick={() => handleDeletingChat(chat)}>Delete</Menu.Item>
+              {chat.from === user?.id && readReceipt && (
+                <Menu.Item canClose={false} onClick={() => handleOpenInfo(readReceipt)}>
+                  Info
+                </Menu.Item>
+              )}
+            </>
+          );
+        }
+      )}
     </Menu>
   );
 }

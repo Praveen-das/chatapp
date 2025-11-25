@@ -139,7 +139,7 @@ export const AppContext = ({ children }: PropsWithChildren) => {
               conversationId: conversation.conversationId,
               userId: user?.id!,
               senderId: recentMessage?.from!,
-              lastDeliveredMessageTimestamp: recentMessage.timestamp,
+              lastDeliveredMessageTimestamp: Date.now(),
               updatedAt: Date.now(),
             });
 
@@ -176,7 +176,7 @@ export const AppContext = ({ children }: PropsWithChildren) => {
           conversationId: c.conversationId,
           userId: user?.id!,
           senderId: recentMessage?.from!,
-          lastDeliveredMessageTimestamp: recentMessage?.timestamp,
+          lastDeliveredMessageTimestamp: Date.now(),
           updatedAt: Date.now(),
         });
 

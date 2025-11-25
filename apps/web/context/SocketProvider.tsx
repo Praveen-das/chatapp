@@ -129,14 +129,14 @@ const useContextData = () => {
               conversationId: conversation.conversationId,
               userId: user?.id!,
               senderId: recentMessage?.from!,
-              lastReadMessageTimestamp: recentMessage?.timestamp!,
+              lastReadMessageTimestamp: Date.now(),
               updatedAt: Date.now(),
             }
           : {
               conversationId: conversation.conversationId,
               userId: user?.id!,
               senderId: recentMessage?.from!,
-              lastDeliveredMessageTimestamp: recentMessage?.timestamp!,
+              lastDeliveredMessageTimestamp: Date.now(),
               updatedAt: Date.now(),
             };
 
