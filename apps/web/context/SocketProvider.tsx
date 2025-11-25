@@ -130,12 +130,14 @@ const useContextData = () => {
               userId: user?.id!,
               senderId: recentMessage?.from!,
               lastReadMessageTimestamp: recentMessage?.timestamp!,
+              updatedAt: Date.now(),
             }
           : {
               conversationId: conversation.conversationId,
               userId: user?.id!,
               senderId: recentMessage?.from!,
               lastDeliveredMessageTimestamp: recentMessage?.timestamp!,
+              updatedAt: Date.now(),
             };
 
         emitters.sendReadReceiptChangeRequest([receiptChangeRequest]);

@@ -40,7 +40,7 @@ export type IConversationStore = {
 };
 
 const store = createIndexDBStore<IConversationStore>({
-  name: "msgstore",
+  name: "conv-store",
   handler: (set, get) => {
     return {
       conversations: [],
@@ -119,18 +119,23 @@ const store = createIndexDBStore<IConversationStore>({
           const conversations = get().conversations.map((c) => {
             if (readReceipt.conversationId === c.conversationId) {
               const userReadReceipt = c.readReceipt?.[readReceipt.userId];
+              const updatedAt = readReceipt.updatedAt || Date.now();
 
               if (userReadReceipt) {
+                console.log("userReadReceipt exist");
                 const rr: Record<string, MessageReadReceipt> = {
                   ...c.readReceipt,
-                  [readReceipt.userId]: { ...userReadReceipt, ...readReceipt, version: userReadReceipt.version! + 1 },
+                  [readReceipt.userId]: { ...userReadReceipt, ...readReceipt, updatedAt },
                 };
+                console.log(rr);
                 return { ...c, readReceipt: rr };
               } else {
+                console.log("userReadReceipt not exist");
                 const rr: Record<string, MessageReadReceipt> = {
                   ...c.readReceipt,
-                  [readReceipt.userId]: { ...readReceipt, version: 1 },
+                  [readReceipt.userId]: { ...readReceipt, updatedAt },
                 };
+                console.log(rr);
                 return { ...c, readReceipt: rr };
               }
             }

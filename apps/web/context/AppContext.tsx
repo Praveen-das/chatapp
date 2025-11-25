@@ -140,6 +140,7 @@ export const AppContext = ({ children }: PropsWithChildren) => {
               userId: user?.id!,
               senderId: recentMessage?.from!,
               lastDeliveredMessageTimestamp: recentMessage.timestamp,
+              updatedAt: Date.now(),
             });
 
           conversation.recentMessage = recentMessage;
@@ -176,6 +177,7 @@ export const AppContext = ({ children }: PropsWithChildren) => {
           userId: user?.id!,
           senderId: recentMessage?.from!,
           lastDeliveredMessageTimestamp: recentMessage?.timestamp,
+          updatedAt: Date.now(),
         });
 
         if (!res.conversation.active) {
@@ -208,19 +210,21 @@ export const AppContext = ({ children }: PropsWithChildren) => {
         const idbReadReceiptRecord = useConversationStore
           .getState()
           .conversations.reduce<IdbReadReceiptRecord>((i, c) => {
-            if (c.readReceipt) {
+            if (c.readReceipt && c.recentMessage?.from === user?.id) {
               const receipts = Object.values(c.readReceipt)
-                .filter((r) => r.version !== undefined)
-                .map((r) => ({ userId: r.userId, version: r.version! }));
+                .filter((r) => r.lastReadMessageTimestamp! !== c.recentMessage?.timestamp! && r.userId !== user?.id)
+                .map((r) => ({ userId: r.userId, updatedAt: r.updatedAt! }));
 
               if (receipts.length > 0) {
+                console.log(c);
                 i[c.conversationId] = receipts;
               }
             }
 
             return i;
           }, {});
-
+        console.log(user?.id);
+        console.log(idbReadReceiptRecord);
         const [unsyncEntries, sessions] = await Promise.all([
           axios
             .post<AppPostReq>(
@@ -261,8 +265,10 @@ export const AppContext = ({ children }: PropsWithChildren) => {
           if (messagesCollection?.length > 0) updateMessagesForConversation(messagesCollection);
         }
 
-        if (unsyncReadReceipts && !!Object.values(unsyncReadReceipts).length) {
+        if (unsyncReadReceipts && !!unsyncReadReceipts.length) {
+          console.log("unsyncReadReceipts", unsyncReadReceipts);
           const updateReadReceipt = useConversationStore.getState().conversationActions.updateReadReceipt;
+
           unsyncReadReceipts.forEach((receipt) => {
             updateReadReceipt(receipt);
           });

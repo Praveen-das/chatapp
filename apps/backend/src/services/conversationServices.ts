@@ -450,7 +450,7 @@ async function saveMessageReadReceipt(readReceipts: z.infer<typeof readReceiptsS
             lastDeliveredMessageTimestamp: doc.lastDeliveredMessageTimestamp,
             lastReadMessageTimestamp: doc.lastReadMessageTimestamp,
           },
-          $inc: { version: 1 },
+          $set: { updatedAt: doc.updatedAt },
         },
         upsert: true,
       },

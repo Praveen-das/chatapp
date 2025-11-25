@@ -8,7 +8,7 @@ export const readReceiptSchema = z.object({
   userId: objectId,
   lastDeliveredMessageTimestamp: z.number().optional(),
   lastReadMessageTimestamp: z.number().optional(),
-  version: z.number().optional(),
+  updatedAt: z.number().optional(),
 });
 
 export const readReceiptsSchema = z.array(readReceiptSchema);

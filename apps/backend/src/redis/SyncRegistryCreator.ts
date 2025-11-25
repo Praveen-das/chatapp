@@ -38,71 +38,81 @@ export default class SyncRegistryCreator {
     return `rrSync:${toString(conversationId)}:${toString(userId)}`;
   }
 
-  // ####################################################################################
-
   async saveReadReceiptEntries(readReceipts: z.infer<typeof readReceiptsSchema>) {
-    const pipeline = this.redis.pipeline();
+    try {
+      const pipeline = this.redis.pipeline();
 
-    readReceipts.forEach((receipt) => {
-      if (!receipt.userId) throw new Error("receipt userId undefined");
-      if (!receipt.version) throw new Error("receipt version undefined");
-      if (!receipt.conversationId) throw new Error("receipt conversationId undefined");
-      if (!receipt.senderId) throw new Error("receipt senderId undefined");
+      readReceipts.forEach((receipt) => {
+        if (!receipt.userId) throw new Error("receipt userId undefined");
+        if (!receipt.updatedAt) throw new Error("receipt updatedAt undefined");
+        if (!receipt.conversationId) throw new Error("receipt conversationId undefined");
+        if (!receipt.senderId) throw new Error("receipt senderId undefined");
 
-      const key = this.getReadReceiptEntryKey(receipt.conversationId, receipt.senderId);
+        const key = this.getReadReceiptEntryKey(receipt.conversationId, receipt.senderId);
 
-      pipeline.hset(key, toString(receipt.userId), receipt.version);
-    });
+        pipeline.hset(key, toString(receipt.userId), receipt.updatedAt);
+      });
 
-    return await pipeline.exec();
+      return await pipeline.exec();
+    } catch (error) {
+      console.error("Error saving read receipts:", error);
+      return [];
+    }
   }
 
   async getSyncReadReceiptEntries(userId: string, idbReadReceiptRecord: IdbReadReceiptRecord) {
     const pipeline = this.redis.pipeline();
     const result: { userId: Types.ObjectId; conversationId: Types.ObjectId; ids?: Types.ObjectId[] }[] = [];
-    const idbReadReceiptCollection = Object.entries(idbReadReceiptRecord);
+    const idbReadReceiptEntries = Object.entries(idbReadReceiptRecord);
 
-    idbReadReceiptCollection.forEach(([conversationId]) => {
+    idbReadReceiptEntries.forEach(([conversationId]) => {
       const key = this.getReadReceiptEntryKey(conversationId, userId);
       pipeline.hgetall(key);
     });
 
     const response = await pipeline.exec();
 
-    idbReadReceiptCollection.forEach((record, idx) => {
+    idbReadReceiptEntries.forEach((idbReadReceiptEntry, idx) => {
       if (!response?.[idx]) return;
 
       const [err, redisResult] = response[idx];
 
       if (err) {
-        console.error(`Error fetching read receipts for conversation ${record[0]}:`, err);
+        console.error(`Error fetching read receipts for conversation ${idbReadReceiptEntry[0]}:`, err);
         return;
       }
 
-      const [conversationId, entries] = record;
-      const ids: string[] = [];
-
+      const ids: (string | null)[] = [];
+      const [conversationId, idbReadReceipts] = idbReadReceiptEntry;
       let cachedReadReceipts = redisResult as Record<string, string>;
 
       try {
         if (cachedReadReceipts && Object.keys(cachedReadReceipts).length > 0) {
           // Create a map for faster lookup of client versions
-          const entryMap = new Map<string, number>();
-          entries.forEach((e) => entryMap.set(e.userId, e.version));
+          const idbReadReceiptMap = new Map<string, number>();
+          idbReadReceipts.forEach((e) => idbReadReceiptMap.set(e.userId, e.updatedAt));
 
-          Object.entries(cachedReadReceipts).forEach(([rUserId, rVersionStr]) => {
-            const rVersion = Number(rVersionStr);
-            const clientVersion = entryMap.get(rUserId) ?? -1; // Default to -1 if client doesn't have it
+          console.log("entriessssssssssss", idbReadReceiptMap);
 
-            if (rVersion && !isNaN(rVersion) && rVersion > clientVersion) {
+          Object.entries(cachedReadReceipts).forEach(([rUserId, rUpdatedAtStr]) => {
+            console.log({ rUserId, rUpdatedAtStr });
+            const rUpdatedAt = Number(rUpdatedAtStr);
+            const clientUpdatedAt = idbReadReceiptMap.get(rUserId);
+
+            if (!clientUpdatedAt) return ids.push(null);
+
+            if (rUpdatedAt && !isNaN(rUpdatedAt) && rUpdatedAt > clientUpdatedAt) {
+              console.log({ rUpdatedAt, clientUpdatedAt });
               ids.push(rUserId);
             }
           });
 
+          if (ids.every((id) => id === null)) return;
+
           result.push({
             conversationId: new Types.ObjectId(conversationId),
             userId: new Types.ObjectId(userId),
-            ids: ids.length > 0 ? ids.map((id) => new Types.ObjectId(id)) : undefined,
+            ids: ids.length > 0 ? ids.filter((id) => id !== null).map((id) => new Types.ObjectId(id)) : undefined,
           });
         } else {
           result.push({

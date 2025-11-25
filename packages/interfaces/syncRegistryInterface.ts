@@ -39,4 +39,4 @@ export type SaveConversationSyncState = {
   fieldValues: SaveConversationSyncStateFieldValues;
 };
 
-export type IdbReadReceiptRecord = Record<string, { userId: string; version: number }[]>
+export type IdbReadReceiptRecord = Record<string, { userId: string; updatedAt: number }[]>;

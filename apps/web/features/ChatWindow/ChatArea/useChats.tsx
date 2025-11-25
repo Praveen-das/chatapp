@@ -55,7 +55,7 @@ export function useChats(
 
   return useMemo(() => {
     const read = getReadReceiptState(selectedConversation!, user?.id!);
-    
+
     return messages.map((chat: IMessage | IMessage, index: number, array: IMessage[]) => {
       if (!chat) return null;
 

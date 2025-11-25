@@ -108,6 +108,10 @@ router.post(
         messageServices.getReadReceipts(readReceiptEntries),
       ]);
 
+      console.log("unsyncConversationsData----->", Object.keys(unsyncConversationsData || {}).length);
+      console.log("unsyncUsersData----->", Object.keys(unsyncUsersData || {}).length);
+      console.log("unsyncReadReceipts----->", unsyncReadReceipts.length);
+
       return res.json({ unsyncConversationsData, unsyncUsersData, unsyncReadReceipts });
     } catch (error) {
       console.log("Error in fetching user conversations", error);

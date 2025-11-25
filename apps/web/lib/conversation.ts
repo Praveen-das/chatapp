@@ -93,7 +93,7 @@ export function getReadReceiptState(
   let minDelivered = Infinity;
   let minRead = Infinity;
 
-  if (conversation.host !== "system" && Object.keys(readReceipts).length !== conversation.members.length - 1)
+  if (conversation.host === "system" || Object.keys(readReceipts).length !== conversation.members.length)
     return {
       lastDeliveredMessageTimestamp: undefined,
       lastReadMessageTimestamp: undefined,

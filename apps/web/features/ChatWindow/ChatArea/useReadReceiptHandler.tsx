@@ -29,6 +29,7 @@ export default function useReadReceiptHandler() {
         userId: user.id!,
         senderId: recentMessage.from!,
         lastReadMessageTimestamp: recentMessage.timestamp,
+        updatedAt: Date.now(),
       },
     ]);
   }, [user, selectedConversation]);

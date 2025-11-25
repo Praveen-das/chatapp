@@ -44,7 +44,7 @@ export type MessageReadReceipt = {
   userId: string;
   lastDeliveredMessageTimestamp?: number;
   lastReadMessageTimestamp?: number;
-  version?:number
+  updatedAt?: number;
 };
 
 export interface IUserMedia {
