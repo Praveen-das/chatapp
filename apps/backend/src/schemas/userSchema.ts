@@ -4,7 +4,16 @@ import Dot from "dot-object";
 
 Dot.keepArray = true;
 
-export const userRules = z.array(z.enum(["hide_profilepicture", "hide_bio", "hide_lastseen", "hide_readreceipts"]));
+export const userRules = z.array(
+  z.enum([
+    "hide_profilepicture",
+    "hide_bio",
+    "hide_lastseen",
+    "hide_readreceipts",
+    "disable_chat_assist",
+    "disable_content_awareness",
+  ])
+);
 
 export const userSchema = z.object({
   id: z.string(),

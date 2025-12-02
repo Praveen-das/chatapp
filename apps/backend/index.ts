@@ -32,6 +32,7 @@ import { otpRateLimiter } from "./src/rateLimit/otp";
 
   app.get("/health", (_, res) => res.json({ status: "okay" }));
   app.use("/otp", otpRateLimiter, otpRoute);
+
   app.use(verifyAuth);
   app.use(router);
 

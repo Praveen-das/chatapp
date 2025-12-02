@@ -5,13 +5,13 @@ const privateRoutes = ["/api", "/server"];
 
 export default async function middleware(req: NextRequest, event: NextResponse) {
   const pathname = req.nextUrl.pathname;
-  const token = await getToken({ req:req as any });
+  const token = await getToken({ req: req as any });
   const isAuthenticated = !!token?.user?.id;
   const isPrivateRoute = privateRoutes.some((route) => pathname.startsWith(route)) || pathname === "/";
   const isApiRoute = pathname.startsWith("/api");
   const isLoginPage = pathname.startsWith("/register");
-  
-  if (pathname.startsWith('/invite')) return NextResponse.next();
+
+  if (pathname.startsWith("/invite")) return NextResponse.next();
   if (isApiRoute) return NextResponse.next();
   if (!isAuthenticated) {
     if (isLoginPage) return NextResponse.next();

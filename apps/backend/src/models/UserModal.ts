@@ -28,7 +28,14 @@ export const userSchema = new Schema(
     rules: [
       {
         type: String,
-        enum: ["hide_profilepicture", "hide_bio", "hide_lastseen", "hide_readreceipts"],
+        enum: [
+          "hide_profilepicture",
+          "hide_bio",
+          "hide_lastseen",
+          "hide_readreceipts",
+          "disable_chat_assist",
+          "disable_content_awareness",
+        ],
       },
     ],
     status: {
@@ -48,7 +55,7 @@ export const userSchema = new Schema(
 userSchema.index({ id: 1, username: 1, phoneNumber: 1 });
 
 userSchema.post("findOneAndUpdate", function (doc) {
-  console.log(doc.id)
+  console.log(doc.id);
   syncRegistry.saveUserVersion(doc.id, doc.version);
 });
 

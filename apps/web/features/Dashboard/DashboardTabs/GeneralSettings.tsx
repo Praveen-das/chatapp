@@ -9,7 +9,7 @@ import { usePersistentStore } from "../../../store/persistentStore";
 import COLORS from "config/themes";
 import Header from "./SharedComponents/Header";
 import { useTheme } from "@hooks/useTheme";
-import { IUser, IUserRules } from "@repo/interfaces/userInterface";
+import { IUserRules } from "@repo/interfaces/userInterface";
 
 declare module "csstype" {
   interface Properties {
@@ -127,6 +127,44 @@ function GeneralSettings() {
               <span className="label-text">Read Receipts</span>
             </label>
           </div>
+        </div>
+        <div className="grid gap-4 max-sm:px-0 px-4">
+          <label className="text-sm text-primary" htmlFor="Theme">
+            AI Settings
+          </label>
+          <div className="form-control pl-2">
+            <label className="label cursor-pointer justify-start gap-4">
+              <input
+                name="disable_chat_assist"
+                onChange={handleChangingProfileRules}
+                checked={!user?.rules?.includes("disable_chat_assist")}
+                type="checkbox"
+                className={checkBoxStyle}
+              />
+              <span className="label-text">Enable Chat Assistant</span>
+            </label>
+            <p className="mt-4 text-xs">
+              Chat Assistant refines any input into a clear, natural message and effectively fulfills user requests with
+              high-quality, well-structured responses.
+            </p>
+          </div>
+          {/* <div className="form-control pl-2">
+            <label className="label cursor-pointer justify-start gap-4">
+              <input
+                name="disable_content_awareness"
+                onChange={handleChangingProfileRules}
+                checked={!user?.rules?.includes("disable_content_awareness")}
+                disabled={user?.rules?.includes("disable_chat_assist")}
+                type="checkbox"
+                className={checkBoxStyle}
+              />
+              <span className="label-text">Content Awareness</span>
+            </label>
+            <p className="mt-4 text-xs">
+              Content Awareness uses your recent messages to give the AI better context, helping it generate more
+              accurate and relevant responses while maintaining smoother conversation flow.
+            </p>
+          </div> */}
         </div>
         <div className="grid gap-4 max-sm:px-0 px-4">
           <label className="text-sm text-primary" htmlFor="Theme">

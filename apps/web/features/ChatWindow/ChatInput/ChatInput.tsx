@@ -1,18 +1,19 @@
 "use client";
-import React, { ChangeEvent, memo, useState } from "react";
+import React, { ChangeEvent, memo, useEffect, useMemo, useRef, useState } from "react";
 
 import { FaceSmileIcon, PhotoIcon } from "@heroicons/react/24/outline";
 import { ArrowUturnRightIcon, DocumentTextIcon, XCircleIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import useAuth from "@hooks/useAuth";
+import useAxios from "@hooks/useAxios";
 import useSelectedConversation from "@hooks/useSelectedConversation";
-import { getMemberById, getReceiverMetadata, getUserById } from "@lib/conversation";
+import { getReceiverMetadata, getUserById } from "@lib/conversation";
 import { generateMessageTemplate } from "@lib/messages";
 import { getImages, parseUrl } from "@lib/utils";
 import { IUrlAttachment } from "@repo/interfaces/messageInterface";
 import ObjectID from "bson-objectid";
 import { APP_NAME } from "config/constants";
 import { AnimatePresence, motion } from "framer-motion";
-import { Attachment, SendSolid } from "iconoir-react";
+import { Attachment, SendSolid, Sparks } from "iconoir-react";
 import useSocket from "../../../context/SocketProvider";
 import { useAttachments } from "../../../store/attachments";
 import { useConversationStore } from "../../../store/conversationStore";
@@ -23,6 +24,14 @@ import LinkPreview from "../../ui/LinkPreview";
 import ImageAttachmentPreview from "./AttachmentPreview/ImageAttachmentPreview";
 import UrlAttachmentPreview from "./AttachmentPreview/UrlAttachmentPreview";
 import useUrlParser from "./useUrlParser";
+//@ts-ignore
+import { removePII } from "@coffeeandfun/remove-pii";
+import { useChat, useCompletion } from "@ai-sdk/react";
+
+import useMediaQuery from "@hooks/useMediaQuery";
+import useAutosizeTextArea from "@hooks/useAutosizeTextArea";
+import { DefaultChatTransport } from "ai";
+import { parseJsonEventStream } from "@ai-sdk/provider-utils";
 
 function ChatInput() {
   const { user } = useAuth();
@@ -56,12 +65,17 @@ function ChatInput() {
 
 function InputWrapper() {
   const selectedChats = useMessageStore((s) => s.selectedChats);
+  const isMobile = useMediaQuery("(max-width: 640px)");
+
   return (
     <>
-      <div className="max-sm:hidden">{!!selectedChats.length ? <SelectedMessagesActions /> : <Input />}</div>
-      <div className="sm:hidden duration-300">
-        <Input />
-      </div>
+      {isMobile ? (
+        <div className="sm:hidden duration-300">
+          <Input />
+        </div>
+      ) : (
+        <div className="max-sm:hidden">{!!selectedChats.length ? <SelectedMessagesActions /> : <Input />}</div>
+      )}
     </>
   );
 }
@@ -74,10 +88,20 @@ function Input(): React.ReactNode {
   const selectedConversation = useConversationStore.getState().selectedConversation;
   const addImages = useAttachments((s) => s.addImages);
 
+  const { completion, complete, setCompletion } = useCompletion();
+
   if (selectedConversation?.host === "system") return;
+
+  useEffect(() => {
+    console.log(completion);
+  }, [completion]);
 
   const [messageString, setMessageString] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingAssist, setLoadingAssist] = useState(false);
+
+  // Track recent AI assist request for duplicate detection
+  const [previousInput, setPreviousInput] = useState("");
 
   const [toggleEmojiPicker, setToggleEmojiPicker] = useState(false);
   const [toggleAttachments, setToggleAttachments] = useState(false);
@@ -92,10 +116,6 @@ function Input(): React.ReactNode {
   };
 
   function handleInput(e: ChangeEvent<HTMLTextAreaElement>) {
-    if (e.target.scrollHeight < 75) {
-      e.target.style.height = "auto";
-      e.target.style.height = e.target.scrollHeight + "px";
-    }
     setMessageString(e.target.value);
   }
 
@@ -144,6 +164,43 @@ function Input(): React.ReactNode {
     setReplyRequest(null);
     setMetadata(null);
     setToggleEmojiPicker(false);
+    setPreviousInput("");
+  };
+
+  const handleAssist = async () => {
+    if (!messageString || loadingAssist) return;
+    setLoadingAssist(true);
+
+    try {
+      // Get messages from both stores and combine
+      const conversationId = selectedConversation?.id!;
+      const messageStore = useMessageStore.getState().messageStore.get(conversationId) || [];
+      const messageHistory = useMessageStore.getState().messageHistory.get(conversationId) || [];
+      const allMessages = [...messageHistory, ...messageStore];
+
+      // Get last 5 messages and format for context
+      const recentContext = allMessages
+        .slice(-5)
+        .filter((m) => !m.deleted && m.type === "message")
+        .map((m) => ({
+          from: m.from,
+          message: removePII(m.message),
+        }));
+
+      complete(messageString, {
+        body: { context: recentContext, enableContext: true, originalInput: previousInput },
+      }).then((finalCompletion) => {
+        if (finalCompletion) {
+          if (!previousInput) setPreviousInput(messageString);
+          setMessageString(finalCompletion);
+          setCompletion("");
+        }
+      });
+    } catch (error) {
+      console.error("Failed to assist", error);
+    } finally {
+      setLoadingAssist(false);
+    }
   };
 
   const motionProps = {
@@ -164,6 +221,7 @@ function Input(): React.ReactNode {
     if (payload) addImages(payload);
   }
 
+  const textareaRef = useAutosizeTextArea(messageString, 200);
   return (
     <div>
       <AnimatePresence>
@@ -252,8 +310,6 @@ function Input(): React.ReactNode {
       </AnimatePresence>
 
       <div className="flex items-center gap-1 w-full mx-auto p-4">
-        {/* <AttachmentPicker /> */}
-
         <div onClick={() => handleToggle("attachment")} className="btn btn-circle btn-ghost btn-sm">
           <Attachment width={20} height={20} />
         </div>
@@ -262,11 +318,21 @@ function Input(): React.ReactNode {
         </div>
 
         <textarea
+          ref={textareaRef}
           rows={1}
-          value={messageString}
+          value={completion || messageString}
           onChange={handleInput}
           className="w-full bg-transparent outline-none border-none ml-3 overflow-hidden resize-none"
         />
+        {messageString.trim().length > 3 && (
+          <div
+            className={`btn btn-circle btn-sm btn-ghost ${loadingAssist ? "loading" : ""}`}
+            onClick={handleAssist}
+            title="AI Assist"
+          >
+            {!loadingAssist && <Sparks className="size-5" />}
+          </div>
+        )}
         <div className="btn btn-circle btn-sm btn-ghost" onClick={() => !loading && handleMessaging()} tabIndex={0}>
           <SendSolid className="size-6" />
         </div>

@@ -1,6 +1,12 @@
 import { Types } from "mongoose";
 
-export type IUserRules = "hide_profilepicture" | "hide_bio" | "hide_lastseen" | "hide_readreceipts";
+export type IUserRules =
+  | "hide_profilepicture"
+  | "hide_bio"
+  | "hide_lastseen"
+  | "hide_readreceipts"
+  | "disable_chat_assist"
+  | "disable_content_awareness";
 
 export interface IUser {
   id: string;

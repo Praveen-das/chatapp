@@ -5,9 +5,7 @@ import { useMessageStore } from "store/messageStore";
 import { shallow } from "zustand/shallow";
 
 function useMessages() {
-  const selectedConversation = useConversationStore(
-    (s) => s.selectedConversation
-  );
+  const selectedConversation = useConversationStore((s) => s.selectedConversation);
   const conversationId = selectedConversation?.id!;
 
   const [messages, setMessages] = useState<IMessage[]>([]);

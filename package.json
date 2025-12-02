@@ -27,6 +27,10 @@
     "packages/*"
   ],
   "dependencies": {
+    "@bull-board/api": "^6.14.2",
+    "@bull-board/express": "^6.14.2",
+    "@bull-board/ui": "^6.14.2",
+    "ai": "^5.0.104",
     "mongoose": "^8.13.2",
     "node-jose-tools": "^2.0.4",
     "zod": "^3.24.2"

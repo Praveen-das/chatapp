@@ -14,6 +14,7 @@ import ActiveSessions from "./DashboardTabs/ActiveSessions";
 import FetchedUser from "./DashboardTabs/FetchedUser";
 import useMediaQuery from "@hooks/useMediaQuery";
 import { useEffect } from "react";
+import AiSettings from "./DashboardTabs/AiSettings";
 
 // async function getContactData() {
 //   const supported = "contacts" in navigator && "ContactsManager" in window;
@@ -47,7 +48,7 @@ export default function Dashboard(): JSX.Element {
     <div
       className={`${deviceTab === "chatarea" ? "max-sm:opacity-0 max-sm:z-0" : "opacity-100"} max-sm:duration-300 relative max-sm:w-full sm:w-1/2 lg:w-[calc((100vw-(1rem*4))/3)] max-sm:h-dvh z-[50]`}
     >
-      <Tabs activeTab={isMobile ? deviceTab || 'dashboard' : 'dashboard'} initialTab="dashboard">
+      <Tabs activeTab={isMobile ? deviceTab || "dashboard" : "dashboard"} initialTab="dashboard">
         <Tab component="dashboard">
           <Tabs activeTab={dashboardTab} initialTab="dashboard">
             <Tab component="dashboard">
@@ -77,6 +78,9 @@ export default function Dashboard(): JSX.Element {
             </Tab>
             <Tab component="generalSettings">
               <GeneralSettings />
+            </Tab>
+            <Tab component="aiSettings">
+              <AiSettings />
             </Tab>
             <Tab component="blockedContacts">
               <BlockedContacts />

@@ -1,28 +1,13 @@
-import { ChangeEvent, TextareaHTMLAttributes, useCallback, useEffect, useRef, useState } from "react";
-
-const adjustHeight = (elm: EventTarget & HTMLTextAreaElement) => {
-  elm.style.height = "0px";
-  const scrollHeight = elm.scrollHeight;
-  if (scrollHeight < 100) elm.style.height = scrollHeight + "px";
-};
+import useAutosizeTextArea from "@hooks/useAutosizeTextArea";
+import { TextareaHTMLAttributes } from "react";
 
 function TextArea({ className, value, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  const ref = useRef<HTMLTextAreaElement | null>(null);
-
-
-  useEffect(() => {
-    if (ref.current) {
-      adjustHeight(ref.current);
-      ref.current.oninput = () => {
-        adjustHeight(ref.current!);
-      };
-    }
-  }, []);
+  const textareaRef = useAutosizeTextArea(value as any, 100);
 
   return (
     <textarea
       {...props}
-      ref={ref}
+      ref={textareaRef}
       value={value}
       onLoadedData={console.log}
       maxLength={120}

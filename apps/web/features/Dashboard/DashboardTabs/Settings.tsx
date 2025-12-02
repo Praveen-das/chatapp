@@ -147,6 +147,17 @@ const Settings = () => {
             <label htmlFor="notification">General Settings</label>
             <ChevronRightIcon className="size-5 ml-auto" />
           </div>
+
+          {/* Ai Assistant */}
+          {/* <div
+            onClick={() => handleMenu("aiSettings")}
+            tabIndex={0}
+            className="hover:bg-[--hover-secondary] w-full flex gap-4 items-center duration-200 max-sm:px-0 px-4 py-4 cursor-pointer"
+          >
+            <div className="size-5 text-bold">Ai</div>
+            <label htmlFor="notification">Ai Assistant</label>
+            <ChevronRightIcon className="size-5 ml-auto" />
+          </div> */}
           {/* <div className="w-full min-h-[2px] bg-gradient-to-r from-black/20 to-transparent" /> */}
 
           {/* Blocked Contacts */}
