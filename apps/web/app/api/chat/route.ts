@@ -12,10 +12,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createResumableStreamContext } from "resumable-stream/ioredis";
 import { deleteActiveStream, saveActiveStreamId } from "@lib/stream-store";
-import produceMessage from "../../../../socket-service/src/kafka/kafka";
 import { systemInstruction } from "./s_prompt";
 import { publisher, subscriber } from "../../../redis/client";
-import { MockLanguageModelV2 } from "ai/test";
+import { produceMessage } from "@repo/kafka";
 
 // Polyfill for Next.js 14 compatibility (Next.js 15+ has native 'after' function)
 // This simply executes the promise without deferring it
