@@ -1,10 +1,10 @@
 import Redis from "ioredis";
 
 const redisConfig = {
-  host: process.env.REDIS_HOST,
-  port: Number(process.env.REDIS_PORT),
-  username: process.env.REDIS_USERNAME,
-  password: process.env.REDIS_PASSWORD,
+  host: process.env.NEXT_PUBLIC_REDIS_HOST,
+  port: Number(process.env.NEXT_PUBLIC_REDIS_PORT),
+  username: process.env.NEXT_PUBLIC_REDIS_USERNAME,
+  password: process.env.NEXT_PUBLIC_REDIS_PASSWORD,
 };
 
 const client = new Redis(redisConfig);
