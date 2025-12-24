@@ -76,7 +76,7 @@ function StarredMessagess() {
         </button>
         <label htmlFor="contact info">Starred Messages</label>
       </div>
-      <div className="flex flex-col w-full h-full bg-gradient-to-t from-base-200 overflow-y-auto no-scrollbar">
+      <div className="flex flex-col w-full h-full bg-gradient-to-t from-base-200 overflow-y-auto no-scrollbar px-3">
         {messages?.map((chat, i) => {
           if (!chat) return;
           let { sender, receiver } = findParticipants(conversation, chat.from!, chat.to!);
@@ -89,13 +89,13 @@ function StarredMessagess() {
             <div
               key={chat.id}
               onClick={() => handleShowingReply(chat.id)}
-              className="flex justify-between hover:bg-black/25 pl-4 cursor-pointer"
+              className="flex justify-between gap-4 p-2 rounded-2xl hover:bg-black/25 cursor-pointer"
             >
-              <div className="py-2">
+              <div className="">
                 <Avatar url={sender?.profilePicture} size="30px" onlineIndication={false} />
               </div>
               <div className="flex-1 flex flex-col">
-                <div className="flex justify-between mt-2 pb-2 ml-4 mr-4 text-xs border-b-[1px] border-b-black/25">
+                <div className="flex justify-between text-xs pb-2 border-b-[1px] border-b-black/25">
                   {conversation.host === "user" ? userMessageFlow : groupMessageFlow}
                   <span>{timestamp}</span>
                 </div>

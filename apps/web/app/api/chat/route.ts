@@ -15,6 +15,7 @@ import { deleteActiveStream, saveActiveStreamId } from "@lib/stream-store";
 import produceMessage from "../../../../socket-service/src/kafka/kafka";
 import { systemInstruction } from "./s_prompt";
 import { publisher, subscriber } from "../../../redis/client";
+import { MockLanguageModelV2 } from "ai/test";
 
 // Polyfill for Next.js 14 compatibility (Next.js 15+ has native 'after' function)
 // This simply executes the promise without deferring it
@@ -114,6 +115,99 @@ export async function POST(req: NextRequest) {
         chunking: "line", // optional: defaults to 'word'
       }),
     });
+
+    // const result = streamText({
+    //   model: new MockLanguageModelV2({
+    //     doStream: async () => ({
+    //       stream: simulateReadableStream({
+    //         chunks: [
+    //           { type: "text-start", id: msgId },
+
+    //           { type: "text-delta", id: msgId, delta: "The quiet " },
+    //           { type: "text-delta", id: msgId, delta: "hum " },
+    //           { type: "text-delta", id: msgId, delta: "of morning " },
+    //           { type: "text-delta", id: msgId, delta: "light,\n" },
+
+    //           { type: "text-delta", id: msgId, delta: "Spills gold " },
+    //           { type: "text-delta", id: msgId, delta: "on fields, " },
+    //           { type: "text-delta", id: msgId, delta: "chases the " },
+    //           { type: "text-delta", id: msgId, delta: "night.\n" },
+
+    //           { type: "text-delta", id: msgId, delta: "A gentle " },
+    //           { type: "text-delta", id: msgId, delta: "breeze begins " },
+    //           { type: "text-delta", id: msgId, delta: "to sigh,\n" },
+
+    //           { type: "text-delta", id: msgId, delta: "Whispering secrets " },
+    //           { type: "text-delta", id: msgId, delta: "to the " },
+    //           { type: "text-delta", id: msgId, delta: "sky.\n\n" },
+
+    //           { type: "text-delta", id: msgId, delta: "Green blades " },
+    //           { type: "text-delta", id: msgId, delta: "awaken, fresh " },
+    //           { type: "text-delta", id: msgId, delta: "with dew,\n" },
+
+    //           { type: "text-delta", id: msgId, delta: "Beneath a " },
+    //           { type: "text-delta", id: msgId, delta: "heaven clear " },
+    //           { type: "text-delta", id: msgId, delta: "and blue.\n" },
+
+    //           { type: "text-delta", id: msgId, delta: "A distant " },
+    //           { type: "text-delta", id: msgId, delta: "bird begins " },
+    //           { type: "text-delta", id: msgId, delta: "its tune,\n" },
+
+    //           { type: "text-delta", id: msgId, delta: "Singing softly " },
+    //           { type: "text-delta", id: msgId, delta: "to the " },
+    //           { type: "text-delta", id: msgId, delta: "moon's faint " },
+    //           { type: "text-delta", id: msgId, delta: "rune.\n\n" },
+
+    //           { type: "text-delta", id: msgId, delta: "The path " },
+    //           { type: "text-delta", id: msgId, delta: "unwinds, a " },
+    //           { type: "text-delta", id: msgId, delta: "dusty thread,\n" },
+
+    //           { type: "text-delta", id: msgId, delta: "Where silent " },
+    //           { type: "text-delta", id: msgId, delta: "thoughts are " },
+    //           { type: "text-delta", id: msgId, delta: "gently led.\n" },
+
+    //           { type: "text-delta", id: msgId, delta: "Each step " },
+    //           { type: "text-delta", id: msgId, delta: "a moment, " },
+    //           { type: "text-delta", id: msgId, delta: "soft and " },
+    //           { type: "text-delta", id: msgId, delta: "slow,\n" },
+
+    //           { type: "text-delta", id: msgId, delta: "Watching the " },
+    //           { type: "text-delta", id: msgId, delta: "ancient river " },
+    //           { type: "text-delta", id: msgId, delta: "flow.\n\n" },
+
+    //           { type: "text-delta", id: msgId, delta: "Here, time " },
+    //           { type: "text-delta", id: msgId, delta: "itself seems " },
+    //           { type: "text-delta", id: msgId, delta: "to unbind,\n" },
+
+    //           { type: "text-delta", id: msgId, delta: "Leaving the " },
+    //           { type: "text-delta", id: msgId, delta: "hurried world " },
+    //           { type: "text-delta", id: msgId, delta: "behind.\n" },
+
+    //           { type: "text-delta", id: msgId, delta: "A peaceful " },
+    //           { type: "text-delta", id: msgId, delta: "breath, a " },
+    //           { type: "text-delta", id: msgId, delta: "tranquil gaze,\n" },
+
+    //           { type: "text-delta", id: msgId, delta: "Lost in " },
+    //           { type: "text-delta", id: msgId, delta: "the sun's " },
+    //           { type: "text-delta", id: msgId, delta: "warm, golden " },
+    //           { type: "text-delta", id: msgId, delta: "haze." },
+
+    //           { type: "text-end", id: msgId },
+
+    //           {
+    //             type: "finish",
+    //             finishReason: "stop",
+    //             logprobs: undefined,
+    //             usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+    //           },
+    //         ],
+    //         chunkDelayInMs: 200,
+    //         initialDelayInMs: 2000,
+    //       }),
+    //     }),
+    //   }),
+    //   prompt: "Hello, test!",
+    // });
 
     const stream = result.toUIMessageStreamResponse<UIMessage>({
       originalMessages: validatedMessages,

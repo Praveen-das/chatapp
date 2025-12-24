@@ -88,6 +88,7 @@ function Chat({
                 readReceipt={readReceipt}
                 displayChatIndicators={chat.type !== "notification"}
                 hideIndicators={hideIndicators}
+                self={self}
               />
             </>
           )}

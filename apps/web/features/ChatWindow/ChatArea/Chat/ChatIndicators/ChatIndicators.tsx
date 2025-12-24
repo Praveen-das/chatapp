@@ -9,17 +9,18 @@ function ChatIndicators({
   chat,
   displayChatIndicators = true,
   hideIndicators,
-  readReceipt
+  readReceipt,
+  self,
 }: {
   chat: IMessage;
   displayChatIndicators?: boolean;
   hideIndicators?: IHideIndicators;
-  readReceipt:IMessage["readReceiptStatus"]
+  readReceipt: IMessage["readReceiptStatus"];
+  self?: boolean;
 }) {
-  
   return (
     displayChatIndicators && (
-      <div className={`flex items-center gap-2 whitespace-nowrap mx-1 mt-1 text-xs ${!self ? "flex-row-reverse" : ""}`}>
+      <div className={`flex items-center gap-2 whitespace-nowrap mx-1 mt-1 text-xs ${self ? "flex-row-reverse" : ""}`}>
         {!hideIndicators?.includes("starredIndicator") && <StarredIndicator messageId={chat.id} />}
         {!hideIndicators?.includes("timestamp") && <Timestamp timeInMs={chat.timestamp} />}
         {!hideIndicators?.includes("acknowledgment") && <Acknowledgment readReceipt={readReceipt} />}
@@ -28,4 +29,4 @@ function ChatIndicators({
   );
 }
 
-export default memo(ChatIndicators)
+export default memo(ChatIndicators);

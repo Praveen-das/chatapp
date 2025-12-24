@@ -44,7 +44,6 @@ export default function registerMessageHandlers(io: Server, socket: ISocket) {
 
   socket.on("change readReceipt", async (updates: MessageReadReceipt[]) => {
     if (!updates) return;
-
     updates.forEach((rr) => {
       io.to(rr.senderId).emit("change readReceipt", rr);
     });
