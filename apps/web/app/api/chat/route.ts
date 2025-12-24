@@ -14,7 +14,7 @@ import { createResumableStreamContext } from "resumable-stream/ioredis";
 import { deleteActiveStream, saveActiveStreamId } from "@lib/stream-store";
 import { systemInstruction } from "./s_prompt";
 import { publisher, subscriber } from "../../../redis/client";
-// import { produceMessage } from "@repo/kafka";
+import { produceMessage } from "@repo/kafka";
 
 // Polyfill for Next.js 14 compatibility (Next.js 15+ has native 'after' function)
 // This simply executes the promise without deferring it
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     const validatedMessages = messagesValidation.data as UIMessage[];
     let message = "";
 
-    // await produceMessage({ messages: [validatedMessages.at(-1)?.metadata] }, "MESSAGES");
+    await produceMessage({ messages: [validatedMessages.at(-1)?.metadata] }, "MESSAGES");
 
     const result = streamText({
       model: google("gemini-2.5-flash"),
@@ -257,7 +257,7 @@ export async function POST(req: NextRequest) {
       },
       onFinish: async ({ messages }) => {
         const lastMessage = messages.slice(-1).map((m) => m.metadata);
-        // produceMessage({ messages: lastMessage }, "MESSAGES");
+        produceMessage({ messages: lastMessage }, "MESSAGES");
 
         // Save the generated text with the stream ID
         const generatedText = lastMessage[0]?.message || "";

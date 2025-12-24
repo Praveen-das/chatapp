@@ -22,6 +22,7 @@
     "@heroicons/react": "^2.1.5",
     "@inngest/realtime": "^0.4.5",
     "@repo/ui": "*",
+    "@repo/kafka": "*",
     "@skgdev/socket.io-msgpack-javascript": "^1.2.1",
     "@socket.io/redis-emitter": "^5.1.0",
     "@suspensive/react": "^3.10.0",
