@@ -53,8 +53,8 @@ const messageReplySchema = z.object({
 export const userMessageSchema = z.object({
   id: objectId,
   conversationId: objectId,
-  from: z.union([objectId, z.literal("system")]),
-  to: objectId.optional(),
+  from: z.union([objectId, z.literal("system"), z.literal("ai")]),
+  to: z.union([objectId, z.literal("ai")]),
   message: z.string(),
   readReceipt: z.array(readReceiptSchema).optional(),
   timestamp: z.number(),

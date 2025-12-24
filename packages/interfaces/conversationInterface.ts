@@ -6,7 +6,7 @@ import { MemberReq } from "./groupInterface";
 export interface INewConversation {
   id: string;
   host: "user";
-  members: [string,string];
+  members: [string, string];
   blocked?: [string];
 }
 
@@ -21,7 +21,7 @@ export type GenerateConversationProps = {
   blocked: [string];
 };
 
-export type IConversation = IUserConversation | IGroupConversation | ISystemConversation;
+export type IConversation = IUserConversation | IGroupConversation | ISystemConversation | IAIConversation;
 
 export interface IConversationBase {
   id: string;
@@ -72,6 +72,10 @@ export interface IGroupConversation extends IConversationBase {
 
 export interface ISystemConversation extends IConversationBase {
   host: "system";
+}
+
+export interface IAIConversation extends IConversationBase {
+  host: "ai";
 }
 
 export interface IDeleteRequest {

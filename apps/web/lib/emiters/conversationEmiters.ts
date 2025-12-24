@@ -14,7 +14,7 @@ export function initConversationEmiters(socket: ISocket, user: IUser) {
     sendRequestToRegisterStarredMessage: (req: {
       conversationId: string;
       message: IMessage;
-      host: "user" | "group";
+      host: "user" | "group" | "ai";
     }) => {
       socket.emit("REGISTER_STARRED_MESSAGES", req);
     },
@@ -22,12 +22,15 @@ export function initConversationEmiters(socket: ISocket, user: IUser) {
     sendRequestToUnRegisterStarredMessage: (req: {
       conversationId: string;
       message: IMessage;
-      host: "user" | "group";
+      host: "user" | "group" | "ai";
     }) => {
       socket.emit("UNREGISTER_STARRED_MESSAGES", req);
     },
 
-    sendRequestToRegisterConversation: (members: { currentUser: IUser; participant: IUser }, props?: GenerateConversationProps) => {
+    sendRequestToRegisterConversation: (
+      members: { currentUser: IUser; participant: IUser },
+      props?: GenerateConversationProps
+    ) => {
       socket.emit("REGISTER_CONVERSATION", members, props);
     },
 

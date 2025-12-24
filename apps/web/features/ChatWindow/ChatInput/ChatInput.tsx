@@ -1,15 +1,14 @@
 "use client";
-import React, { ChangeEvent, memo, useEffect, useMemo, useRef, useState } from "react";
+import React, { ChangeEvent, memo, useEffect, useState } from "react";
 
 import { FaceSmileIcon, PhotoIcon } from "@heroicons/react/24/outline";
 import { ArrowUturnRightIcon, DocumentTextIcon, XCircleIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import useAuth from "@hooks/useAuth";
-import useAxios from "@hooks/useAxios";
 import useSelectedConversation from "@hooks/useSelectedConversation";
 import { getReceiverMetadata, getUserById } from "@lib/conversation";
 import { generateMessageTemplate } from "@lib/messages";
 import { getImages, parseUrl } from "@lib/utils";
-import { IUrlAttachment } from "@repo/interfaces/messageInterface";
+import { IUrlAttachment, IUrlMetadata } from "@repo/interfaces/messageInterface";
 import ObjectID from "bson-objectid";
 import { APP_NAME } from "config/constants";
 import { AnimatePresence, motion } from "framer-motion";
@@ -26,12 +25,12 @@ import UrlAttachmentPreview from "./AttachmentPreview/UrlAttachmentPreview";
 import useUrlParser from "./useUrlParser";
 //@ts-ignore
 import { removePII } from "@coffeeandfun/remove-pii";
-import { useChat, useCompletion } from "@ai-sdk/react";
+import { useCompletion } from "@ai-sdk/react";
 
 import useMediaQuery from "@hooks/useMediaQuery";
 import useAutosizeTextArea from "@hooks/useAutosizeTextArea";
-import { DefaultChatTransport } from "ai";
-import { parseJsonEventStream } from "@ai-sdk/provider-utils";
+import { useAiChat } from "context/AiChatProvider";
+// import { Message } from "@lib/inngest/chat";
 
 function ChatInput() {
   const { user } = useAuth();
@@ -80,32 +79,30 @@ function InputWrapper() {
   );
 }
 
+const setSelectedUser = useStore.getState().setSelectedUser;
+const setReplyRequest = useMessageStore.getState().setReplyRequest;
+
 function Input(): React.ReactNode {
-  const { sendMessage } = useSocket();
   const { user } = useAuth();
-  const setReplyRequest = useMessageStore((s) => s.setReplyRequest);
+  const selectedConversation = useConversationStore((s) => s.selectedConversation);
+
   const replyRequest = useMessageStore((s) => s.replyRequest);
-  const selectedConversation = useConversationStore.getState().selectedConversation;
   const addImages = useAttachments((s) => s.addImages);
 
-  const { completion, complete, setCompletion } = useCompletion();
+  const isAiConversation = selectedConversation?.host === "ai";
+  const isSystemConversation = selectedConversation?.host === "system";
 
-  if (selectedConversation?.host === "system") return;
+  const { completion, complete, setCompletion, isLoading } = useCompletion();
 
-  useEffect(() => {
-    console.log(completion);
-  }, [completion]);
+  if (isSystemConversation) return;
 
   const [messageString, setMessageString] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [loadingAssist, setLoadingAssist] = useState(false);
-
-  // Track recent AI assist request for duplicate detection
   const [previousInput, setPreviousInput] = useState("");
 
   const [toggleEmojiPicker, setToggleEmojiPicker] = useState(false);
   const [toggleAttachments, setToggleAttachments] = useState(false);
   const { metadata, setMetadata } = useUrlParser(messageString);
+  const textareaRef = useAutosizeTextArea(messageString, 200);
 
   const sender = getUserById(replyRequest?.userId!);
   const receiver = sender?.id === user?.id ? "You" : sender?.username!;
@@ -119,57 +116,8 @@ function Input(): React.ReactNode {
     setMessageString(e.target.value);
   }
 
-  const handleMessaging = async () => {
-    if (!messageString) return;
-    if (loading) return;
-
-    setLoading(true);
-
-    const selectedConversation = useConversationStore.getState().selectedConversation;
-    const conversations = useConversationStore.getState().conversations;
-    const selectedUser = useStore.getState().selectedUser;
-    const setSelectedUser = useStore.getState().setSelectedUser;
-
-    let conversation = conversations.find(
-      (c) =>
-        c.id === selectedConversation?.id ||
-        (c.host !== "system" && c.members.find((m) => m.userId === selectedUser?.id! && c.host === "user"))
-    );
-
-    const url = parseUrl(messageString);
-
-    const attachment: IUrlAttachment | undefined = url
-      ? {
-          metadata,
-          type: "link",
-          id: new ObjectID().toHexString(),
-          url: messageString,
-          host: url.host,
-        }
-      : undefined;
-
-    const message = await generateMessageTemplate(conversation!, messageString, attachment);
-
-    sendMessage({
-      conversation: conversation!,
-      messages: [message],
-      callback: () => {
-        console.log("message sent");
-        setLoading(false);
-      },
-    });
-
-    setSelectedUser(null);
-    setMessageString("");
-    setReplyRequest(null);
-    setMetadata(null);
-    setToggleEmojiPicker(false);
-    setPreviousInput("");
-  };
-
   const handleAssist = async () => {
-    if (!messageString || loadingAssist) return;
-    setLoadingAssist(true);
+    if (!messageString) return;
 
     try {
       // Get messages from both stores and combine
@@ -198,8 +146,6 @@ function Input(): React.ReactNode {
       });
     } catch (error) {
       console.error("Failed to assist", error);
-    } finally {
-      setLoadingAssist(false);
     }
   };
 
@@ -221,7 +167,15 @@ function Input(): React.ReactNode {
     if (payload) addImages(payload);
   }
 
-  const textareaRef = useAutosizeTextArea(messageString, 200);
+  function handleReset() {
+    setSelectedUser(null);
+    setMessageString("");
+    setReplyRequest(null);
+    setMetadata(null);
+    setToggleEmojiPicker(false);
+    setPreviousInput("");
+  }
+
   return (
     <div>
       <AnimatePresence>
@@ -310,9 +264,11 @@ function Input(): React.ReactNode {
       </AnimatePresence>
 
       <div className="flex items-center gap-1 w-full mx-auto p-4">
-        <div onClick={() => handleToggle("attachment")} className="btn btn-circle btn-ghost btn-sm">
-          <Attachment width={20} height={20} />
-        </div>
+        {!isAiConversation && (
+          <div onClick={() => handleToggle("attachment")} className="btn btn-circle btn-ghost btn-sm">
+            <Attachment width={20} height={20} />
+          </div>
+        )}
         <div onClick={() => handleToggle("emoji")} className="btn btn-circle btn-ghost btn-sm">
           <FaceSmileIcon className="size-6" />
         </div>
@@ -324,20 +280,120 @@ function Input(): React.ReactNode {
           onChange={handleInput}
           className="w-full bg-transparent outline-none border-none ml-3 overflow-hidden resize-none"
         />
+
         {messageString.trim().length > 3 && (
-          <div
-            className={`btn btn-circle btn-sm btn-ghost ${loadingAssist ? "loading" : ""}`}
+          <button
+            className={`btn btn-circle btn-xs btn-ghost ${isLoading ? "loading" : ""}`}
             onClick={handleAssist}
             title="AI Assist"
           >
-            {!loadingAssist && <Sparks className="size-5" />}
-          </div>
+            <Sparks className="size-5" />
+          </button>
         )}
-        <div className="btn btn-circle btn-sm btn-ghost" onClick={() => !loading && handleMessaging()} tabIndex={0}>
-          <SendSolid className="size-6" />
-        </div>
+        {isAiConversation ? (
+          <AiInputButton messageString={messageString} onClick={handleReset} isLoading={isLoading} />
+        ) : (
+          <InputButton messageString={messageString} metadata={metadata} onClick={handleReset} isLoading={isLoading} />
+        )}
       </div>
     </div>
+  );
+}
+
+function InputButton({
+  isLoading,
+  messageString,
+  metadata,
+  onClick,
+}: {
+  isLoading: boolean;
+  messageString: string;
+  metadata: IUrlMetadata | null | undefined;
+  onClick: () => void;
+}) {
+  const { sendMessage } = useSocket();
+  const selectedConversation = useConversationStore((s) => s.selectedConversation);
+
+  const handleMessaging = async () => {
+    try {
+      if (!messageString) return;
+      if (isLoading) return;
+
+      const selectedUser = useStore.getState().selectedUser;
+
+      const conversations = useConversationStore.getState().conversations;
+      let conversation = conversations.find(
+        (c) =>
+          c.id === selectedConversation?.id ||
+          (c.host === "user" && c.members.find((m) => m.userId === selectedUser?.id!))
+      );
+
+      if (!conversation) return;
+
+      const url = parseUrl(messageString);
+
+      const attachment: IUrlAttachment | undefined = url
+        ? {
+            metadata,
+            type: "link",
+            id: new ObjectID().toHexString(),
+            url: messageString,
+            host: url.host,
+          }
+        : undefined;
+
+      const message = generateMessageTemplate(conversation!, messageString, attachment);
+
+      onClick();
+
+      await sendMessage({ conversation: conversation!, messages: [message] });
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  return <Button isLoading={isLoading} onClick={handleMessaging} />;
+}
+
+function AiInputButton({
+  isLoading,
+  messageString,
+  onClick,
+}: {
+  isLoading: boolean;
+  onClick: () => void;
+  messageString: string;
+}) {
+  const { user } = useAuth();
+  const { sendMessage, status } = useAiChat();
+
+  const handleMessagingToAi = async () => {
+    try {
+      if (!messageString) return;
+
+      const selectedConversation = useConversationStore.getState().selectedConversation;
+
+      const metadata = generateMessageTemplate(selectedConversation!, messageString);
+
+      onClick();
+
+      await sendMessage({
+        text: messageString,
+        metadata: { ...metadata, from: user?.id, to: "ai" },
+      });
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  return <Button isLoading={isLoading || status === "streaming"} onClick={handleMessagingToAi} />;
+}
+
+function Button({ isLoading, onClick }: { isLoading: boolean; onClick: () => void }) {
+  return (
+    <button disabled={isLoading} className="btn btn-circle btn-sm btn-ghost" onClick={() => onClick()} tabIndex={0}>
+      <SendSolid className="size-6" />
+    </button>
   );
 }
 
@@ -411,4 +467,4 @@ function UnavailableConversation(): React.ReactNode {
   );
 }
 
-export default memo(ChatInput);
+export default ChatInput;

@@ -58,10 +58,12 @@ export default function OtpInputForm() {
       console.log(error);
       if (error instanceof AxiosError) return setOtpError(error.response?.data.error || error.response?.statusText);
       if (error instanceof Error) return setOtpError(error.message);
-    } finally {
       setLoading(false);
+    } finally {
     }
   }
+
+  useEffect(() => () => setLoading(false), []);
 
   return (
     <div className="flex flex-col items-center gap-6">

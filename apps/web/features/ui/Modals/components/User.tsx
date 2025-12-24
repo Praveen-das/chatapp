@@ -12,7 +12,7 @@ export function User({
   selectable?: boolean;
 }): React.JSX.Element {
   return (
-    <div className="max-sm:px-4 px-6 flex items-center hover:bg-[--hover-secondary] gap-4 w-full h-16 py-2 cursor-pointer">
+    <div className="max-sm:px-4 px-4 flex items-center hover:bg-[--hover-secondary] rounded-2xl gap-4 w-full h-16 py-2 cursor-pointer">
       <Avatar
         url={person.profilePicture}
         onlineIndication={false}

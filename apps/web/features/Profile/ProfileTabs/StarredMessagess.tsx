@@ -10,13 +10,34 @@ import useMediaQuery from "@hooks/useMediaQuery";
 import Chat from "@features/ChatWindow/ChatArea/Chat/Chat";
 import { scrolleToIndexHelper } from "@lib/events";
 import useSelectedConversation from "@hooks/useSelectedConversation";
-import { getUserFromMetadata } from "@lib/conversation";
+import { getUserFromMetadata, getUserById } from "@lib/conversation";
 
 function findParticipants(conversation: IConversation, from: string, to: string) {
   let sender = null;
   let receiver = null;
 
   if (conversation.host === "system") return { sender: null, receiver: null };
+
+  if (conversation.host === "ai") {
+    const aiUser: IUser = {
+      id: "ai",
+      username: "AI Assistant",
+      profilePicture: "",
+      createdAt: 0,
+      updatedAt: 0,
+      phoneNumber: "",
+    };
+    const user = getUserById(conversation.userId)!;
+    if (user) user.self = true;
+
+    if (from === "ai") sender = aiUser;
+    else sender = user;
+
+    if (to === "ai") receiver = aiUser;
+    else receiver = user;
+
+    return { sender, receiver };
+  }
 
   for (let meta of conversation.members) {
     const member = getUserFromMetadata(meta)!;

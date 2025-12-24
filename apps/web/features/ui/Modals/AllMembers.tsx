@@ -108,7 +108,7 @@ export const AllMembers = () => {
       <div className="max-sm:px-4 px-6 mt-4">
         <SearchUser query={query} onChange={setQuery} highlightElm=".displayName" highlightResults />
       </div>
-      <div className="flex relative flex-col w-full h-full overflow-y-scroll no-scrollbar mt-4 mb-2">
+      <div className="flex relative flex-col w-full h-full overflow-y-scroll no-scrollbar mt-4 mb-2 px-3">
         <Menu<IGroupMember> id="ALL_MEMBERS" clientPoint>
           {(member) => (
             <>
@@ -130,7 +130,7 @@ export const AllMembers = () => {
           ? queryResult.map((member) => <Member member={member} onClick={(e) => handleSelecting(e, member)} />)
           : _members.map(([key, groupMembers]) => (
               <div key={key}>
-                <div className="w-full flex gap-2 items-end max-sm:px-4 px-6 my-2">
+                <div className="w-full flex gap-2 items-end max-sm:px-4 px-6 py-2 my-2">
                   <label className="text-sm px-2 py-[2px] bg-primary text-white rounded-lg" htmlFor="">
                     {key}
                   </label>
@@ -150,8 +150,8 @@ function Member({ member, onClick }: { member: IGroupMember; onClick: (e: MouseE
   if (!member) return null;
   const { profilePicture, username, phoneNumber } = getUserFromMetadata(member)!;
   return (
-    <div className="hover:bg-[--hover-secondary]" onClick={onClick} key={member.userId}>
-      <div className="relative max-sm:px-4 px-10 flex items-center gap-4 w-full h-16 py-2 z-20 pointer-events-none">
+    <div className="hover:bg-[--hover-secondary] rounded-2xl" onClick={onClick} key={member.userId}>
+      <div className="relative max-sm:px-4 px-5 flex items-center gap-4 w-full h-16 z-20 pointer-events-none">
         <Avatar url={profilePicture} onlineIndication={false} />
         <div className="w-full flex gap-1 flex-col justify-between">
           <div className="flex justify-between items-center">

@@ -1,26 +1,26 @@
 "use client";
 
+import Menu from "@features/ui/Menu";
+import TagInput from "@features/ui/TagInput";
+import TextInput from "@features/ui/TextInput";
+import { UserPlusIcon } from "@heroicons/react/24/outline";
+import { ChevronRightIcon, LinkIcon } from "@heroicons/react/24/solid";
+import useAuth from "@hooks/useAuth";
+import useGroupConversation from "@hooks/useGroupConversation";
+import { IModalKey } from "@interfaces/modalInterface";
+import { getUserFromMetadata } from "@lib/conversation";
+import { IGroupMember } from "@repo/interfaces/conversationInterface";
 import { memo, useMemo } from "react";
 import useSocket from "../../../../context/SocketProvider";
-import { IGroupConversation, IGroupMember } from "@repo/interfaces/conversationInterface";
 import { useStore } from "../../../../store/global";
 import MediaSelection from "../SharedComponents/MediaSelection";
-import Menu from "@features/ui/Menu";
-import { ChevronRightIcon, LinkIcon } from "@heroicons/react/24/solid";
 import NotificationToggle from "../SharedComponents/NotificationToggle";
 import StarredMessages from "../SharedComponents/StarredMessages";
-import TextInput from "@features/ui/TextInput";
-import TagInput from "@features/ui/TagInput";
-import useSelectedConversation from "@hooks/useSelectedConversation";
-import { UserPlusIcon } from "@heroicons/react/24/outline";
-import { Member } from "./components/Member";
 import { AvatarWrapper } from "./components/AvatarWrapper";
-import { IModalKey } from "@interfaces/modalInterface";
-import useAuth from "@hooks/useAuth";
-import { getUserFromMetadata } from "@lib/conversation";
+import { Member } from "./components/Member";
 
-function GroupProfile() {
-  const conversation = useSelectedConversation<IGroupConversation>();
+function GroupProfile({ groupId }: { groupId: string }) {
+  const conversation = useGroupConversation(groupId);
   const { user } = useAuth();
 
   if (!conversation) return;
@@ -187,8 +187,8 @@ function GroupProfile() {
           <Menu<IGroupMember> id="groupProfile">
             {(member) => (
               <>
-                <Menu.Item onClick={() => handleAdmin(member.userId!, member.isAdmin ? "remove" : "add")}>
-                  {member.isAdmin ? "Remove Admin" : "Make Admin"}
+                <Menu.Item onClick={() => handleAdmin(member.userId!, member?.isAdmin ? "remove" : "add")}>
+                  {member?.isAdmin ? "Remove Admin" : "Make Admin"}
                 </Menu.Item>
                 <Menu.Item onClick={() => handleRemovingMember(member)}>Remove</Menu.Item>
               </>
@@ -202,13 +202,13 @@ function GroupProfile() {
             {totalMembers}
           </div>
 
-          <div className="flex gap-1 flex-col w-full ">
+          <div className="flex gap-1 flex-col w-full px-3">
             {userCanEdit && (
               <>
                 <div
                   tabIndex={0}
                   onClick={() => toggleModal("addGroupMembersModal")}
-                  className="hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-8 py-3 cursor-pointer"
+                  className="hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-5 py-3 rounded-2xl cursor-pointer"
                 >
                   <div className="flex items-center justify-center w-[40px] h-[40px] bg-[--100-primary] text-white rounded-full">
                     <UserPlusIcon className="size-5" />
@@ -218,14 +218,14 @@ function GroupProfile() {
                 <div
                   onClick={() => profileTab.push("inviteLink")}
                   tabIndex={0}
-                  className="hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-8 py-3 cursor-pointer"
+                  className="hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-5 py-3 rounded-2xl cursor-pointer"
                 >
                   <div className="flex items-center justify-center w-[40px] h-[40px] bg-[--100-primary] text-white rounded-full">
                     <LinkIcon className="size-5" />
                   </div>
                   Invite via link
                 </div>
-                <div className="max-sm:px-4 px-8 py-2">
+                <div className="max-sm:px-4 px-5 py-2">
                   <div className="w-full h-[1.25px] bg-[--base-300-400]"></div>
                 </div>
               </>
@@ -247,7 +247,7 @@ function GroupProfile() {
             <div
               onClick={() => toggleModal("allMembers")}
               tabIndex={0}
-              className="hover:bg-[--hover-secondary] duration-200  p-4 flex justify-center items-center cursor-pointer"
+              className="hover:bg-[--hover-secondary] duration-200 p-4 flex justify-center items-center rounded-2xl cursor-pointer"
             >
               View all members
             </div>

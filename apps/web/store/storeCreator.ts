@@ -4,7 +4,7 @@ import { persist, subscribeWithSelector } from "zustand/middleware";
 
 type CreateIndexDBStoreProps<T> = { name: string; handler: StateCreator<T>; partialize?: (state: T) => Partial<T> };
 
-export const createIndexDBStore = <T extends object>({ name, handler,partialize }: CreateIndexDBStoreProps<T>) =>
+export const createIndexDBStore = <T extends object>({ name, handler, partialize }: CreateIndexDBStoreProps<T>) =>
   create(
     persist(subscribeWithSelector(handler), {
       name,
@@ -13,9 +13,9 @@ export const createIndexDBStore = <T extends object>({ name, handler,partialize 
       onRehydrateStorage: (state) => {
         return (_, error) => {
           if (error) {
-            console.error("Error rehydrating store");
+            // console.error("Error rehydrating store");
           } else {
-            console.log("Rehydration finished:");
+            // console.log("Rehydration finished:");
           }
         };
       },

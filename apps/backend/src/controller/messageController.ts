@@ -9,22 +9,13 @@ import { z } from "zod";
 import { memberSchema } from "../schemas/groupSchema";
 import { Types } from "mongoose";
 import CryptoJS from "crypto-js";
-import { syncRegistry } from "../lib/SyncRegistry";
 
-interface IReq {
-  messages: IMessage[];
-  conversation: IUserConversation;
-}
-
-const _saveUserMessage = async (req: string, reset: () => void) => {
+const _saveUserMessage = async (collection: IMessage[], reset: () => void) => {
   try {
-    const { messages: body }: IReq = JSON.parse(req);
-
-    const parsedMessages = messagesSchema.parse(body);
-
+    const parsedMessages = messagesSchema.parse(collection);
     const messages = await messageServices.saveUserMessage(parsedMessages);
   } catch (error) {
-    console.log("MESSAGES error--->", error);
+    console.log("_saveUserMessage error--->", error);
     reset();
   }
 };

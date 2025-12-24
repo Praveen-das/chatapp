@@ -12,57 +12,59 @@ const deleteUserMessages = useMessageStore.getState().deleteUserMessages;
 
 export function messageEmitters(socket: ISocket) {
   return {
-    sendMessage: ({
+    sendMessage: async ({
       conversation,
       messages,
       replacePlaceholder,
-      callback,
     }: {
       conversation: IConversation;
       messages: IMessage[];
       replacePlaceholder?: boolean;
-      callback?: () => void;
-    }) => {
-      if (conversation.host === "system") return;
-      let conversationId = conversation.conversationId!;
-      let receivers;
+    }) =>
+      await new Promise((resolve, reject) => {
+        if (conversation.host === "system") return;
+        let conversationId = conversation.conversationId!;
+        let receivers;
 
-      messages.forEach((m) => {
-        if (m.message) m.message = encrypt(m.message);
-      });
+        messages.forEach((m) => {
+          if (m.message) m.message = encrypt(m.message);
+        });
 
-      if (conversation.host === "user") {
-        if (conversation.blockedByUser) {
-          receivers = [];
-          messages = messages.map((m) => ({ ...m, to: "" }));
-        } else {
-          receivers = conversation?.members.map(({ userId }) => userId);
-        }
-      } else if (conversation.host === "group") receivers = conversation.channelId;
+        if (conversation.host === "user") {
+          if (conversation.blockedByUser) {
+            receivers = [];
+            messages = messages.map((m) => ({ ...m, to: "" }));
+          } else {
+            receivers = conversation?.members.map(({ userId }) => userId);
+          }
+        } else if (conversation.host === "group") receivers = conversation.channelId;
 
-      // if (!conversation.active) {
-      //   socket.emit("ACTIVATE_CONVERSATION", conversation.id);
-      //   updateConversation(conversation.id, { active: true });
-      // }
+        // if (!conversation.active) {
+        //   socket.emit("ACTIVATE_CONVERSATION", conversation.id);
+        //   updateConversation(conversation.id, { active: true });
+        // }
 
-      // const recentMessage = messages.at(-1)!;
+        // const recentMessage = messages.at(-1)!;
 
-      // updateConversation(conversation?.id!, {
-      //   recentMessage,
-      //   updatedAt: recentMessage.timestamp,
-      // });
+        // updateConversation(conversation?.id!, {
+        //   recentMessage,
+        //   updatedAt: recentMessage.timestamp,
+        // });
 
-      socket.emit(
-        "message",
-        {
-          messages,
-          conversationId,
-          to: receivers,
-          replacePlaceholder,
-        },
-        callback
-      );
-    },
+        socket.emit(
+          "message",
+          {
+            messages,
+            conversationId,
+            to: receivers,
+            replacePlaceholder,
+          },
+          (result: any, error: Error) => {
+            if (error) return reject(error);
+            resolve(result);
+          }
+        );
+      }),
 
     deleteMessageForAll: (updates: IDeleteRequest) => {
       socket.emit("request:delete_message", updates);
@@ -80,6 +82,7 @@ export function messageEmitters(socket: ISocket) {
 
     sendReadReceiptChangeRequest: (readReceipts: MessageReadReceipt[]) => {
       socket.emit("change readReceipt", readReceipts);
+      readReceipts.forEach(useConversationStore.getState().conversationActions.updateReadReceipt);
     },
   };
 }

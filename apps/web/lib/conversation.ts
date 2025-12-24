@@ -59,7 +59,7 @@ export const getReceiverMetadata = (c: IConversation) => {
 };
 
 export const getMemberById = (c: IConversation, id: string) => {
-  if (c?.host !== "system") return c?.members.find((m) => m.userId === id);
+  if (c?.host === "user" || c?.host === "group") return c?.members.find((m) => m.userId === id);
 };
 
 export const getConversationByConversationId = (conversationId: string) => {
@@ -80,6 +80,8 @@ export function getDisplayName(conversation: IConversation): string {
     return conversation.displayName || "Group Chat";
   } else if (conversation.host === "system") {
     return APP_NAME;
+  } else if (conversation.host === "ai") {
+    return "AI Assistant";
   }
   return "Unknown Conversation";
 }
@@ -94,7 +96,10 @@ export function getReadReceiptState(
   let minDelivered = Infinity;
   let minRead = Infinity;
 
-  if (conversation.host === "system" || Object.keys(readReceipts).length !== conversation.members.length)
+  if (
+    (conversation?.host === "user" || conversation?.host === "group") &&
+    Object.keys(readReceipts).length !== conversation.members.length
+  )
     return {
       lastDeliveredMessageTimestamp: undefined,
       lastReadMessageTimestamp: undefined,

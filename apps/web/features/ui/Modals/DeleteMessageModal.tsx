@@ -29,8 +29,10 @@ export const DeleteMessageModal = () => {
     () =>
       selectedChats.some((msg) => {
         let isReceiver = msg.from !== user?.id;
+        let toAi = msg.to === "ai";
 
         if (msg.deleted) return false;
+        if (toAi) return false;
         if (isReceiver && !authorizedUser) return false;
 
         return true;

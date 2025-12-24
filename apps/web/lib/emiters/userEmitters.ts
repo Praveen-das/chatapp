@@ -9,8 +9,12 @@ import { useConversationStore } from "store/conversationStore";
 
 export function userEmitters(socket: ISocket, user: IUser) {
   return {
-    sendPresence: (to: Array<string>, session: ISession) => {
-      socket.emit("USER_CONNECTED", to, session);
+    getUserStatus: (userId: string, callback: (data: any) => void) => {
+      socket.emit("GET_USER_STATUS", { userId }, callback);
+    },
+
+    sendPresence: (to: Array<string>) => {
+      socket.emit("USER_CONNECTED", to);
     },
 
     sendOTPVerificationRequest: (userId: string) => {
@@ -78,7 +82,7 @@ export function userEmitters(socket: ISocket, user: IUser) {
 function getSocketChannels() {
   const users = getActiveUsers().map((u) => u.id);
   const groupMembers = useConversationStore.getState().conversations.reduce<Set<string>>((i, c) => {
-    if (c.host !== "system") c.members.forEach((m) => i.add(m.userId));
+    if (c?.host === "user" || c?.host === "group") c.members.forEach((m) => i.add(m.userId));
     return i;
   }, new Set());
 

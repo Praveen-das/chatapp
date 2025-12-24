@@ -10,7 +10,6 @@ import {
   conversationMessagesLookup,
   groupLookup,
   membersLookup,
-  messagedeleteflagsLookup,
   messagesLookup,
   readReceiptLookup,
   starredMessagesLookup,
@@ -21,14 +20,8 @@ import Conversations from "../models/ConversationModel.js";
 import Dummy from "../models/Dummy.js";
 import GroupConversation from "../models/GroupConversation.js";
 import Member from "../models/MemberModel.js";
-import SystemConversation from "../models/SystemConversation.js";
 import UserConversation from "../models/UserConversation.js";
-import {
-  conversationBlockRequest,
-  conversationSchema,
-  systemConversationSchema,
-  userConversationsSchema,
-} from "../schemas/conversationSchema";
+import { conversationBlockRequest, conversationSchema, userConversationsSchema } from "../schemas/conversationSchema";
 import { groupConversationsSchema, membersSchema } from "../schemas/groupSchema";
 import { readReceiptSchema, readReceiptsSchema } from "../schemas/readReceiptSchema.js";
 import MessageReadReceipt from "../models/MessageReadReceipt.js";
@@ -81,22 +74,10 @@ async function createConversation(conversation: z.infer<typeof conversationSchem
   }
 }
 
-async function createSystemConversation(conversation: z.infer<typeof systemConversationSchema>) {
-  try {
-    const result = await SystemConversation.create(conversation);
-
-    return result;
-  } catch (error) {
-    console.error("Error:", error);
-    throw error; // Rethrow the error if needed
-  }
-}
-
 async function createUserConversation(userConversations: z.infer<typeof userConversationsSchema>) {
   try {
     const result = await UserConversation.insertMany(userConversations);
-
-    // return result;
+    return result;
   } catch (error) {
     console.error("Error:", error);
     throw error; // Rethrow the error if needed
@@ -297,9 +278,9 @@ async function registerStarredMessages(id: Types.ObjectId, messageId: Types.Obje
 
 async function unregisterStarredMessages(id: Types.ObjectId, messageId: Types.ObjectId, host: string) {
   try {
-    if (host === "user") await UserConversation.findOneAndUpdate({ id }, { $pull: { starred: messageId } });
+    if (host === "user" || host === "group")
+      await UserConversation.findOneAndUpdate({ id }, { $pull: { starred: messageId } });
     if (host === "group") await GroupConversation.findOneAndUpdate({ id }, { $pull: { starred: messageId } });
-    if (host === "system") await SystemConversation.findOneAndUpdate({ id }, { $pull: { starred: messageId } });
   } catch (error) {
     console.log("unregisterStarredMessages------->", error);
   }
@@ -308,7 +289,7 @@ async function unregisterStarredMessages(id: Types.ObjectId, messageId: Types.Ob
 const createPipeline = (
   conversationId: string,
   userId: Types.ObjectId,
-  host: "user" | "group",
+  host: "user" | "group" | "ai",
   req: any,
   readReceiptEntries?: Types.ObjectId[]
 ) => {
@@ -358,6 +339,7 @@ const createPipeline = (
     if (host === "group")
       pipeline.push(messagesLookup({ userId, lastKnownMessageTimestamp: req.lastKnownMessageTimestamp }));
     if (host === "user") pipeline.push(conversationMessagesLookup(userId, req.lastKnownMessageTimestamp));
+    if (host === "ai") pipeline.push(conversationMessagesLookup(userId, req.lastKnownMessageTimestamp));
   }
 
   if (req.needSync) {
@@ -371,7 +353,7 @@ const createPipeline = (
   }
 
   if (req.lastKnownMessageTimestamp) {
-    pipeline.push({ $project: { messages: 1, id: 1, conversationId: 1 } });
+    pipeline.push({ $project: { messages: 1, host: 1, id: 1, conversationId: 1 } });
     return pipeline;
   }
 
@@ -457,9 +439,10 @@ async function saveMessageReadReceipt(readReceipts: z.infer<typeof readReceiptsS
     }));
 
     const res = await MessageReadReceipt.bulkWrite(ops);
-
+    console.log(res);
     if (res.ok) {
-      syncRegistry.saveReadReceiptEntries(readReceipts);
+      const asd = await syncRegistry.saveReadReceiptEntries(readReceipts);
+      console.log(asd);
     }
     return res;
   } catch (error) {
@@ -471,7 +454,6 @@ async function saveMessageReadReceipt(readReceipts: z.infer<typeof readReceiptsS
 export default {
   saveConversations,
   createConversation,
-  createSystemConversation,
   createUserConversation,
   createGroupConversation,
   deleteGroupConversation,

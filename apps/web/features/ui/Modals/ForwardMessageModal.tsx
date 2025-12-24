@@ -16,7 +16,7 @@ import { IModal } from "@interfaces/modalInterface";
 import { SendSolid } from "iconoir-react";
 import ModalTitle from "./components/ModalTitle";
 import FramerWrapper from "../MotionWrapper";
-import {useUsers} from "@hooks/useUsers";
+import { useUsers } from "@hooks/useUsers";
 
 export const ForwardMessageModal = ({ title }: { title: string }) => {
   const { sendMessage } = useSocket();
@@ -31,7 +31,7 @@ export const ForwardMessageModal = ({ title }: { title: string }) => {
 
   const conversationsQueryResult = useMemo(() => {
     if (!query) return [];
-    return conversations.filter((c) => c.host !== "system" && c.displayName?.includes(query));
+    return conversations.filter((c) => (c?.host === "user" || c?.host === "group") && c.displayName?.includes(query));
   }, [query, conversations]);
 
   const usersQueryResult = useMemo(() => {
@@ -64,11 +64,13 @@ export const ForwardMessageModal = ({ title }: { title: string }) => {
         })
       );
 
-      sendMessage({
-        conversation,
-        messages,
-        callback: () => setLoading(false),
-      });
+      try {
+        await sendMessage({ conversation, messages });
+      } catch (error) {
+        console.log(error);
+      } finally {
+        setLoading(false);
+      }
     });
 
     setSelectedUsers([]);
@@ -103,11 +105,12 @@ export const ForwardMessageModal = ({ title }: { title: string }) => {
         <span className="flex w-full max-sm:px-4 pl-6 pt-2 pb-1 text-sm">Recents Chats</span>
         {(query ? conversationsQueryResult : conversations).map(
           (conversation) =>
-            conversation.host !== "system" && (
+            conversation.host === "user" ||
+            (conversation.host === "group" && (
               <div key={conversation.id} onClick={() => handleSelectedConversation(conversation)}>
                 <Conversation isSelected={selectedConversations.includes(conversation)} conversation={conversation} />
               </div>
-            )
+            ))
         )}
         <span className="flex w-full max-sm:px-4 pl-6 pt-2 pb-1 text-sm">All Contacts</span>
         {(query ? usersQueryResult : users).map((person) => (

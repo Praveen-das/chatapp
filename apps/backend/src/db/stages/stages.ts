@@ -510,7 +510,7 @@ export const readReceiptLookup = (readReceiptEntries?: Types.ObjectId[]) => [
             },
           },
         },
-        ...recentReadReceiptForUser()
+        ...recentReadReceiptForUser(),
       ],
       as: "readReceiptValues",
     },
@@ -539,13 +539,12 @@ export function recentReadReceiptForUser() {
             },
           },
           {
-            $limit: 1,
-          },
-          {
             $sort: {
               lastDeliveredMessageTimestamp: -1,
-              lastReadMessageTimestamp: -1,
             },
+          },
+          {
+            $limit: 1,
           },
         ],
       },

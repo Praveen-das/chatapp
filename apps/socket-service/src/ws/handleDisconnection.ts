@@ -1,6 +1,7 @@
 import { Namespace, Server } from "socket.io";
 import produceMessage from "../kafka/kafka";
 import { ISocket } from "../interfaces/socketInterfaces";
+import client from "../redis/client";
 
 export default function handleDisconnection(io: Server, socket: ISocket) {
   socket.on("disconnect", async (reason) => {
@@ -12,9 +13,9 @@ export default function handleDisconnection(io: Server, socket: ISocket) {
     if (isDisconnected) {
       let lastSeen = Date.now();
 
-      const body = { id: socket.userId, updates: { status: "offline", lastSeen } };
+      await client.hset(`user:${socket.userId}`, "status", "offline", "lastSeen", lastSeen.toString());
+      await client.sadd("dirty_users", socket.userId!);
 
-      // produceMessage(body, "UPDATE_USER");
       socket.broadcast.emit("user disconnected", { userId: socket.userId, lastSeen });
     }
   });

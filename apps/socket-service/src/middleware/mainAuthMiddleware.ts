@@ -1,4 +1,6 @@
-import { Socket } from "socket.io";
+import { Server, Socket } from "socket.io";
+
+import client from "../redis/client";
 
 interface ISocket extends Socket {
   user?: {
@@ -10,9 +12,10 @@ interface ISocket extends Socket {
   username?: string;
 }
 
-export default async function mainAuthMiddleware(socket: ISocket, next: any) {
+export default async function mainAuthMiddleware(socket: ISocket, io: Server, next: any) {
   const auth = socket.handshake.auth;
   const userId = auth.userId;
+  const session = auth.session;
   const channels: string[] = auth.channels || [];
 
   if (userId) {
@@ -20,9 +23,10 @@ export default async function mainAuthMiddleware(socket: ISocket, next: any) {
     socket.join(userId);
 
     if (!!channels.length) {
-      console.log("active channels---->", channels.length);
       channels.forEach((channel) => socket.join(channel));
     }
+
+    io.to(userId).emit("SAVE_SESSION", session);
 
     return next();
   }

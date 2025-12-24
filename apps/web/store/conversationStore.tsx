@@ -22,11 +22,13 @@ export type IConversationStore = {
     // addBlockedUser: (conversationId: string, userId: string) => void;
     // removeBlockedUser: (conversationId: string, userId: string) => void;
     setSelectedConversation: (userConversationId: string | null) => void;
+    setAiConversation: () => void;
     addToStarred: (userConversationId: string, message: IMessage) => void;
     removeFromStarred: (userConversationId: string, messageId: string) => void;
     clearStarred: (userConversationId: string) => void;
     setIsLoaded: (value: boolean) => void;
     setIsHydrated: (value: boolean) => void;
+    setScrollPosition: (conversationId: string, position: number) => void;
   };
   groupActions: {
     updateGroupConversation: (userConversationId: string, updates: Partial<IGroupConversation>) => void;
@@ -36,6 +38,7 @@ export type IConversationStore = {
     addGroupTag: (conversationId: string, tag: string) => void;
     removeGroupTag: (conversationId: string, tag: string) => void;
   };
+  scrollPositions: Map<string, number>;
   reset: () => void;
 };
 
@@ -47,8 +50,14 @@ const store = createIndexDBStore<IConversationStore>({
       isHydrated: false,
       isLoaded: false,
       selectedConversation: null,
-      reset: () => set({ conversations: [], selectedConversation: null }),
+      scrollPositions: new Map(),
+      reset: () => set({ conversations: [], selectedConversation: null, scrollPositions: new Map() }),
       conversationActions: {
+        setScrollPosition: (conversationId, position) => {
+          set((state) => ({
+            scrollPositions: new Map(state.scrollPositions).set(conversationId, position),
+          }));
+        },
         setConversation: (conversation) => {
           if (conversation.host === "group") {
             conversation.members.forEach((member) => {
@@ -84,9 +93,10 @@ const store = createIndexDBStore<IConversationStore>({
 
         updateConversation: (id, update) => {
           const _conversations = get().conversations;
-          const conversations = _conversations.map((c) =>
-            c.id === id ? { ...c, ...update, version: c.version! + 1 } : c
-          );
+          const conversations = _conversations.map((c) => {
+            if (c.id === id) return { ...c, ...update, version: c.version! + 1 };
+            return c;
+          });
           set({ conversations });
         },
         upsertConversation: (newConversations) => {
@@ -94,7 +104,7 @@ const store = createIndexDBStore<IConversationStore>({
 
           newConversations.forEach((conv) => {
             conversations = conversations.map((c) => {
-              if (c.host !== "system" && c.id === conv.id) {
+              if ((c.host === "user" || c.host === "group") && c.id === conv.id) {
                 let updates: Record<string, any> = {};
                 let diffs = updatedDiff(c, conv);
 
@@ -122,20 +132,17 @@ const store = createIndexDBStore<IConversationStore>({
               const updatedAt = readReceipt.updatedAt || Date.now();
 
               if (userReadReceipt) {
-                console.log("userReadReceipt exist");
                 const rr: Record<string, MessageReadReceipt> = {
                   ...c.readReceipt,
                   [readReceipt.userId]: { ...userReadReceipt, ...readReceipt, updatedAt },
                 };
-                console.log(rr);
+
                 return { ...c, readReceipt: rr };
               } else {
-                console.log("userReadReceipt not exist");
                 const rr: Record<string, MessageReadReceipt> = {
                   ...c.readReceipt,
                   [readReceipt.userId]: { ...readReceipt, updatedAt },
                 };
-                console.log(rr);
                 return { ...c, readReceipt: rr };
               }
             }
@@ -150,9 +157,24 @@ const store = createIndexDBStore<IConversationStore>({
 
           let selectedConversation = conversations.find((s) => s.id === conversationId);
 
-          set({
-            selectedConversation,
-          });
+          set({ selectedConversation });
+        },
+        setAiConversation: () => {
+          const conversations = get().conversations;
+
+          let selectedConversation = conversations.find((s) => s.host === "ai");
+
+          if (!selectedConversation) {
+            selectedConversation = {
+              id: "ai-placeholder",
+              host: "ai",
+              userId: "ai",
+              conversationId: "ai",
+              updatedAt: Date.now(),
+            } as any;
+          }
+
+          set({ selectedConversation });
         },
         addToStarred: (id, message) => {
           function getModifiedStarredMessages<T extends IConversation>(c: T) {
@@ -231,7 +253,6 @@ const store = createIndexDBStore<IConversationStore>({
             if (c.conversationId === conversationId && c.host === "group") {
               const existingMembers = c.members ?? [];
               const newMembers = [...existingMembers, ...members];
-              console.log(newMembers);
               return { ...c, members: newMembers, version: (c.version ?? 0) + 1 };
             }
             return c;

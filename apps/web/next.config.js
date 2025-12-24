@@ -5,10 +5,22 @@ module.exports = {
   reactStrictMode: false,
   experimental: {
     serverActions: {
-      allowedOrigins: [
-        'localhost:3000',
-        'qw8d3s7n-3000.inc1.devtunnels.ms',
-      ],
+      allowedOrigins: ["localhost:3000", "qw8d3s7n-3000.inc1.devtunnels.ms"],
+    },
+    turbo: {
+      rules: {
+        "*.svg": {
+          loaders: [
+            {
+              loader: "@svgr/webpack",
+              options: {
+                icon: true,
+              },
+            },
+          ],
+          as: "*.js",
+        },
+      },
     },
   },
   webpack(config) {

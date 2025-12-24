@@ -3,7 +3,7 @@ import { ArrowLeftIcon, EllipsisVerticalIcon, XMarkIcon } from "@heroicons/react
 import { IGroupConversation } from "@repo/interfaces/conversationInterface";
 import { getMemberById, getReceiverMetadata, getUserById } from "@lib/conversation";
 import { getRelativeTime } from "@lib/utils";
-import { MouseEvent, memo, useEffect, useMemo } from "react";
+import { MouseEvent, memo, useEffect, useMemo, useState } from "react";
 import { useAttachments } from "store/attachments";
 import { useMenu } from "store/menu";
 import useSocket from "../../../context/SocketProvider";
@@ -16,6 +16,9 @@ import Avatar from "../../ui/Avatar";
 import Menu from "../../ui/Menu";
 import { APP_NAME } from "config/constants";
 import { IUser } from "@repo/interfaces/userInterface";
+import { SparkSolid } from "iconoir-react";
+import moment from "moment";
+import useUser from "@hooks/useUser";
 
 const { setDeviceTab, setSelectedUser } = useStore.getState();
 
@@ -34,15 +37,16 @@ function ChatHeader({ showMenu = true, onClose }: { showMenu: boolean; onClose?:
   const images = useAttachments((s) => s.images);
   const clearImages = useAttachments((s) => s.clearImages);
   const setMenu = useMenu((s) => s.setMenu);
-
   const selectedConversation = useSelectedConversation();
+
   const selectedUser = useStore((s) => s.selectedUser);
   const receiver = getReceiverMetadata(selectedConversation!);
-  const user = getUserById(receiver?.userId!);
+  const userId = selectedUser?.id || receiver?.userId;
 
   const isUserConversation = selectedConversation?.host === "user";
   const isGroupConversation = selectedConversation?.host === "group";
   const isSystem = selectedConversation?.host === "system";
+  const isAiConversation = selectedConversation?.host === "ai";
 
   function handleClose(e: MouseEvent<HTMLSpanElement>) {
     e.stopPropagation();
@@ -70,16 +74,18 @@ function ChatHeader({ showMenu = true, onClose }: { showMenu: boolean; onClose?:
           <GroupInfo />
         ) : isUserConversation ? (
           <UserInfo
-            user={(selectedUser || user)!}
+            userId={userId!}
             blocked={Boolean(selectedConversation.blocked)}
             blockedByUser={Boolean(selectedConversation.blockedByUser)}
           />
         ) : isSystem ? (
           <SystemInfo />
+        ) : isAiConversation ? (
+          <AiInfo />
         ) : null}
       </div>
 
-      {showMenu && (
+      {showMenu && !isAiConversation && (
         <div onClick={handleOpeningMenu} tabIndex={0} className="btn btn-circle btn-ghost btn-sm">
           <EllipsisVerticalIcon className="size-6 pointer-events-none" />
         </div>
@@ -108,13 +114,41 @@ function SystemInfo() {
   );
 }
 
-function UserInfo({ user, blocked, blockedByUser }: { user: IUser; blocked: boolean; blockedByUser: boolean }) {
-  const { username, profilePicture, rules, status } = user;
+function AiInfo() {
+  return (
+    <>
+      <div className="avatar">
+        <SparkSolid className="size-10" />
+      </div>
+      <div className="grid gap-1">
+        <label className="text-sm truncate" htmlFor="username">
+          AI Assistant
+        </label>
+        <label htmlFor="lastseen">Powered by Google Gemini</label>
+      </div>
+    </>
+  );
+}
 
-  const lastSeen = getRelativeTime(user?.lastSeen!);
-  const isOnline = status === "online";
+function UserInfo({ userId, blocked, blockedByUser }: { userId: string; blocked: boolean; blockedByUser: boolean }) {
+  const user = useUser(userId)!;
+
+  const { username, profilePicture, rules } = user;
+
+  const { getUserStatus } = useSocket();
+
+  useEffect(() => {
+    getUserStatus(user.id, (data) => {
+      if (!data) return;
+
+      const { updateUserStatus } = useStore.getState();
+
+      updateUserStatus(data.userId, data.status, Number(data.lastSeen));
+    });
+  }, [user.id]);
+
+  const isOnline = user.status === "online";
   const isHidden = Boolean(rules?.includes("hide_profilepicture"));
-
   const canShowLastSeen = (isOnline || !rules?.includes("hide_lastseen")) && !blockedByUser && !blocked;
 
   return (
@@ -124,7 +158,7 @@ function UserInfo({ user, blocked, blockedByUser }: { user: IUser; blocked: bool
         <label className="text-sm truncate" htmlFor="username">
           {username}
         </label>
-        {canShowLastSeen && <label htmlFor="lastseen">{isOnline ? "online" : lastSeen}</label>}
+        {canShowLastSeen && <label htmlFor="lastseen">{isOnline ? "online" : moment(user.lastSeen).fromNow()}</label>}
       </div>
     </>
   );
@@ -132,7 +166,7 @@ function UserInfo({ user, blocked, blockedByUser }: { user: IUser; blocked: bool
 
 function GroupInfo() {
   const selectedConversation = useSelectedConversation<IGroupConversation>();
-  
+
   if (!selectedConversation) return null;
 
   return (
@@ -170,6 +204,7 @@ function HeaderMenuContext() {
   const isGroupConversation = selectedConversation?.host === "group";
   const isUserConversation = selectedConversation?.host === "user";
   const isSystemConversation = selectedConversation?.host === "system";
+
   const isBlocked = isUserConversation && selectedConversation.blocked;
   const isGroupMember = isGroupConversation && selectedConversation?.members.some((m) => m.userId === currentUser?.id);
 
@@ -183,7 +218,8 @@ function HeaderMenuContext() {
 
   const handleBlockingUser = () => {
     if (selectedConversation?.host === "group") return;
-    if (isSystemConversation) return;
+    if (selectedConversation?.host === "ai") return;
+    if (selectedConversation?.host === "system") return;
 
     if (selectedConversation) return sendUserBlockRequest(selectedConversation);
 

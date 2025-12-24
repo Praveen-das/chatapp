@@ -4,45 +4,24 @@ import React, { createContext, PropsWithChildren, useContext, useEffect, useMemo
 import useAuth from "../hooks/useAuth";
 import socket from "../lib/ws";
 import { useMessageStore } from "../store/messageStore";
-import { IMessageReadReceipt } from "../enums/enums";
 import { useStore } from "../store/global";
-import { useAttachments } from "../store/attachments";
 import { useConversationStore } from "../store/conversationStore";
-import {
-  IDeleteForUserRequest,
-  IDeleteRequest,
-  IGroupConversation,
-  IGroupMember,
-  IConversationBase,
-  INewConversation,
-  IUserBlockRequest,
-  GenerateConversationProps,
-} from "@repo/interfaces/conversationInterface";
+import { IGroupConversation, IGroupMember, IConversationBase } from "@repo/interfaces/conversationInterface";
 import {
   IDeleteResponse,
   IMessage,
   IReadReceiptUpdatesCollection,
   ISystemMessage,
-  IUpdates,
   MessageReadReceipt,
 } from "@repo/interfaces/messageInterface";
 import { IUser, IUserRuleChangeRequest } from "@repo/interfaces/userInterface";
-import { GroupClearReq, GroupDeleteReq, IGroupCreationReq, JoinGroupParams } from "@repo/interfaces/groupInterface";
-import { processMessagesForUser, registerMessages } from "@lib/messages";
-import {
-  getConversationByConversationId,
-  getMemberById,
-  getReceiverMetadata,
-  getUserFromMetadata,
-} from "@lib/conversation";
+import { registerMessages } from "@lib/messages";
+import { getReceiverMetadata, getUserFromMetadata } from "@lib/conversation";
 import useIndexedDb from "@lib/idb";
 import { useSessionStore } from "store/sessionStore";
-import { toast } from "react-toastify";
 import { usePersistentStore } from "store/persistentStore";
-import { IGroup } from "@interfaces/groupInterface";
-import otp_socket from "@lib/ws_otp";
 import { ISession } from "@repo/interfaces/sessionInterface";
-import { IConversation, IUserConversation } from "@interfaces/conversationInterface";
+import { IUserConversation } from "@interfaces/conversationInterface";
 import { initGroupEmitters } from "@lib/emiters/groupEmiters";
 import { initConversationEmiters } from "@lib/emiters/conversationEmiters";
 import { messageEmitters } from "@lib/emiters/messageEmitters";
@@ -73,15 +52,15 @@ const {
   removeGroupTag: _removeGroupTag,
 } = useConversationStore.getState().groupActions;
 const { addNewUser, setUsers } = useStore.getState();
+const setMessageStore = useMessageStore.getState().setMessageStore;
+const updateUserMessages = useMessageStore.getState().updateUserMessages;
+const updateReadReceipt = useConversationStore.getState().conversationActions.updateReadReceipt;
 
 const useContextData = () => {
   const { user, updateSession, signOut } = useAuth();
   const { update } = useSession();
   const userRef = useRef<IUser | null>(null);
 
-  const setMessageStore = useMessageStore((s) => s.setMessageStore);
-  const updateUserMessages = useMessageStore((s) => s.updateUserMessages);
-  const updateReadReceipt = useConversationStore((s) => s.conversationActions.updateReadReceipt);
   const userNotificationPref = usePersistentStore((s) => s.userNotificationPref);
   const idb = useIndexedDb();
 
@@ -106,6 +85,18 @@ const useContextData = () => {
       addNewUser(user);
     }
 
+    function onUserStatus({
+      userId,
+      status,
+      lastSeen,
+    }: {
+      userId: string;
+      status: "online" | "offline";
+      lastSeen: number;
+    }) {
+      updateUserStatus(userId, status, lastSeen);
+    }
+
     async function onMessageReceive(params: { messages: IMessage[]; conversationId: string }) {
       const isSelectedConversation = params.conversationId === socket.selectedConversation?.conversationId;
 
@@ -123,18 +114,19 @@ const useContextData = () => {
         updateConversation(conversationId, { ...conversationUpdates, active: true });
       } else updateConversation(conversationId, conversationUpdates);
 
-      if (recentMessage?.from !== user?.id) {
+      if (recentMessage?.from !== userRef.current?.id) {
         const receiptChangeRequest: MessageReadReceipt = isSelectedConversation
           ? {
               conversationId: conversation.conversationId,
-              userId: user?.id!,
+              userId: userRef.current?.id!,
               senderId: recentMessage?.from!,
+              lastDeliveredMessageTimestamp: Date.now(),
               lastReadMessageTimestamp: Date.now(),
               updatedAt: Date.now(),
             }
           : {
               conversationId: conversation.conversationId,
-              userId: user?.id!,
+              userId: userRef.current?.id!,
               senderId: recentMessage?.from!,
               lastDeliveredMessageTimestamp: Date.now(),
               updatedAt: Date.now(),
@@ -163,7 +155,8 @@ const useContextData = () => {
 
         const text = recentMessage?.message!;
         const notificationPermissionGranted = Notification.permission === "granted";
-        let canSendNotification = conversation.host !== "system" && userNotificationPref[conversation.host];
+        let canSendNotification =
+          (conversation.host === "group" || conversation.host === "user") && userNotificationPref[conversation.host];
         let notificationDisabledForConversation = await idb.get(receiver.id);
 
         notificationPermissionGranted &&
@@ -271,10 +264,19 @@ const useContextData = () => {
     }
 
     function handleCreatingUserConversation(conversation: IUserConversation, user: IUser, select: boolean) {
-      // const receiver = getReceiverMetadata(conversation);
-
       addNewUser(user);
-      setConversation(conversation);
+      setConversation({
+        ...conversation,
+        readReceipt: {
+          [userRef.current!.id]: {
+            conversationId: conversation.id,
+            userId: userRef.current!.id,
+            lastDeliveredMessageTimestamp: Date.now(),
+            senderId: user.id,
+            updatedAt: Date.now(),
+          },
+        },
+      });
 
       if (select) {
         setSelectedConversation(conversation.id);
@@ -339,7 +341,7 @@ const useContextData = () => {
       const message: ISystemMessage = {
         id: crypto.randomUUID(),
         conversationId: "system",
-        to: user?.id,
+        to: userRef.current?.id,
         from: "system",
         type: "service_message",
         message: `Use ${res.otp} to log in to your {{APP_NAME}} account. This code will expire in {{VALIDITY_DURATION}} minutes. Keep it secure.`,
@@ -415,8 +417,9 @@ const useContextData = () => {
     }
 
     socket.on("USER_CONNECTED", onUserConnected);
-    socket.on("new user created", onNewUserCreated);
     socket.on("user disconnected", onUserDisconnected);
+
+    socket.on("new user created", onNewUserCreated);
     socket.on("message receive", onMessageReceive);
     socket.on("change readReceipt", onReadReceiptChangeRequest);
     socket.on("request:delete_message", handleDeletingMessageForAll);
@@ -441,6 +444,7 @@ const useContextData = () => {
     socket.on("SAVE_SESSION", handleSavingSession);
     socket.on("END_SESSION", handleRemovingSession);
     socket.on("OTP_MESSAGE", handleOTPMessage);
+    socket.on("USER_STATUS", onUserStatus);
 
     return () => {
       socket.off("USER_CONNECTED", onUserConnected);
@@ -470,6 +474,7 @@ const useContextData = () => {
       socket.on("SAVE_SESSION", handleSavingSession);
       socket.off("END_SESSION", handleRemovingSession);
       socket.off("OTP_MESSAGE", handleOTPMessage);
+      socket.off("USER_STATUS", onUserStatus);
     };
   }, [update]);
 

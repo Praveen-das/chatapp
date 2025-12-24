@@ -3,7 +3,8 @@
 import TagInput from "@features/ui/TagInput";
 import { ChevronRightIcon } from "@heroicons/react/24/solid";
 import useConversation from "@hooks/useConversation";
-import { IConversation, IGroupConversation, IUserConversation } from "@repo/interfaces/conversationInterface";
+import useUserConversation from "@hooks/useUserConversation";
+import { IConversation, IGroupConversation } from "@repo/interfaces/conversationInterface";
 import { IUser } from "@repo/interfaces/userInterface";
 import { memo, useCallback } from "react";
 import useSocket from "../../../../context/SocketProvider";
@@ -14,8 +15,6 @@ import Avatar from "../../../ui/Avatar";
 import MediaSelection from "../SharedComponents/MediaSelection";
 import NotificationToggle from "../SharedComponents/NotificationToggle";
 import StarredMessages from "../SharedComponents/StarredMessages";
-import { getMemberById } from "@lib/conversation";
-import useUserConversation from "@hooks/useUserConversation";
 
 function UserProfile({ user, showChatOption = false }: { user: IUser; showChatOption?: boolean }) {
   const { sendUserBlockRequest, sendUserUnBlockRequest, sendConversationDeleteRequest } = useSocket();
@@ -137,9 +136,11 @@ function UserProfile({ user, showChatOption = false }: { user: IUser; showChatOp
               </label>
               {commonGroups.length}
             </div>
-            {commonGroups.map((group) => (
-              <Group key={group.id} group={group!} />
-            ))}
+            <div className="w-full flex flex-col px-3">
+              {commonGroups.map((group) => (
+                <Group key={group.id} group={group!} />
+              ))}
+            </div>
           </div>
         )}
 
@@ -182,7 +183,7 @@ function Group({ group }: { group: IGroupConversation }) {
   return (
     <div
       onClick={handleSelectedGroup}
-      className="hover:bg-[--hover-secondary] w-full flex items-center gap-4 max-sm:px-4 px-8 py-3 cursor-pointer"
+      className="hover:bg-[--hover-secondary] w-full flex items-center gap-4 max-sm:px-4 px-5 py-4 rounded-2xl cursor-pointer"
     >
       <Avatar url={group.profilePicture} onlineIndication={false} size="40px" />
       <div className="flex flex-col justify-center pointer-events-none">

@@ -92,17 +92,13 @@ export default class SyncRegistryCreator {
           const idbReadReceiptMap = new Map<string, number>();
           idbReadReceipts.forEach((e) => idbReadReceiptMap.set(e.userId, e.updatedAt));
 
-          console.log("entriessssssssssss", idbReadReceiptMap);
-
           Object.entries(cachedReadReceipts).forEach(([rUserId, rUpdatedAtStr]) => {
-            console.log({ rUserId, rUpdatedAtStr });
             const rUpdatedAt = Number(rUpdatedAtStr);
             const clientUpdatedAt = idbReadReceiptMap.get(rUserId);
 
             if (!clientUpdatedAt) return ids.push(null);
 
             if (rUpdatedAt && !isNaN(rUpdatedAt) && rUpdatedAt > clientUpdatedAt) {
-              console.log({ rUpdatedAt, clientUpdatedAt });
               ids.push(rUserId);
             }
           });

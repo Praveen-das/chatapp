@@ -1,26 +1,24 @@
 "use client";
 
-import { MouseEvent, memo } from "react";
 import Avatar from "@features/ui/Avatar";
-import { IImageAttachment, IMessageReply, IUrlAttachment } from "@repo/interfaces/messageInterface";
-import ImageAttachment from "./Attachments/ImageAttachment";
-import UrlAttachment from "./Attachments/UrlAttachment";
-import { ArrowUturnLeftIcon } from "@heroicons/react/24/solid";
-import { EllipsisVerticalIcon } from "@heroicons/react/24/solid";
-import ChatIndicators from "./ChatIndicators/ChatIndicators";
-import { DeletedMessage } from "./Message/DeletedMessage";
-import { ReplyMessage } from "./Message/ReplyMessage";
-import { RenderMessage } from "./Message/RenderMessage";
-import { matchEmoji } from "@lib/emojies";
-import classnames from "classnames";
-import { useMenu } from "store/menu";
-import { useMessageStore } from "store/messageStore";
-import classNames from "classnames";
-import { useStore } from "store/global";
-import { IUser } from "@repo/interfaces/userInterface";
-import { scrolleToIndexHelper } from "@lib/events";
+import { ArrowUturnLeftIcon, EllipsisVerticalIcon } from "@heroicons/react/24/solid";
 import { IMessage } from "@interfaces/messageInterface";
 import { getUserById } from "@lib/conversation";
+import { matchEmoji } from "@lib/emojies";
+import { scrolleToIndexHelper } from "@lib/events";
+import { IImageAttachment, IMessageReply, IUrlAttachment } from "@repo/interfaces/messageInterface";
+import { IUser } from "@repo/interfaces/userInterface";
+import { default as classNames, default as classnames } from "classnames";
+import { MouseEvent, memo } from "react";
+import { useStore } from "store/global";
+import { useMenu } from "store/menu";
+import { useMessageStore } from "store/messageStore";
+import ImageAttachment from "./Attachments/ImageAttachment";
+import UrlAttachment from "./Attachments/UrlAttachment";
+import ChatIndicators from "./ChatIndicators/ChatIndicators";
+import { DeletedMessage } from "./Message/DeletedMessage";
+import { RenderMessage } from "./Message/RenderMessage";
+import { ReplyMessage } from "./Message/ReplyMessage";
 
 interface IChatProps {
   reply?: IMessageReply;
@@ -30,6 +28,7 @@ interface IChatProps {
   canSelect?: boolean;
   replyButton?: boolean;
   self: boolean;
+  mode?: "static" | "streaming";
 }
 
 export interface IChat extends IChatProps {
@@ -37,7 +36,7 @@ export interface IChat extends IChatProps {
   avatarVisibility?: "hidden" | "visible" | "none";
   style?: any;
   isSelected?: boolean;
-  readReceipt?:IMessage["readReceiptStatus"]
+  readReceipt?: IMessage["readReceiptStatus"];
 }
 
 function Chat({
@@ -47,11 +46,13 @@ function Chat({
   style,
   isSelected,
   readReceipt,
+  mode,
   ...chatProps
 }: IChat & IChatProps): JSX.Element {
   const receiver = getUserById(chat.from!);
   const displayAvatar = avatarVisibility !== "none";
   const hideIndicators: IHideIndicators = self ? null : ["acknowledgment"];
+  const isGenerating = chat.type === "generating";
 
   return (
     <div
@@ -77,13 +78,19 @@ function Chat({
             profileHidden={receiver?.rules?.includes("hide_profilepicture")!}
             avatarVisibility={avatarVisibility}
           />
-          <RenderChat chat={chat} self={self} {...chatProps} />
-          <ChatIndicators
-            chat={chat}
-            readReceipt={readReceipt}
-            displayChatIndicators={chat.type !== "notification"}
-            hideIndicators={hideIndicators}
-          />
+          {isGenerating ? (
+            <RenderLoading />
+          ) : (
+            <>
+              <RenderChat chat={chat} self={self} {...chatProps} />
+              <ChatIndicators
+                chat={chat}
+                readReceipt={readReceipt}
+                displayChatIndicators={chat.type !== "notification"}
+                hideIndicators={hideIndicators}
+              />
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -92,9 +99,18 @@ function Chat({
 
 export default memo(Chat);
 
-function RenderChat({ chat, ...chatProps }: { chat: IMessage } & IChatProps) {
+function RenderLoading() {
+  return (
+    <div className="relative bg-[--base-300-100] shadow-lg rounded-2xl px-2">
+      <span className="loading loading-dots loading-sm" />
+    </div>
+  );
+}
+
+function RenderChat({ chat, mode, ...chatProps }: { chat: IMessage } & IChatProps) {
   const attachment = chat.attachment!;
   const messageString = chat.message;
+
   const isEmoji = matchEmoji(messageString);
   const haveAttachment = !!chat.attachment;
   const receiver = getUserById(chat.from!);
@@ -119,12 +135,12 @@ function RenderChat({ chat, ...chatProps }: { chat: IMessage } & IChatProps) {
     h-full 
     max-w-xl 
     text-base 
-    rounded-2xl 
+    rounded-2xl
     overflow-hidden`
     ),
     messagePadding = classnames({
       "px-3": !isEmoji,
-      "py-1": chat.message,
+      "py-3": chat.message,
       // "py-1": chat.message && !haveAttachment,
     });
 
@@ -138,6 +154,7 @@ function RenderChat({ chat, ...chatProps }: { chat: IMessage } & IChatProps) {
         attachment={attachment as IImageAttachment}
         isPlaceholder={Boolean(chat.type === "placeholder")}
       />
+
       <div className={messageClassNames}>
         {chat.deleted ? (
           <DeletedMessage />
@@ -148,7 +165,7 @@ function RenderChat({ chat, ...chatProps }: { chat: IMessage } & IChatProps) {
             {chat.message && (
               <div className={messagePadding}>
                 {displayUsername && <DisplaySenderName user={receiver!} />}
-                <RenderMessage text={messageString} isEmoji={isEmoji} />
+                <RenderMessage mode={mode} id={chat.id} text={messageString} isEmoji={isEmoji} />
               </div>
             )}
           </>
@@ -206,6 +223,7 @@ function ActionButtons({
           <ArrowUturnLeftIcon className="size-4" />
         </div>
       )}
+
       <div className="group-hover:opacity-100 opacity-0 btn btn-circle btn-ghost btn-xs" onClick={handleOpen}>
         <EllipsisVerticalIcon className="size-5 pointer-events-none" />
       </div>

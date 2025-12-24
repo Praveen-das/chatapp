@@ -4,8 +4,8 @@ import { useSearch } from "@hooks/useSearch";
 import socket from "@lib/ws";
 import { IUser } from "@repo/interfaces/userInterface";
 import { signOut as _signOut, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { PropsWithChildren, createContext, useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { PropsWithChildren, createContext, useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { toast } from "react-toastify";
 import { useAttachments } from "store/attachments";
 import { useStore } from "store/global";
@@ -20,27 +20,30 @@ const useContextData = () => {
   const axios = useAxios();
   const router = useRouter();
   const { data: session, update } = useSession({
-    onUnauthenticated: () => {
-      useStore.getState().reset();
-      useAttachments.getState().reset();
-      useMenu.getState().reset();
-      useSearch.getState().reset();
-      useSessionStore.getState().reset();
-      useConversationStore.getState().reset();
-      useMessageStore.getState().reset();
-    },
+    onUnauthenticated: () => {},
     required: true,
   });
   const { setAccessToken } = useAccessToken();
 
   const [isMounted, setMounted] = useState(false);
-  const user = useMemo(() => session?.user, [session]);
+  const isSigningOut = useRef(false);
+  const [user, setUser] = useState(session?.user);
+  const path = usePathname();
+
+  useEffect(() => {
+    if (session?.user) {
+      isSigningOut.current = false;
+      setUser(session.user);
+    } else if (!isSigningOut.current) {
+      setUser(undefined);
+    }
+  }, [session?.user]);
 
   useEffect(() => {
     async function init() {
       try {
         if (!user) return;
-        
+
         const accessToken = await refreshToken();
 
         if (!accessToken) await signOut();
@@ -56,11 +59,23 @@ const useContextData = () => {
     init();
   }, [user]);
 
+  useEffect(() => {
+    if (path === "/register") {
+      useStore.getState().reset();
+      useAttachments.getState().reset();
+      useMenu.getState().reset();
+      useSearch.getState().reset();
+      useSessionStore.getState().reset();
+      useConversationStore.getState().reset();
+      useMessageStore.getState().reset();
+    }
+  }, [path]);
+
   const updateSession = async (updatedUser: IUser) => {
     try {
       await update({ user: updatedUser });
     } catch (error) {
-      console.log(error)
+      console.log(error);
     }
   };
 
@@ -73,7 +88,7 @@ const useContextData = () => {
 
         if (updatedUser.error) {
           if (updatedUser.error.code === 11000) {
-            toast.error('Username already exists');
+            toast.error("Username already exists");
             return;
           }
           toast.error(updatedUser.error.message);
@@ -97,6 +112,7 @@ const useContextData = () => {
   );
 
   async function signOut() {
+    isSigningOut.current = true;
     const response = await _signOut({ callbackUrl: "/register", redirect: false });
     router.replace(response.url);
     socket.disconnect();

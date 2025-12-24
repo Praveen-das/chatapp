@@ -85,10 +85,15 @@ export const useStore = createIndexDBStore<IGlobalStore>({
       },
       updateUserStatus: (userId, status, lastSeen) => {
         const user = get().users.get(userId);
+
         if (user) {
-          user.status = status;
-          user.lastSeen = lastSeen ? lastSeen : user.lastSeen;
-          set({ users: new Map(get().users).set(user.id, user) });
+          set({
+            users: new Map(get().users).set(user.id, {
+              ...user,
+              status,
+              lastSeen: lastSeen ? lastSeen : user.lastSeen,
+            }),
+          });
         }
       },
       updateUserRule: (userId, rule) => {

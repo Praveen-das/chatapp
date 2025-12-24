@@ -1,0 +1,19 @@
+{
+  "name": "@repo/kafka",
+  "version": "0.0.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "dotenv -- tsc-watch --onSuccess \"node dist/index.js\""
+  },
+  "dependencies": {
+    "kafkajs": "^2.2.4"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "*",
+    "@repo/typescript-config": "*",
+    "@types/node": "^20.10.6",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3"
+  }
+}

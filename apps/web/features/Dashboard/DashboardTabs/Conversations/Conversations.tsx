@@ -40,6 +40,7 @@ function DisplayConversations() {
 
     conversations.forEach((c) => {
       if (c.host === "system") return;
+      if (c.host === "ai") return;
 
       let haveMember = c.members.find((m) => {
         const member = getUserFromMetadata(m);
@@ -111,6 +112,7 @@ function DisplayConversations() {
               {conversations.map(
                 (conversation) =>
                   !conversation.archived &&
+                  conversation.host !== "ai" &&
                   conversation.active && (
                     <MotionWrapper isSelected={selectedConversation?.id === conversation.id} key={conversation.id}>
                       <Conversation

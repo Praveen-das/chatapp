@@ -24,19 +24,18 @@ import { APP_NAME } from "config/constants";
 import { useAttachments } from "store/attachments";
 import { IConversation } from "@interfaces/conversationInterface";
 
-const createMessageTemplate = async (
+const createMessageTemplate = (
   conversation: IConversation,
   messageData: {
     message: string;
+    messageId?: string;
     attachment?: IAttachment | null;
     replyRequest?: IMessage["reply"] | null;
   }
-): Promise<IMessage> => {
-  const { user } = (await getSession())!;
-
+): IMessage => {
   const host = conversation.host;
   const conversationId = (conversation as IConversation).conversationId || conversation?.id;
-  const from = user?.id;
+  const from = conversation.userId;
   const to = host === "group" ? conversation?.channelId! : getReceiverMetadata(conversation as IConversation)?.userId!;
 
   return {
@@ -63,6 +62,22 @@ export const generateMessageTemplate = (conversation: IConversation, message: st
   });
 };
 
+export const generateAiMessageTemplate = (conversation: IConversation, messageId: string): IMessage => {
+  const replyRequest = useMessageStore.getState().replyRequest;
+
+  return {
+    id: messageId,
+    from: "ai",
+    to: conversation.userId,
+    conversationId: conversation.conversationId,
+    message: "generating",
+    type: "generating",
+    timestamp: Date.now(),
+    reply: replyRequest!,
+    deleted: false,
+  };
+};
+
 export const regenerateMessageTemplate = (conversation: IConversation, { message, attachment }: IMessage) => {
   return createMessageTemplate(conversation, { message, attachment });
 };
@@ -73,6 +88,7 @@ export function processMessagesForUser(
   isSelectedConversation = false
 ) {
   const unreadMessages: IMessage[] = [];
+  const aiMessages: IMessage[] = [];
   const imageAttachments: IImageAttachment[] = [];
   const urlAttachments: IUrlAttachment[] = [];
   const placeholders: IMessage[] = [];
@@ -82,6 +98,7 @@ export function processMessagesForUser(
   if (!messages || messages.length === 0) {
     return {
       unreadMessages,
+      aiMessages,
       imageAttachments: [],
       urlAttachments,
       messages,
@@ -89,7 +106,9 @@ export function processMessagesForUser(
   }
 
   for (let message of messages) {
-    const isUserMessage = message.type === "message";
+    if (message.from === "system") continue;
+
+    const isUserMessage = conversation.host === "user" || conversation.host === "group";
     const isPlaceholder = message.type === "placeholder";
 
     if (isUserMessage || isPlaceholder) {
@@ -100,7 +119,11 @@ export function processMessagesForUser(
     if (isPlaceholder) {
       message.type = "message";
       placeholders.push(message);
-    } else newMessages.push(message);
+    } else if (conversation.host === "ai") {
+      aiMessages.push(message);
+    } else {
+      newMessages.push(message);
+    }
 
     const { imageAttachment, urlAttachment } = parseAttachments(message);
 
@@ -111,10 +134,13 @@ export function processMessagesForUser(
 
     if (urlAttachment) urlAttachments.push(urlAttachment);
 
-    if (!isSelectedConversation && conversation.readReceipt && message.from !== conversation.userId) {
-      if (
-        message.timestamp > (userReadReceipt?.lastReadMessageTimestamp || 0) 
-      ) {
+    if (
+      !isSelectedConversation &&
+      conversation.readReceipt &&
+      message.from !== conversation.userId &&
+      conversation.host !== "ai"
+    ) {
+      if (message.timestamp > (userReadReceipt?.lastDeliveredMessageTimestamp || 0)) {
         unreadMessages.push(message);
       }
     }
@@ -122,6 +148,7 @@ export function processMessagesForUser(
 
   return {
     unreadMessages,
+    aiMessages,
     imageAttachments,
     urlAttachments,
     messages: newMessages,
@@ -130,7 +157,7 @@ export function processMessagesForUser(
 }
 
 const { setMediaStore } = useAttachments.getState();
-const { setMessageStore, setUnreadMessages, updateUserMessages } = useMessageStore.getState();
+const { setMessageStore, setMessageHistory, setUnreadMessages, updateUserMessages } = useMessageStore.getState();
 
 export function registerMessages({
   messages: _messages,
@@ -142,22 +169,18 @@ export function registerMessages({
   isSelectedConversation?: boolean;
 }) {
   let conversation = getConversationByConversationId(userConversationId);
-
   if (!conversation) return;
 
   const conversationId = conversation.id;
 
-  const { unreadMessages, messages, imageAttachments, urlAttachments, placeholders } = processMessagesForUser(
-    _messages,
-    conversation,
-    isSelectedConversation
-  );
-
+  const { unreadMessages, aiMessages, messages, imageAttachments, urlAttachments, placeholders } =
+    processMessagesForUser(_messages, conversation, isSelectedConversation);
   const mediaStore = { images: imageAttachments, link: urlAttachments };
   const recentMessage = _messages.at(-1);
 
   if (!!placeholders?.length) updateUserMessages(conversationId, placeholders);
   if (!!messages.length) setMessageStore(conversationId, messages);
+  if (!!aiMessages.length) setMessageHistory(new Map().set(conversationId, aiMessages));
   setMediaStore(conversationId, mediaStore);
   setUnreadMessages(conversationId, unreadMessages);
 

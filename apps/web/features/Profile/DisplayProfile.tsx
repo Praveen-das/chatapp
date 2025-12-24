@@ -13,6 +13,7 @@ import UserProfile from "./ProfileTabs/UserProfileTabs/UserProfile";
 import { useMemo } from "react";
 import { getReceiverMetadata, getUserFromMetadata } from "@lib/conversation";
 import SystemProfile from "./ProfileTabs/SystemProfile";
+import AiProfile from "./ProfileTabs/AiProfile";
 
 function DisplayProfile(TransitionComponent: React.FC<{ children: React.ReactNode }>) {
   return () => {
@@ -48,11 +49,13 @@ export function Profile({ conversation, selectedUser }: IProfile) {
       <Tabs activeTab={profileTab.getTab()} direction="rtl">
         <Tab component="conversation">
           {conversation?.host === "group" ? (
-            <GroupProfile />
+            <GroupProfile groupId={conversation.id} />
           ) : conversation?.host === "user" ? (
             <UserProfile user={selectedUser} />
           ) : conversation?.host === "system" ? (
             <SystemProfile />
+          ) : conversation?.host === "ai" ? (
+            <AiProfile />
           ) : null}
         </Tab>
         <Tab component="user">

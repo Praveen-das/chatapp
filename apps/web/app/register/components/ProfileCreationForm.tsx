@@ -15,7 +15,7 @@ export default function ProfileCreationForm() {
   const { phonenumber } = useRegistrationForm();
   const [username, setUsername] = useState("");
   const [profilePicture, setProfilePicture] = useState("");
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
@@ -39,19 +39,18 @@ export default function ProfileCreationForm() {
       }
 
       const res = await signIn("credentials", user);
-     
-      if(res?.error) return setError(res.error)
+      if (res?.error) return setError(res.error);
       if (res?.ok) return router.replace("/");
     } catch (error) {
-      console.log(error);
+      console.log("errrrrrrrrrr", error);
     } finally {
       setLoading(false);
     }
   }
 
-  function handleInput(value:string){
-    setError('')
-    setUsername(value)
+  function handleInput(value: string) {
+    setError("");
+    setUsername(value);
   }
 
   return (

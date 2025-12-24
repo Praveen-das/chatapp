@@ -1,4 +1,5 @@
 /** @type {import('tailwindcss').Config} */
+import cornerShapePlugin, { squircle } from "tailwindcss-corner-shape";
 import COLORS from "./config/themes";
 import { generateTheme } from "./lib/theme";
 import themes from "daisyui/src/theming/themes";
@@ -29,9 +30,9 @@ const darkmode = {
   "--base-300-100": "oklch(var(--b3))",
   "--base-300-400": "oklch(var(--b3))",
   "--black-white": "oklch(var(--b3))",
-".btn-error":{
-    color:'oklch(var(--b3))'
-  }
+  ".btn-error": {
+    color: "oklch(var(--b3))",
+  },
 };
 
 const lightmode = {
@@ -59,9 +60,9 @@ const lightmode = {
   "--base-300-100": "oklch(var(--b1))",
   "--base-300-400": "oklch(0.85 0 0 / 1)",
   "--black-white": "oklch(var(--b1))",
-  ".btn-error":{
-    color:'white'
-  }
+  ".btn-error": {
+    color: "white",
+  },
 };
 
 const DARK_THEME = `dark-${COLORS.default?.replace("#", "")}`;
@@ -79,6 +80,7 @@ export default {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./features/**/*.{js,ts,jsx,tsx,mdx}",
+    "./node_modules/streamdown/dist/*.js",
   ],
   theme: {
     extend: {},

@@ -14,6 +14,7 @@ type Props = {
   isScrolledToBottom: MutableRefObject<boolean>;
   onScrolledToTop: () => void;
   container: MutableRefObject<HTMLDivElement | null>;
+  scrollPositionRef?: MutableRefObject<number>;
 };
 
 function useScrollHandler({
@@ -28,6 +29,7 @@ function useScrollHandler({
   isScrolledToBottom,
   onScrolledToTop,
   container,
+  scrollPositionRef,
 }: Props) {
   const isStartElm = useRef(false);
 
@@ -38,8 +40,11 @@ function useScrollHandler({
     if (container.current.scrollHeight < container.current.clientHeight + 100) return;
 
     let THRESHOLD = 2;
-    let startIndex = listRef?.findStartIndex()!;
-    let endIndex = listRef?.findEndIndex()!;
+    let startIndex = listRef.findStartIndex()!;
+    let endIndex = listRef.findEndIndex()!;
+
+    if (scrollPositionRef) scrollPositionRef.current = listRef.scrollOffset;
+
     let lastReadMsgIndex = messageHistory.length + messages.length - (unreadMessages.length - initialValue.current) - 1;
     let lastItemIndex = messageHistory.length + messages.length - 1;
 
@@ -71,7 +76,7 @@ function useScrollHandler({
     };
   }, [id]);
 
-  return onScroll
+  return onScroll;
 }
 
 export default useScrollHandler;

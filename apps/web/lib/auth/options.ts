@@ -91,7 +91,7 @@ export const authOptions: AuthOptions = {
         token.refresh_token = refresh_token;
         token.sessionId = sessionId;
       }
-      
+
       if (trigger === "update" && session?.user) {
         token.user = session.user;
       }

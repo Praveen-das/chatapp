@@ -1,4 +1,14 @@
-import { Placement, autoUpdate, flip, shift, useDismiss, useFloating, useInteractions } from "@floating-ui/react";
+import {
+  Placement,
+  autoUpdate,
+  flip,
+  shift,
+  useDismiss,
+  useFloating,
+  useInteractions,
+  useTransitionStatus,
+  useTransitionStyles,
+} from "@floating-ui/react";
 import React, { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useMenu } from "../../store/menu";
 
@@ -14,32 +24,20 @@ interface MenuProps<T> {
   onClose?: () => void;
 }
 
-function Menu<T>({
-  children,
-  placement = "bottom-start",
-  clientPoint = false,
-  stopScroll = false,
-  id,
-  onClose,
-}: MenuProps<T>) {
+function Menu<T>({ children, placement = "bottom-start", clientPoint = false, id, onClose }: MenuProps<T>) {
+  const render = useRef(0);
+
   const menu = useMenu((s) => s.menu);
   const setMenu = useMenu((s) => s.setMenu);
   const wrapper = useRef<HTMLDivElement | null>(null);
   const reference = menu?.reference;
   const open = Boolean(id === menu?.id);
-  const lastPlacementRef = useRef<Placement>(placement);
 
-  const { refs, floatingStyles, context } = useFloating({
+  const { refs, context, floatingStyles } = useFloating({
     open,
-    onOpenChange: (o) => !o && handleClose(),
-    middleware: [
-      flip({ padding: 50 }),
-      shift({ padding: 50 }),
-      savePlacementMiddleware((placement) => {
-        lastPlacementRef.current = placement;
-      }),
-    ],
-    placement: lastPlacementRef.current,
+    onOpenChange: (opened) => !opened && handleClose(),
+    middleware: [flip({ padding: 50 }), shift({ padding: 50 })],
+    placement,
     elements: { reference: clientPoint ? wrapper.current : reference?.target },
     transform: false,
     whileElementsMounted: (reference, floating, update) =>
@@ -51,18 +49,39 @@ function Menu<T>({
       }),
   });
 
-  function savePlacementMiddleware(onPlacement: (p: Placement) => void) {
-    return {
-      name: "savePlacement",
-      async fn(state: any) {
-        onPlacement(state.placement);
-        return {};
-      },
-    };
-  }
+  const { styles } = useTransitionStyles(context, {
+    initial: ({ placement }) => {
+      const style = { opacity: 0, clipPath: "" };
 
-  const dismiss = useDismiss(context, { enabled: open });
+      switch (placement) {
+        case "top-start":
+          style.clipPath = "polygon(0 30%, 30% 30%, 30% 100%, 0 100%)";
+          break;
+        case "top-end":
+          style.clipPath = "polygon(30% 30%, 100% 30%, 100% 100%, 30% 100%)";
+          break;
+        case "bottom-start":
+          style.clipPath = "polygon(0 0, 30% 0, 30% 30%, 0 30%)";
+          break;
+        case "bottom-end":
+          style.clipPath = "polygon(30% 0, 100% 0, 100% 30%, 30% 30%)";
+          break;
+        default:
+          break;
+      }
+
+      return style;
+    },
+    open: () => ({ opacity: 1, clipPath: "polygon(0 0, 100% 0, 100% 100%, 0% 100%)" }),
+    duration: 100,
+  });
+  const { isMounted, status } = useTransitionStatus(context);
+  const dismiss = useDismiss(context, { enabled: isMounted });
   const { getFloatingProps } = useInteractions([dismiss]);
+
+  useEffect(() => {
+    if (status === "unmounted") setMenu(null);
+  }, [status]);
 
   useEffect(() => {
     if (!reference) return;
@@ -78,57 +97,23 @@ function Menu<T>({
 
   const handleClose = () => {
     onClose?.();
-    setMenu(null);
-    lastPlacementRef.current = placement;
+    setMenu({ ...menu, id: "" });
   };
 
-  const variants = useMemo(() => {
-    const _variants = {
-      hidden: { opacity: 0, clipPath: "" },
-      visible: { opacity: 1, clipPath: "polygon(0 0, 100% 0, 100% 100%, 0% 100%)" },
-    };
-
-    switch (context.placement) {
-      case "top-start":
-        _variants.hidden.clipPath = "polygon(0 30%, 30% 30%, 30% 100%, 0 100%)";
-        break;
-      case "top-end":
-        _variants.hidden.clipPath = "polygon(30% 30%, 100% 30%, 100% 100%, 30% 100%)";
-        break;
-      case "bottom-start":
-        _variants.hidden.clipPath = "polygon(0 0, 30% 0, 30% 30%, 0 30%)";
-        break;
-      case "bottom-end":
-        _variants.hidden.clipPath = "polygon(30% 0, 100% 0, 100% 30%, 30% 30%)";
-        break;
-      default:
-        break;
-    }
-
-    return _variants;
-  }, [context.placement]);
-
   return (
-    <div>
-      {open && <div className="fixed inset-0 z-[1000]" />}
+    <div className="">
+      {isMounted && <div className="fixed inset-0 z-[1000] " onClick={handleClose} />}
       {clientPoint && <div ref={wrapper} className="fixed z-[1000]" />}
-      <AnimatePresence key={context.placement}>
-        {open && (
-          <motion.ul
-            className={`menu bg-base-100/70 backdrop-blur-lg p-1 rounded-lg text-xs shadow z-[1000] overflow-hidden`}
-            initial="hidden"
-            exit="hidden"
-            animate="visible"
-            transition={{ duration: 0.08 }}
-            variants={variants}
-            ref={refs.setFloating}
-            {...getFloatingProps()}
-            style={floatingStyles}
-          >
-            {typeof children === "function" ? children(menu?.data) : children}
-          </motion.ul>
-        )}
-      </AnimatePresence>
+      {isMounted && (
+        <ul
+          className={`menu bg-base-100/70 backdrop-blur-lg p-1 rounded-lg text-xs shadow z-[1000] overflow-hidden`}
+          ref={refs.setFloating}
+          {...getFloatingProps()}
+          style={{ ...floatingStyles, ...styles }}
+        >
+          {typeof children === "function" ? children(menu?.data) : children}
+        </ul>
+      )}
     </div>
   );
 }
@@ -153,10 +138,11 @@ function Item({
   const setMenu = useMenu((s) => s.setMenu);
 
   function handleClick() {
+    const menu = useMenu.getState().menu;
     if (!canSelect) return;
     onClick?.();
     if (canClose) {
-      setMenu(null);
+      setMenu({ ...menu, id: "" });
     }
   }
 

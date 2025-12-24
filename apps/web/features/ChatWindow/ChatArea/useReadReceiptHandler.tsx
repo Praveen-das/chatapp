@@ -13,6 +13,7 @@ export default function useReadReceiptHandler() {
 
   useEffect(() => {
     if (!selectedConversation) return;
+    if (selectedConversation.host === "system" || selectedConversation.host === "ai") return;
     if (!user) return;
 
     const conversationId = selectedConversation.id;
@@ -29,6 +30,7 @@ export default function useReadReceiptHandler() {
         userId: user.id!,
         senderId: recentMessage.from!,
         lastReadMessageTimestamp: Date.now(),
+        lastDeliveredMessageTimestamp: Date.now(),
         updatedAt: Date.now(),
       },
     ]);

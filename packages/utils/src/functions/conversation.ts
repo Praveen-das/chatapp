@@ -23,13 +23,6 @@ export function handleGeneratingConversation(members: [IUser, IUser], options?: 
   return { conversation, participants, userConversations };
 }
 
-export function handleGeneratingSystemConversation(conversationId: string, members: [IMember, IMember]) {
-  const conversation = generateConversation(conversationId, members);
-  const userConversations = generateUserConversations(conversation, members);
-
-  return { conversation, userConversations };
-}
-
 export function generateConversation(
   conversationId: string,
   members: [IMember, IMember],
@@ -38,7 +31,7 @@ export function generateConversation(
   return {
     id: conversationId,
     host: "user",
-    members: members.map((m) => m._id) as [string,string],
+    members: members.map((m) => m._id) as [string, string],
     blocked: options?.blocked,
   };
 }

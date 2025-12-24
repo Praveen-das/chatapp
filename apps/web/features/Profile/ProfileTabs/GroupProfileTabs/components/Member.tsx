@@ -23,15 +23,15 @@ export function Member({
   const member = useMemo(() => getUserFromMetadata(_member)!, [_member]);
 
   function handleSelectedUser() {
-    setSelectedUser(member as IUser);
+    setSelectedUser(member);
     profileTab.push("user");
   }
 
   function handleDropdown(e: MouseEvent<HTMLDivElement>) {
     e.stopPropagation();
     setMenu({
-      reference: e,
-      data: _member,
+      reference: { target: e.currentTarget },
+      data: { ..._member, isAdmin },
       id: "groupProfile",
     });
   }
@@ -39,7 +39,7 @@ export function Member({
   return (
     <div
       key={member.id}
-      className="group hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-8 max-sm:py-2 py-3 cursor-pointer"
+      className="group hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-5 max-sm:py-2 py-3 rounded-2xl cursor-pointer"
       onClick={handleSelectedUser}
     >
       <Avatar

@@ -14,7 +14,8 @@ export function useChats(
     enable: boolean;
     position: number;
     value: number;
-  }
+  },
+  mode?: "static" | "streaming"
 ) {
   const { user } = useAuth();
   const setSelectedChats = useMessageStore((s) => s.setSelectedChats);
@@ -53,7 +54,7 @@ export function useChats(
     pointerEvent.current = null;
   }
 
-  return useMemo(() => {
+  const chatElements = useMemo(() => {
     const read = getReadReceiptState(selectedConversation!, user?.id!);
 
     return messages.map((chat: IMessage | IMessage, index: number, array: IMessage[]) => {
@@ -67,7 +68,9 @@ export function useChats(
       const avatarVisibility =
         !self && isGroupConversation ? (currentMsgIsFromDifferentUser ? "visible" : "hidden") : "none";
 
-      if (read.lastReadMessageTimestamp && chat.timestamp <= read.lastReadMessageTimestamp) {
+      if (chat.to === "ai") {
+        chat.readReceiptStatus = "seen";
+      } else if (read.lastReadMessageTimestamp && chat.timestamp <= read.lastReadMessageTimestamp) {
         chat.readReceiptStatus = "seen";
       } else if (read.lastDeliveredMessageTimestamp && chat.timestamp <= read.lastDeliveredMessageTimestamp) {
         chat.readReceiptStatus = "received";
@@ -84,10 +87,12 @@ export function useChats(
               </div>
             </div>
           )}
+
           <div
             data-id={chat.id}
             onPointerDown={(e) => startTouch(chat)}
             onPointerUp={(e) => endTouch(chat, e)}
+            onPointerMove={(e) => endTouch(chat, e)}
             onTouchEnd={(e) => e.preventDefault()}
             onPointerLeave={cancelTimeout}
           >
@@ -101,10 +106,13 @@ export function useChats(
               avatarVisibility={avatarVisibility}
               displayUsername={isGroupConversation && !self}
               isSelected={selectedChats.includes(chat)}
+              mode={mode}
             />
           </div>
         </Fragment>
       );
     });
   }, [messages, getReadReceiptState, notificationBar, selectedChats, selectedConversation, user]);
+
+  return chatElements;
 }

@@ -3,7 +3,7 @@ import userServices from "../services/userServices";
 import { MongooseError, Types } from "mongoose";
 import { IUser } from "../interfaces/userInterface";
 import { verifyUserToken } from "@repo/utils";
-import { updateUserSchema, userSchema } from "../schemas/userSchema";
+import { bulkUpdateUsersSchema, updateUserSchema, userSchema } from "../schemas/userSchema";
 import { ZodError } from "zod";
 
 type IUserCreationReq = {
@@ -29,6 +29,11 @@ const _createUser = async (req: Request<any, any, IUserCreationReq>, res: Respon
     res.json(user);
   } catch (error) {
     console.log("error _createUser----->", error);
+    if (error instanceof ZodError) {
+      res.json({ error: error.errors[0] });
+    } else {
+      res.json({ error: error });
+    }
   }
 };
 
@@ -73,8 +78,8 @@ const _getUser = async (req: Request, res: Response) => {
 };
 
 const _getUserById = async (req: Request, res: Response) => {
-  if(!req.params.id) return res.json({ error: "User ID is required" });
-  
+  if (!req.params.id) return res.json({ error: "User ID is required" });
+
   let userId = new Types.ObjectId(req.params.id);
   const user = await userServices.getUserById(userId);
 
@@ -110,6 +115,18 @@ const _updateUserFromKafka = async (req: string, reset: () => void) => {
   }
 };
 
+const _bulkUpdateUsers = async (req: string, reset: () => void) => {
+  try {
+    let body = JSON.parse(req);
+    let updates = bulkUpdateUsersSchema.parse(body);
+
+    userServices.bulkUpdateUsers(updates);
+  } catch (error) {
+    console.log("UPDATE_USER error--->", error);
+    reset();
+  }
+};
+
 const _updateUserRule = async (req: string, reset: () => void) => {
   try {
     let body = JSON.parse(req);
@@ -137,5 +154,6 @@ export default {
   _updateUser,
   _deleteUser,
   _updateUserFromKafka,
-  _updateUserRule
+  _updateUserRule,
+  _bulkUpdateUsers,
 };

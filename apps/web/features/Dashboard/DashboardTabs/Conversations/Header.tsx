@@ -6,6 +6,7 @@ import { CreateGroupButton } from "./CreateGroupButton";
 import { ArchiveButton } from "./ArchiveButton";
 import { NewChatButton } from "./NewChatButton";
 import { OptionsButton } from "./OptionsButton";
+import { AiButton } from "./AiButton";
 
 function Header() {
   const unreadMessages = useMessageStore((s) => s.unreadMessages);
@@ -41,6 +42,7 @@ function Header() {
           )}
         </div>
         <div className="flex items-center gap-4">
+          <AiButton />
           <CreateGroupButton />
           <NewChatButton />
           <ArchiveButton />

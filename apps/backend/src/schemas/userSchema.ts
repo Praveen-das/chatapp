@@ -35,3 +35,5 @@ export const updateUserSchema = z.object({
     .partial()
     .transform((input) => Dot.dot(input)),
 });
+
+export const bulkUpdateUsersSchema = z.array(updateUserSchema);

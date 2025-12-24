@@ -59,9 +59,9 @@ export const messageSchema = new Schema<IMessage>({
   id: Schema.Types.ObjectId,
   conversationId: Schema.Types.ObjectId,
   from: Schema.Types.Mixed,
-  to: Schema.Types.ObjectId,
+  to: Schema.Types.Mixed,
   message: String,
-  timestamp:  { type: Number, default: () => Date.now() },
+  timestamp: { type: Number, default: () => Date.now() },
   type: {
     type: String,
     enum: ["message", "placeholder", "service_message", "notification"],

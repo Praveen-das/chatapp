@@ -88,17 +88,21 @@ function ImageSelector() {
       }
     };
 
-    const uploadPromises = messages.map(uploadImageAttachment);
-    await Promise.allSettled(uploadPromises);
+    try {
+      const uploadPromises = messages.map(uploadImageAttachment);
+      await Promise.allSettled(uploadPromises);
 
-    sendMessage({
-      conversation: conversation!,
-      messages,
-      replacePlaceholder: true,
-      callback: () => setLoading(false),
-    });
-
-    setSelectedUser(null);
+      await sendMessage({
+        conversation: conversation!,
+        messages,
+        replacePlaceholder: true,
+      });
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+      setSelectedUser(null);
+    }
   };
 
   return (

@@ -44,7 +44,7 @@ export default function registerMessageHandlers(io: Server, socket: ISocket) {
 
   socket.on("change readReceipt", async (updates: MessageReadReceipt[]) => {
     if (!updates) return;
-    
+
     updates.forEach((rr) => {
       io.to(rr.senderId).emit("change readReceipt", rr);
     });
@@ -54,15 +54,15 @@ export default function registerMessageHandlers(io: Server, socket: ISocket) {
 
   socket.on("request:delete_message", async ({ conversation, messages }: IDeleteRequest) => {
     if (!messages.length) return;
+    if (conversation.host === "system") return;
+    if (conversation.host === "ai") return;
 
-    if (conversation.host !== "system") {
-      const receivers = conversation.members.map((m) => m.userId);
+    const receivers = conversation.members.map((m) => m.userId);
 
-      io.to(receivers).emit("request:delete_message", {
-        conversationId: conversation.conversationId,
-        messages,
-      });
-    }
+    io.to(receivers).emit("request:delete_message", {
+      conversationId: conversation.conversationId,
+      messages,
+    });
 
     produceMessage({ messages }, "UPDATE_MESSAGES");
   });

@@ -1,10 +1,11 @@
 "use client";
-import React, { MouseEvent } from "react";
+import { MouseEvent } from "react";
 import { useStore } from "../../../../../store/global";
 import { parseUrl } from "@lib/utils";
 import Link from "next/link";
+import { MemoizedMarkdown } from "./MemoizedMarkdown";
 
-export function RenderMessage({ text, isEmoji }: { text: string; isEmoji: boolean }) {
+export function RenderMessage({ text, id, isEmoji,mode }: { text: string; id: string; isEmoji: boolean,mode?:'static'|'streaming' }) {
   const parsedUrl = parseUrl(text);
   const isUrl = Boolean(parsedUrl);
   const samesite = isUrl && parsedUrl?.host === window.location.host;
@@ -36,24 +37,10 @@ export function RenderMessage({ text, isEmoji }: { text: string; isEmoji: boolea
           {text}
         </Link>
       ) : (
-        <p className={`whitespace-pre-wrap relative ${isEmoji ? "text-5xl" : ""} break-all z-3 py-1`}>{text}</p>
+        <span className={`whitespace-pre-wrap relative ${isEmoji ? "text-5xl" : ""} break-all z-3 py-2`}>
+          <MemoizedMarkdown mode={mode} content={text} id={id} key={`${id}-text`} />
+        </span>
       )}
     </>
   );
-}
-
-function formatTildeText(input: string) {
-  const parts = input.split(/(~[^~]+~)/g); // split while keeping the ~...~ parts
-
-  return parts.map((part, index) => {
-    const match = part.match(/^~([^~]+)~$/);
-    if (match) {
-      return (
-        <span className="text-lg" key={index}>
-          {match[1]}
-        </span>
-      );
-    }
-    return <span key={index}>{part}</span>;
-  });
 }

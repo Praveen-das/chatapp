@@ -1,5 +1,4 @@
 export const topics = [
-  "MESSAGES",
   "UPDATE_MESSAGES",
   "CREATE_CONVERSATION",
   "CREATE_GROUP",
@@ -24,4 +23,5 @@ export const topics = [
   "REMOVE_GROUP_ADMIN",
   "UPDATE_USER_RULE",
   "UPDATE_READ_RECEIPTS",
+  "BULK_UPDATE_USERS",
 ];

@@ -57,7 +57,7 @@ export const AddBlockedContactModal = () => {
       <div className="max-sm:px-4 px-6 mt-4">
         <SearchUser query={query} onChange={setQuery} />
       </div>
-      <div className="w-full h-full space-y-2 overflow-y-scroll no-scrollbar mt-4 mb-2">
+      <div className="w-full h-full space-y-2 overflow-y-scroll no-scrollbar mt-4 my-2  px-3">
         {(query ? queryResult : unblockedUsers).map(
           (person) =>
             person.id !== user?.id && (

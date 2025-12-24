@@ -6,7 +6,7 @@ export interface IMessage {
   from?: string;
   to?: string;
   message: string;
-  type: "message" | "placeholder" | "service_message" | "notification";
+  type: "message" | "placeholder" | "service_message" | "notification" | "generating";
 
   attachment?: IAttachment | null;
   reply?: IMessageReply;

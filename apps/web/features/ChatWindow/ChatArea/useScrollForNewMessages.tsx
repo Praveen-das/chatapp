@@ -15,7 +15,7 @@ type Props = {
   messages: IMessage[];
   messageHistory: IMessage[];
   unreadMessages: IMessage[];
-}
+};
 
 export default function useScrollForNewMessages({
   listRef,
@@ -45,7 +45,8 @@ export default function useScrollForNewMessages({
 
     let recentMessageIdx = messages.length + messageHistory.length - 1;
 
-    if (isScrolledToBottom || (self && recentMessage?.from !== "system")) listRef?.scrollToIndex(recentMessageIdx);
+    if (isScrolledToBottom || (self && recentMessage?.from !== "system"))
+      listRef?.scrollToIndex(recentMessageIdx, { align: "end" });
 
     if (!isFocused) {
       setNewMessageBadge(unreadMessages.length - initialValue.current);
@@ -69,13 +70,21 @@ export default function useScrollForNewMessages({
 
     const conversationId = selectedConversation.id;
 
-    const messages = getMessages(conversationId) || [];
     const messageHistory = useMessageStore.getState().messageHistory.get(conversationId) || [];
+    const messages = getMessages(conversationId) || [];
     const unreadMessages = getUnreadMessages(conversationId);
+
     const scrollToIndex = messageHistory.length + messages.length - unreadMessages.length - 1;
 
-    listRef.scrollToIndex(scrollToIndex, { align: "center" });
-    setShowUnreadNotificationBar(!!unreadMessages.length);
+    const scrollPosition = useConversationStore.getState().scrollPositions.get(conversationId);
+
+    if (unreadMessages.length > 0 || !scrollPosition) {
+      listRef.scrollToIndex(scrollToIndex, { align: "end" });
+      setShowUnreadNotificationBar(!!unreadMessages.length);
+    } else {
+      listRef.scrollTo(scrollPosition);
+    }
+
     mounted.current = true;
   }, [listRef, selectedConversation]);
 

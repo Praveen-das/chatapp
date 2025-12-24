@@ -4,7 +4,7 @@ import useAuth from "@hooks/useAuth";
 import useAxios from "@hooks/useAxios";
 import { IConversation } from "@interfaces/conversationInterface";
 import { IMessage } from "@interfaces/messageInterface";
-import { getGlobalUsers, handleSettingGroupAdmin } from "@lib/conversation";
+import { getGlobalUsers, getReceiver, handleSettingGroupAdmin } from "@lib/conversation";
 import { processMessagesForUser, registerMessages } from "@lib/messages";
 import socket from "@lib/ws";
 import { MessageReadReceipt } from "@repo/interfaces/messageInterface";
@@ -101,8 +101,14 @@ export const AppContext = ({ children }: PropsWithChildren) => {
       const channels: string[] = [];
 
       conversations.forEach((conversation) => {
-        if (conversation.host !== "system") conversation.members.forEach((m) => connections.add(m.userId));
-        if (conversation.host === "group") channels.push(conversation.channelId!);
+        if (conversation.host === "group") {
+          channels.push(conversation.channelId!);
+          connections.add(conversation.channelId!);
+        }
+        if (conversation.host === "user") {
+          const receiver = getReceiver(conversation!)?.id!;
+          if (receiver) connections.add(receiver);
+        }
       });
 
       return { connections, channels };
@@ -116,25 +122,29 @@ export const AppContext = ({ children }: PropsWithChildren) => {
       conversations.forEach((conversation) => {
         let conversationId = conversation.id;
 
-        const { unreadMessages, messages, imageAttachments, urlAttachments } = processMessagesForUser(
+        const { unreadMessages, aiMessages, messages, imageAttachments, urlAttachments } = processMessagesForUser(
           conversation.messages,
           conversation
         );
 
         const mediaStore = { images: imageAttachments, link: urlAttachments };
         const recentMessage = messages?.at(-1);
-
-        messageStore.set(conversationId, messages || []);
-
-        if (!conversation.active && !!messages.length) {
-          sendConversationActivationRequest(conversationId);
-          updateConversation(conversationId, { recentMessage, active: true });
-        } else updateConversation(conversationId, { recentMessage });
+        const recentAiMessage = aiMessages?.at(-1);
 
         handleSettingGroupAdmin(conversation);
 
+        if (recentAiMessage) {
+          messageStore.set(conversationId, aiMessages || []);
+          conversation.recentMessage = recentAiMessage;
+        }
+
         if (recentMessage) {
-          if (!!unreadMessages.length && recentMessage?.from !== user?.id)
+          if (
+            !!unreadMessages.length &&
+            conversation.readReceipt?.[user?.id!]?.lastDeliveredMessageTimestamp! < recentMessage.timestamp &&
+            recentMessage?.from !== user?.id &&
+            (conversation.host === "user" || conversation.host === "group")
+          ) {
             readReceiptUpdates.push({
               conversationId: conversation.conversationId,
               userId: user?.id!,
@@ -142,19 +152,26 @@ export const AppContext = ({ children }: PropsWithChildren) => {
               lastDeliveredMessageTimestamp: Date.now(),
               updatedAt: Date.now(),
             });
+          }
 
+          if (!conversation.active) {
+            conversation.active = true;
+            sendConversationActivationRequest(conversationId);
+          }
+
+          messageStore.set(conversationId, messages || []);
           conversation.recentMessage = recentMessage;
         }
 
-        conversationsCollection.push(conversation);
-        setMediaStore(conversationId, mediaStore);
-
-        !!unreadMessages.length && setUnreadMessages(conversationId, unreadMessages);
-
         delete conversation.messages;
+
+        conversationsCollection.push(conversation);
+
+        setMediaStore(conversationId, mediaStore);
+        !!unreadMessages.length && setUnreadMessages(conversationId, unreadMessages);
       });
 
-      sendReadReceiptChangeRequest(readReceiptUpdates);
+      readReceiptUpdates.length > 0 && sendReadReceiptChangeRequest(readReceiptUpdates);
       setMessageHistory(messageStore);
       setConversations(conversationsCollection);
     }
@@ -172,13 +189,15 @@ export const AppContext = ({ children }: PropsWithChildren) => {
 
         const { recentMessage } = res;
 
-        readReceiptUpdates.push({
-          conversationId: c.conversationId,
-          userId: user?.id!,
-          senderId: recentMessage?.from!,
-          lastDeliveredMessageTimestamp: Date.now(),
-          updatedAt: Date.now(),
-        });
+        if (recentMessage) {
+          readReceiptUpdates.push({
+            conversationId: c.conversationId,
+            userId: user?.id!,
+            senderId: recentMessage?.from!,
+            lastDeliveredMessageTimestamp: Date.now(),
+            updatedAt: Date.now(),
+          });
+        }
 
         if (!res.conversation.active) {
           sendConversationActivationRequest(userConversationId);
@@ -186,7 +205,9 @@ export const AppContext = ({ children }: PropsWithChildren) => {
         } else updateConversation(userConversationId, { recentMessage });
       });
 
-      sendReadReceiptChangeRequest(readReceiptUpdates);
+      if (readReceiptUpdates.length > 0) {
+        sendReadReceiptChangeRequest(readReceiptUpdates);
+      }
     }
 
     async function init() {
@@ -216,15 +237,13 @@ export const AppContext = ({ children }: PropsWithChildren) => {
                 .map((r) => ({ userId: r.userId, updatedAt: r.updatedAt! }));
 
               if (receipts.length > 0) {
-                console.log(c);
                 i[c.conversationId] = receipts;
               }
             }
 
             return i;
           }, {});
-        console.log(user?.id);
-        console.log(idbReadReceiptRecord);
+
         const [unsyncEntries, sessions] = await Promise.all([
           axios
             .post<AppPostReq>(
@@ -245,7 +264,6 @@ export const AppContext = ({ children }: PropsWithChildren) => {
 
         if (unsyncUsersData && !!Object.values(unsyncUsersData).length) {
           const users = new Map(Object.entries(unsyncUsersData));
-
           if (users.has(userId!) && users.get(userId!)?.version! > user?.version!) {
             updateSession(users.get(userId!)!);
           } else {
@@ -266,7 +284,6 @@ export const AppContext = ({ children }: PropsWithChildren) => {
         }
 
         if (unsyncReadReceipts && !!unsyncReadReceipts.length) {
-          console.log("unsyncReadReceipts", unsyncReadReceipts);
           const updateReadReceipt = useConversationStore.getState().conversationActions.updateReadReceipt;
 
           unsyncReadReceipts.forEach((receipt) => {
@@ -281,14 +298,12 @@ export const AppContext = ({ children }: PropsWithChildren) => {
           setCurrentSession(currentSession!);
           setActiveSessions(activeSessions);
 
-          if (storedConversations.length) {
-            console.log("connecting websock");
-            const { channels, connections } = getSocketMetadata(storedConversations);
+          console.log("connecting websock");
+          const { channels, connections } = getSocketMetadata(storedConversations);
 
-            sendPresence([...connections], currentSession!);
-            socket.auth = { userId, channels };
-            if (!socket.connected) socket.connect();
-          }
+          sendPresence([...connections]);
+          socket.auth = { userId, channels, session: currentSession };
+          if (!socket.connected) socket.connect();
         }
       } catch (error) {
         console.log("Sessions setter error", error);

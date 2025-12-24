@@ -13,8 +13,20 @@ import conversationServices from "../services/conversationServices";
 import { fetchGroupsByUserId } from "../services/groupServices";
 import userServices from "../services/userServices";
 import messageServices from "../services/messageServices";
+import conversationController from "../controller/conversationController";
 
 const router = Router();
+
+router.post("/create-ai-conversation", async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const response = await conversationController.createAiConversation(userId);
+    res.json(response);
+  } catch (error) {
+    console.log(error);
+    res.json({ error });
+  }
+});
 
 router.post(
   "/:userId",
@@ -88,9 +100,6 @@ router.post(
           syncRegistry.registerConversations(userId, conversationIds),
           syncRegistry.saveConversationSyncState(conversationSyncState),
         ]);
-
-        console.log("newConversations---->", newConversations.length);
-        console.log("globalUsers---->", Object.keys(globalUsers).length);
 
         return res.json({ unsyncConversationsData: { newEntry: newConversations }, unsyncUsersData: globalUsers });
       }

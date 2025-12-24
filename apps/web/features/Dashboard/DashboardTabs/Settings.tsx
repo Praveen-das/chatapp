@@ -21,6 +21,8 @@ const Settings = () => {
 
   const [loading, setLoading] = useState(false);
 
+  const [logoutLoading, setLogoutLoading] = useState(false);
+
   function handleEditUsername(text: string) {
     if (text !== user?.username) {
       updateUser("username", text);
@@ -91,7 +93,8 @@ const Settings = () => {
   }
 
   async function handleLogout() {
-    signOut();
+    setLogoutLoading(true);
+    await signOut();
   }
 
   return (
@@ -141,7 +144,7 @@ const Settings = () => {
           <div
             onClick={() => handleMenu("generalSettings")}
             tabIndex={0}
-            className="hover:bg-[--hover-secondary] w-full flex gap-4 items-center duration-200 max-sm:px-0 px-4 py-4 cursor-pointer"
+            className="hover:bg-[--hover-secondary] w-full flex gap-4 items-center duration-200 max-sm:px-0 px-4 py-4 rounded-2xl cursor-pointer"
           >
             <Cog6ToothIcon className="size-5" />
             <label htmlFor="notification">General Settings</label>
@@ -164,7 +167,7 @@ const Settings = () => {
           <div
             onClick={() => handleMenu("blockedContacts")}
             tabIndex={0}
-            className="hover:bg-[--hover-secondary] w-full flex gap-4 items-center duration-200 max-sm:px-0 px-4 py-4 cursor-pointer"
+            className="hover:bg-[--hover-secondary] w-full flex gap-4 items-center duration-200 max-sm:px-0 px-4 py-4 rounded-2xl cursor-pointer"
           >
             <NoSymbolIcon className="size-5" />
             <label htmlFor="notification">Blocked contacts</label>
@@ -175,7 +178,7 @@ const Settings = () => {
           <div
             onClick={() => handleMenu("activeSessions")}
             tabIndex={0}
-            className="hover:bg-[--hover-secondary] w-full flex gap-4 items-center duration-200 max-sm:px-0 px-4 py-4 cursor-pointer"
+            className="hover:bg-[--hover-secondary] w-full flex gap-4 items-center duration-200 max-sm:px-0 px-4 py-4 rounded-2xl cursor-pointer"
           >
             <UserGroupIcon className="size-5" />
             <label htmlFor="notification">Active Sessions</label>
@@ -185,9 +188,17 @@ const Settings = () => {
 
         {/* Logout */}
         <div className="flex flex-col gap-6 w-full max-sm:px-0 px-4 mt-auto">
-          <div onClick={handleLogout} tabIndex={0} className="btn btn-block btn-error !text-[--black-white]">
-            <ArrowLeftStartOnRectangleIcon className="size-5" />
-            Logout
+          <div
+            onClick={!logoutLoading ? handleLogout : undefined}
+            tabIndex={0}
+            className={`btn btn-block btn-error !text-[--black-white] ${logoutLoading && "opacity-50 cursor-not-allowed"}`}
+          >
+            {logoutLoading ? (
+              <span className="loading loading-spinner loading-sm"></span>
+            ) : (
+              <ArrowLeftStartOnRectangleIcon className="size-5" />
+            )}
+            {logoutLoading ? "Logging out..." : "Logout"}
           </div>
         </div>
       </div>

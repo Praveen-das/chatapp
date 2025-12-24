@@ -8,6 +8,7 @@ import { syncRegistry } from "../lib/SyncRegistry";
 import { handleUpdatingGroupConversationSyncState } from "../services/utils/conversation";
 import { SaveConversationSyncState } from "@repo/interfaces/syncRegistryInterface";
 import { readReceiptSchema, readReceiptsSchema } from "../schemas/readReceiptSchema";
+import messageServices from "../services/messageServices";
 
 const _createConversation = async (req: string, reset: () => void) => {
   try {
@@ -76,6 +77,56 @@ const _deleteGroupConversation = async (req: string, reset: () => void) => {
     console.log(error);
     reset();
   }
+};
+
+const createAiConversation = async (userId: Types.ObjectId) => {
+  const conversation = await conversationServices.createConversation({
+    id: new Types.ObjectId(),
+    host: "ai",
+  });
+
+  const [response] = await conversationServices.createUserConversation([
+    {
+      id: new Types.ObjectId(),
+      conversationId: conversation.id,
+      userId: new Types.ObjectId(userId),
+    },
+  ]);
+
+  return { ...conversation.toObject(), ...response!.toObject() };
+};
+
+const createSystemConversation = async (userId: Types.ObjectId) => {
+  const MESSAGE_STRING = `Welcome to Chatvia.
+We’re pleased to have you here. This platform is built to support secure, real-time communication that keeps teams connected and information flowing.
+Whether you're starting new conversations or continuing existing ones, Chatvia offers a focused, intuitive environment designed for clarity and collaboration.
+Start chatting — your space is ready.
+`;
+
+  const conversation = await conversationServices.createConversation({
+    id: new Types.ObjectId(),
+    host: "system",
+  });
+
+  await conversationServices.createUserConversation([
+    {
+      id: new Types.ObjectId(),
+      conversationId: conversation.id,
+      userId: new Types.ObjectId(userId),
+    },
+  ]);
+
+  await messageServices.saveSystemMessage([
+    {
+      id: new Types.ObjectId(),
+      to: userId,
+      from: "system",
+      conversationId: conversation.id,
+      message: MESSAGE_STRING,
+      type: "service_message",
+      timestamp: Date.now(),
+    },
+  ]);
 };
 
 const _clearConversation = async (req: string, reset: () => void) => {
@@ -192,6 +243,7 @@ const _saveMessageReadReceipt = async (req: string, reset: () => void) => {
   try {
     const parsed = JSON.parse(req);
     const readReceipts = readReceiptsSchema.parse(parsed.readReceipts);
+    console.log(readReceipts);
 
     const response = await conversationServices.saveMessageReadReceipt(readReceipts);
   } catch (error) {
@@ -204,6 +256,8 @@ export default {
   _createConversation,
   // _createUserConversation,
   _createGroupConversation,
+  createAiConversation,
+  createSystemConversation,
   _deleteGroupConversation,
   _fetchAllConversations,
   _getUserConversation,
@@ -213,5 +267,5 @@ export default {
   _clearConversation,
   _registerStarredMessages,
   _unregisterStarredMessages,
-  _saveMessageReadReceipt
+  _saveMessageReadReceipt,
 };

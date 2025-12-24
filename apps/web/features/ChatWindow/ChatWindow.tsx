@@ -3,7 +3,7 @@ import DisplayProfile from "@features/Profile/DisplayProfile";
 import { Tab, Tabs } from "@features/ui/Tab";
 import useMediaQuery from "@hooks/useMediaQuery";
 import { AnimatePresence, motion } from "framer-motion";
-import React, { memo } from "react";
+import React, { ComponentType, FunctionComponent, memo, PropsWithChildren } from "react";
 import { useMessageStore } from "store/messageStore";
 import { useAttachments } from "../../store/attachments";
 import { useConversationStore } from "../../store/conversationStore";
@@ -13,6 +13,10 @@ import ChatHeader from "./ChatHeader/ChatHeader";
 import ChatHeaderActions from "./ChatHeader/ChatHeaderActions";
 import ChatInput from "./ChatInput/ChatInput";
 import ImageSelector from "./ImageSelector/ImageSelector";
+import { Brain, Sparks } from "iconoir-react";
+import { getSession } from "next-auth/react";
+import AiChatArea from "./ChatArea/AiChatArea";
+import { AiChatProvider, useAiChat } from "context/AiChatProvider";
 
 const LargeScreenLayout = DisplayProfile(LargeScreenChatWindow);
 const MobileLayout = DisplayProfile(MobileChatWindow);
@@ -22,12 +26,120 @@ function ChatWindow(): JSX.Element {
   const selectedUser = useStore((s) => s.selectedUser);
   const deviceTab = useStore((s) => s.deviceTab);
   const isLg = useMediaQuery("(min-width: 1024px)");
-  
+
   return (
     <div
       className={`${deviceTab === "chatarea" ? "max-sm:translate-x-0" : "max-sm:translate-x-full"} flex max-sm:fixed max-sm:inset-0 flex-1 w-full duration-300 sm:rounded-2xl overflow-hidden z-50`}
     >
       {selectedUser || selectedConversation ? isLg ? <LargeScreenLayout /> : <MobileLayout /> : <WelcomeScreen />}
+    </div>
+  );
+}
+
+function AiWelcomeScreen() {
+  const selectedConversation = useConversationStore((s) => s.selectedConversation);
+  const upsertConversation = useConversationStore((s) => s.conversationActions.upsertConversation);
+  const [isHovering, setIsHovering] = React.useState(false);
+
+  const handleStartChatting = async () => {
+    const session = await getSession();
+
+    if (!session) return;
+
+    const response = await fetch("/api/conversation/create/ai", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ userId: session.user.id }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to create conversation");
+    }
+
+    const reader = response.body?.getReader();
+
+    if (!reader) {
+      throw new Error("Failed to get reader");
+    }
+
+    const decoder = new TextDecoder();
+
+    const { done, value } = await reader.read();
+
+    const decodedValue = decoder.decode(value);
+
+    // SSE format is "data: {json}\n\n", so we need to strip the "data: " prefix
+    const jsonString = decodedValue.replace(/^data: /, "").trim();
+    const data = JSON.parse(jsonString);
+
+    console.log(data);
+
+    if (data.success && data.response) {
+      // Handle successful conversation creation
+      console.log("Created conversation:", data.response);
+      // TODO: Update conversation store with the new conversation
+    } else if (!data.success) {
+      // Handle error
+      console.error("Failed to create conversation:", data.error);
+    }
+
+    if (selectedConversation) {
+      upsertConversation([selectedConversation]);
+    }
+  };
+
+  return (
+    <div className="w-full h-full flex flex-col items-center justify-center bg-[--base-200-300] relative overflow-hidden">
+      <div className="absolute inset-0 opacity-30">
+        <BrandPattern />
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        className="relative z-10 flex flex-col items-center gap-8"
+      >
+        {/* Icon Container */}
+        <motion.div
+          whileHover={{ scale: 1.05, rotate: 5 }}
+          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          className="relative group"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-primary to-secondary rounded-3xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500" />
+          <div className="relative w-24 h-24 bg-base-100 rounded-3xl flex items-center justify-center shadow-lg ring-1 ring-base-content/5">
+            <Brain className="w-10 h-10 text-primary" strokeWidth={1.5} />
+          </div>
+        </motion.div>
+
+        {/* Typography */}
+        <div className="text-center space-y-3">
+          <h1 className="text-2xl font-bold tracking-tight text-base-content">AI Assistant</h1>
+          <p className="text-base-content/60 text-md font-medium leading-relaxed max-w-[280px] mx-auto">
+            Unlock your creativity with the power of artificial intelligence.
+          </p>
+        </div>
+
+        {/* Premium Button */}
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={handleStartChatting}
+          onMouseEnter={() => setIsHovering(true)}
+          onMouseLeave={() => setIsHovering(false)}
+          className="group relative w-full py-4 px-6 rounded-2xl bg-primary text-primary-content font-semibold shadow-lg shadow-primary/25 overflow-hidden"
+        >
+          <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out" />
+          <div className="relative flex items-center justify-center gap-3">
+            <span>Start Conversation</span>
+            <Sparks
+              className={`w-5 h-5 transition-transform duration-500 ${isHovering ? "rotate-180 scale-110" : ""}`}
+            />
+          </div>
+        </motion.button>
+      </motion.div>
     </div>
   );
 }
@@ -183,24 +295,87 @@ function BrandPattern() {
   );
 }
 
+function chatAreaLayout<T>(ChatArea: FunctionComponent<PropsWithChildren>) {
+  return (props: PropsWithChildren<T>) => {
+    const images = useAttachments((s) => s.images);
+    const clearImages = useAttachments((s) => s.clearImages);
+    const selectedChats = useMessageStore((s) => s.selectedChats);
+    const isMobile = useMediaQuery("(max-width: 640px)");
+
+    return (
+      <div className={`w-full h-dvh flex flex-col max-sm:gap-0 sm:gap-4`}>
+        <div className={`w-full h-full flex flex-col bg-[--base-200-300] sm:rounded-2xl overflow-hidden`}>
+          {!!selectedChats.length && isMobile ? (
+            <ChatHeaderActions />
+          ) : (
+            <ChatHeader onClose={!!images.length ? () => clearImages() : undefined} showMenu={!images.length} />
+          )}
+          {!!images.length ? <ImageSelector /> : <ChatArea {...props} />}
+        </div>
+        {!images.length && <ChatInput />}
+      </div>
+    );
+  };
+}
+
+// function ChatAreaWrapper() {
+//   const images = useAttachments((s) => s.images);
+//   const clearImages = useAttachments((s) => s.clearImages);
+//   const selectedChats = useMessageStore((s) => s.selectedChats);
+//   const isMobile = useMediaQuery("(max-width: 640px)");
+
+//   return (
+//     <div className={`w-full h-dvh flex flex-col max-sm:gap-0 sm:gap-4`}>
+//       <div className={`w-full h-full flex flex-col bg-[--base-200-300] sm:rounded-2xl overflow-hidden`}>
+//         {!!selectedChats.length && isMobile ? (
+//           <ChatHeaderActions />
+//         ) : (
+//           <ChatHeader onClose={!!images.length ? () => clearImages() : undefined} showMenu={!images.length} />
+//         )}
+//         {!!images.length ? <ImageSelector /> : <ChatArea />}
+//       </div>
+//       {!images.length && <ChatInput />}
+//     </div>
+//   );
+// }
+// function ChatAreaWrapper(Header: React.ReactNode, ChatArea: React.ReactNode, ChatInput: React.ReactNode) {
+//   const images = useAttachments((s) => s.images);
+//   const clearImages = useAttachments((s) => s.clearImages);
+//   const selectedChats = useMessageStore((s) => s.selectedChats);
+//   const isMobile = useMediaQuery("(max-width: 640px)");
+
+//   return (
+//     <div className={`w-full h-dvh flex flex-col max-sm:gap-0 sm:gap-4`}>
+//       <div className={`w-full h-full flex flex-col bg-[--base-200-300] sm:rounded-2xl overflow-hidden`}>
+//         {!!selectedChats.length && isMobile ? (
+//           <ChatHeaderActions />
+//         ) : (
+//           <ChatHeader onClose={!!images.length ? () => clearImages() : undefined} showMenu={!images.length} />
+//         )}
+//         {!!images.length ? <ImageSelector /> : <ChatArea />}
+//       </div>
+//       {!images.length && <ChatInput />}
+//     </div>
+//   );
+// }
+
+const ChatAreaLayout = chatAreaLayout(ChatArea);
+const AiChatAreaLayout = chatAreaLayout(AiChatArea);
+
 function ChatAreaWrapper() {
-  const images = useAttachments((s) => s.images);
-  const clearImages = useAttachments((s) => s.clearImages);
-  const selectedChats = useMessageStore((s) => s.selectedChats);
-  const isMobile = useMediaQuery("(max-width: 640px)");
+  const selectedConversation = useConversationStore((s) => s.selectedConversation);
+  const isAiConversation = selectedConversation?.host === "ai";
 
   return (
-    <div className={`w-full h-dvh flex flex-col max-sm:gap-0 sm:gap-4`}>
-      <div className={`w-full h-full flex flex-col bg-[--base-200-300] sm:rounded-2xl overflow-hidden`}>
-        {!!selectedChats.length && isMobile ? (
-          <ChatHeaderActions />
-        ) : (
-          <ChatHeader onClose={!!images.length ? () => clearImages() : undefined} showMenu={!images.length} />
-        )}
-        {!!images.length ? <ImageSelector /> : <ChatArea />}
-      </div>
-      {!images.length && <ChatInput />}
-    </div>
+    <>
+      {isAiConversation ? (
+        <AiChatProvider>
+          <AiChatAreaLayout />
+        </AiChatProvider>
+      ) : (
+        <ChatAreaLayout />
+      )}
+    </>
   );
 }
 
