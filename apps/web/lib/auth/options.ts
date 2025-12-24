@@ -3,8 +3,6 @@ import { IUser } from "@repo/interfaces/userInterface";
 import { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { createUser, fetchUser } from "./signIn";
-import { dummyUser } from "@lib/dummyData";
-import { log } from "console";
 
 declare module "next-auth" {
   interface Session {
@@ -40,10 +38,6 @@ export const authOptions: AuthOptions = {
       async authorize(credentials) {
         try {
           if (!credentials) throw new Error("CREDENTIALS_NOT_FOUND");
-
-          if (process.env.NEXT_PUBLIC_CLIENT_ONLY && credentials.type === "mock-signin") {
-            return dummyUser;
-          }
 
           if (!credentials?.phoneNumber) throw new Error("INVALID_CREDENTIAL");
 
