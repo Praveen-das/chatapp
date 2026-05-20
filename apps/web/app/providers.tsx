@@ -7,6 +7,8 @@ import { ThemeProvider } from "next-themes";
 import { PropsWithChildren } from "react";
 import { ToastContainer } from "react-toastify";
 
+import E2ESecurityPinModal from "@features/ui/Modals/E2ESecurityPinModal";
+
 function Provider({ children }: PropsWithChildren) {
   return (
     <SessionProvider refetchOnWindowFocus={false}>
@@ -14,6 +16,7 @@ function Provider({ children }: PropsWithChildren) {
         <ThemeProvider disableTransitionOnChange enableSystem>
           <ToastContainer limit={3} position="bottom-left" theme="dark" />
           <InitTheme />
+          <E2ESecurityPinModal />
           {children}
         </ThemeProvider>
       </AuthContext>

@@ -5,7 +5,9 @@ import { IDeleteRequest, IDeleteForUserRequest } from "@repo/interfaces/conversa
 import { IUser } from "@repo/interfaces/userInterface";
 import { useConversationStore } from "store/conversationStore";
 import { useMessageStore } from "store/messageStore";
-import { encrypt } from "@lib/e2e";
+import { useStore } from "store/global";
+import { useE2eeStore } from "store/e2eStore";
+import { encryptMessage } from "@lib/e2e";
 import { IUpdates, MessageReadReceipt } from "@repo/interfaces/messageInterface";
 
 const deleteUserMessages = useMessageStore.getState().deleteUserMessages;
@@ -21,14 +23,23 @@ export function messageEmitters(socket: ISocket) {
       messages: IMessage[];
       replacePlaceholder?: boolean;
     }) =>
-      await new Promise((resolve, reject) => {
+      await new Promise(async (resolve, reject) => {
         if (conversation.host === "system") return;
         let conversationId = conversation.conversationId!;
         let receivers;
 
-        messages.forEach((m) => {
-          if (m.message) m.message = encrypt(m.message);
+        const myPrivateKey = useE2eeStore.getState().myPrivateKeyJwk;
+        const encryptionPromises = messages.map(async (m) => {
+          if (m.message && conversation.host === "user" && myPrivateKey) {
+            const receiverId = conversation.members.find((member) => member.userId !== conversation.userId)?.userId;
+            const receiver = receiverId ? useStore.getState().users.get(receiverId) : null;
+            if (receiver?.publicKey) {
+              m.message = await encryptMessage(m.message, receiver.publicKey, myPrivateKey);
+            }
+          }
         });
+
+        await Promise.all(encryptionPromises);
 
         if (conversation.host === "user") {
           if (conversation.blockedByUser) {

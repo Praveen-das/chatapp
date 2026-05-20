@@ -100,7 +100,7 @@ const useContextData = () => {
     async function onMessageReceive(params: { messages: IMessage[]; conversationId: string }) {
       const isSelectedConversation = params.conversationId === socket.selectedConversation?.conversationId;
 
-      const res = registerMessages({ ...params, isSelectedConversation });
+      const res = await registerMessages({ ...params, isSelectedConversation });
 
       if (!res) return;
 

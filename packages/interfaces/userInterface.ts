@@ -22,6 +22,8 @@ export interface IUser {
   updatedAt: number;
   self?: boolean;
   version?: number;
+  publicKey?: string;
+  encryptedPrivateKey?: string;
 }
 
 export interface IBlocked {

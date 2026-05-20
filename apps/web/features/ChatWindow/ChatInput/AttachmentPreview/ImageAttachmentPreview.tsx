@@ -1,6 +1,4 @@
 import { PhotoIcon } from "@heroicons/react/16/solid";
-import { IMessageReply } from "@repo/interfaces/messageInterface";
-import { decrypt } from "@lib/e2e";
 import React from "react";
 
 function ImageAttachmentPreview({
@@ -10,9 +8,9 @@ function ImageAttachmentPreview({
 }: {
   url: string;
   receiver: string;
-  text: string|null;
+  text: string | null;
 }) {
-  
+
   return (
     <>
       <img className="h-16 rounded-lg" src={url} />

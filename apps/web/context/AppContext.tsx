@@ -116,15 +116,15 @@ export const AppContext = ({ children }: PropsWithChildren) => {
       return { connections, channels };
     }
 
-    function initConversations(conversations: IConversation[]) {
+    async function initConversations(conversations: IConversation[]) {
       const messageStore: Map<string, IMessage[]> = new Map();
       const conversationsCollection: IConversation[] = [];
       const readReceiptUpdates: MessageReadReceipt[] = [];
 
-      conversations.forEach((conversation) => {
+      for (const conversation of conversations) {
         let conversationId = conversation.id;
 
-        const { unreadMessages, aiMessages, messages, imageAttachments, urlAttachments } = processMessagesForUser(
+        const { unreadMessages, aiMessages, messages, imageAttachments, urlAttachments } = await processMessagesForUser(
           conversation.messages,
           conversation
         );
@@ -171,23 +171,23 @@ export const AppContext = ({ children }: PropsWithChildren) => {
 
         setMediaStore(conversationId, mediaStore);
         !!unreadMessages.length && setUnreadMessages(conversationId, unreadMessages);
-      });
+      }
 
       readReceiptUpdates.length > 0 && sendReadReceiptChangeRequest(readReceiptUpdates);
       setMessageHistory(messageStore);
       setConversations(conversationsCollection);
     }
 
-    function updateMessagesForConversation(messagesCollection: IConversation[]) {
+    async function updateMessagesForConversation(messagesCollection: IConversation[]) {
       const readReceiptUpdates: MessageReadReceipt[] = [];
 
-      messagesCollection.forEach((c) => {
+      for (const c of messagesCollection) {
         let conversationId = c.conversationId;
         let userConversationId = c.id;
 
-        const res = registerMessages({ messages: c.messages!, conversationId });
+        const res = await registerMessages({ messages: c.messages!, conversationId });
 
-        if (!res) return;
+        if (!res) continue;
 
         const { recentMessage } = res;
 
@@ -205,7 +205,7 @@ export const AppContext = ({ children }: PropsWithChildren) => {
           sendConversationActivationRequest(userConversationId);
           updateConversation(userConversationId, { recentMessage, active: true });
         } else updateConversation(userConversationId, { recentMessage });
-      });
+      }
 
       if (readReceiptUpdates.length > 0) {
         sendReadReceiptChangeRequest(readReceiptUpdates);
@@ -255,11 +255,11 @@ export const AppContext = ({ children }: PropsWithChildren) => {
         if (unsyncConversationsData && !!Object.values(unsyncConversationsData).length) {
           const { needSync, newEntry, messages: messagesCollection } = unsyncConversationsData;
 
-          if (newEntry?.length > 0) initConversations(newEntry);
+          if (newEntry?.length > 0) await initConversations(newEntry);
 
           if (needSync?.length > 0) upsertConversation(needSync);
 
-          if (messagesCollection?.length > 0) updateMessagesForConversation(messagesCollection);
+          if (messagesCollection?.length > 0) await updateMessagesForConversation(messagesCollection);
         }
 
         if (unsyncReadReceipts && !!unsyncReadReceipts.length) {

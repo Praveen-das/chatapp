@@ -22,6 +22,8 @@ export const userSchema = z.object({
   profilePicture: z.string(),
   bio: z.string().optional(),
   tags: z.array(z.string()).optional(),
+  publicKey: z.string().optional(),
+  encryptedPrivateKey: z.string().optional(),
 });
 
 export const updateUserSchema = z.object({

@@ -15,6 +15,7 @@ import { refreshToken } from "@actions/session";
 import useAccessToken from "@hooks/useAccessToken";
 import { useConversationStore } from "store/conversationStore";
 import { useMessageStore } from "store/messageStore";
+import { useE2eeStore } from "store/e2eStore";
 
 const useContextData = () => {
   const axios = useAxios();
@@ -38,6 +39,28 @@ const useContextData = () => {
       setUser(undefined);
     }
   }, [session?.user]);
+
+  useEffect(() => {
+    if (user?.id) {
+      const localPrivateKey = localStorage.getItem("e2e_private_key");
+      const localPublicKey = localStorage.getItem("e2e_public_key");
+
+      if (localPrivateKey && localPublicKey) {
+        useE2eeStore.getState().setKeys(localPublicKey, localPrivateKey);
+      } else {
+        // Local keys missing. Check if public & encrypted private key exist on server
+        if (user.encryptedPrivateKey && user.publicKey) {
+          useE2eeStore.getState().setNeedsRestore(true);
+          useE2eeStore.getState().setNeedsSetup(false);
+        } else {
+          useE2eeStore.getState().setNeedsSetup(true);
+          useE2eeStore.getState().setNeedsRestore(false);
+        }
+      }
+    } else {
+      useE2eeStore.getState().clearKeys();
+    }
+  }, [user]);
 
   useEffect(() => {
     async function init() {

@@ -7,7 +7,6 @@ import { useConversationStore } from "../../../../store/conversationStore";
 import { IConversation, IGroupConversation } from "@repo/interfaces/conversationInterface";
 import { ArrowUturnRightIcon, ChevronRightIcon } from "@heroicons/react/24/solid";
 import useAuth from "@hooks/useAuth";
-import { encrypt } from "@lib/e2e";
 import useAxios from "@hooks/useAxios";
 import useSelectedConversation from "@hooks/useSelectedConversation";
 import { useMemo } from "react";

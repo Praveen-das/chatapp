@@ -9,7 +9,8 @@ import {
 import ObjectID from "bson-objectid";
 import { IMessageReadReceipt } from "enums/enums";
 import { useMessageStore } from "store/messageStore";
-import { decrypt } from "./e2e";
+import { decryptMessage } from "./e2e";
+import { useE2eeStore } from "store/e2eStore";
 import { IUser } from "@repo/interfaces/userInterface";
 import { useStore } from "store/global";
 import {
@@ -82,7 +83,7 @@ export const regenerateMessageTemplate = (conversation: IConversation, { message
   return createMessageTemplate(conversation, { message, attachment });
 };
 
-export function processMessagesForUser(
+export async function processMessagesForUser(
   messages: IMessage[] = [],
   conversation: IConversation,
   isSelectedConversation = false
@@ -112,8 +113,20 @@ export function processMessagesForUser(
     const isPlaceholder = message.type === "placeholder";
 
     if (isUserMessage || isPlaceholder) {
-      if (message?.message) message.message = decrypt(message.message);
-      if (message?.reply?.message) message.reply.message = decrypt(message.reply.message);
+      if (message?.message && message.message.startsWith("v2:") && conversation.host === "user") {
+        const otherMember = conversation.members.find((m) => m.userId !== conversation.userId);
+        const otherUser = otherMember ? useStore.getState().users.get(otherMember.userId) : null;
+        const otherPublicKey = otherUser?.publicKey;
+        const myPrivateKey = useE2eeStore.getState().myPrivateKeyJwk || undefined;
+        message.message = await decryptMessage(message.message, otherPublicKey, myPrivateKey);
+      }
+      if (message?.reply?.message && message.reply.message.startsWith("v2:") && conversation.host === "user") {
+        const otherMember = conversation.members.find((m) => m.userId !== conversation.userId);
+        const otherUser = otherMember ? useStore.getState().users.get(otherMember.userId) : null;
+        const otherPublicKey = otherUser?.publicKey;
+        const myPrivateKey = useE2eeStore.getState().myPrivateKeyJwk || undefined;
+        message.reply.message = await decryptMessage(message.reply.message, otherPublicKey, myPrivateKey);
+      }
     }
 
     if (isPlaceholder) {
@@ -159,7 +172,7 @@ export function processMessagesForUser(
 const { setMediaStore } = useAttachments.getState();
 const { setMessageStore, setMessageHistory, setUnreadMessages, updateUserMessages } = useMessageStore.getState();
 
-export function registerMessages({
+export async function registerMessages({
   messages: _messages,
   conversationId: userConversationId,
   isSelectedConversation = false,
@@ -174,7 +187,7 @@ export function registerMessages({
   const conversationId = conversation.id;
 
   const { unreadMessages, aiMessages, messages, imageAttachments, urlAttachments, placeholders } =
-    processMessagesForUser(_messages, conversation, isSelectedConversation);
+    await processMessagesForUser(_messages, conversation, isSelectedConversation);
   const mediaStore = { images: imageAttachments, link: urlAttachments };
   const recentMessage = _messages.at(-1);
 

@@ -48,6 +48,8 @@ export const userSchema = new Schema(
     createdAt: { type: Number, default: () => Date.now() },
     updatedAt: { type: Number, default: () => Date.now() },
     version: { type: Number, default: 0 },
+    publicKey: { type: String, default: "" },
+    encryptedPrivateKey: { type: String, default: "" },
   },
   schemaOptions
 );
