@@ -2,7 +2,7 @@ import { Kafka } from "kafkajs";
 
 const kafka = new Kafka({
   clientId: "chat-application",
-  brokers: ["192.168.1.9:9092"],
+  brokers: ["192.168.1.7:9092"],
 });
 
 async function init() {

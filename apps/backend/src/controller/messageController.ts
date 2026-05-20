@@ -132,6 +132,12 @@ type IGetUserMessages = {
 
 const _getUserMessages = async (req: Request<{}, {}, {}, IGetUserMessages>, res: Response) => {
   const { c: timestamp, host, activityLog, limit = LIMIT, deletedAt, ...body } = req.query;
+
+  const authUserId = (req as any).authUserId;
+  if (!authUserId || authUserId !== body.userId) {
+    return res.status(403).json({ error: "Forbidden: cannot access another user's messages" });
+  }
+
   const _LIMIT = Number(limit);
   const CURSOR = Number(timestamp);
   const _deletedAt = Number(deletedAt);

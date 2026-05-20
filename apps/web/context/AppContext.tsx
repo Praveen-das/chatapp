@@ -22,6 +22,7 @@ import { useConversationStore } from "store/conversationStore";
 import { useStore } from "store/global";
 import { useMessageStore } from "store/messageStore";
 import { useSessionStore } from "store/sessionStore";
+import { usePersistentStore } from "store/persistentStore";
 import useSocket from "./SocketProvider";
 import { IUser } from "@repo/interfaces/userInterface";
 
@@ -36,6 +37,7 @@ type AppPostReq = {
   unsyncConversationsData: Record<keyof ConversationFetchResponse, IConversation[]>;
   unsyncUsersData: Record<string, IUser>;
   unsyncReadReceipts: MessageReadReceipt[];
+  syncToken: number;
 };
 
 export const AppContext = ({ children }: PropsWithChildren) => {
@@ -213,42 +215,13 @@ export const AppContext = ({ children }: PropsWithChildren) => {
     async function init() {
       try {
         const userId = user?.id;
-
-        const idbConvRecord = useConversationStore.getState().conversations.reduce<IIdbConversastionRecord>((i, c) => {
-          let meta: IdbValues = { lastKnownVersion: c.version! };
-          if (c.recentMessage?.timestamp) meta.lastKnownMessageTimestamp = c.recentMessage.timestamp || c.updatedAt;
-          i[c.conversationId] = meta;
-          return i;
-        }, {});
-
-        const idbMembersRecord = getGlobalUsers().reduce<IIdbUserRecordValue[]>((i, user) => {
-          i.push({ userId: user.id, version: user.version! });
-          return i;
-        }, []);
-
-        idbMembersRecord.push({ userId: userId!, version: user?.version! });
-
-        const idbReadReceiptRecord = useConversationStore
-          .getState()
-          .conversations.reduce<IdbReadReceiptRecord>((i, c) => {
-            if (c.readReceipt && c.recentMessage?.from === user?.id) {
-              const receipts = Object.values(c.readReceipt)
-                .filter((r) => r.lastReadMessageTimestamp! !== c.recentMessage?.timestamp! && r.userId !== user?.id)
-                .map((r) => ({ userId: r.userId, updatedAt: r.updatedAt! }));
-
-              if (receipts.length > 0) {
-                i[c.conversationId] = receipts;
-              }
-            }
-
-            return i;
-          }, {});
+        const { syncToken, setSyncToken } = usePersistentStore.getState();
 
         const [unsyncEntries, sessions] = await Promise.all([
           axios
             .post<AppPostReq>(
               `/db/conversation/${userId}`,
-              { idbConvRecord, idbMembersRecord, idbReadReceiptRecord },
+              { syncToken },
               { signal: conversationController.signal }
             )
             .then((res) => res.data),
@@ -257,10 +230,16 @@ export const AppContext = ({ children }: PropsWithChildren) => {
           ),
         ]);
 
-        const { unsyncConversationsData, unsyncUsersData, unsyncReadReceipts } = unsyncEntries || {
+        const { unsyncConversationsData, unsyncUsersData, unsyncReadReceipts, syncToken: newSyncToken } = unsyncEntries || {
           unsyncConversationsData: null,
           unsyncUsersData: null,
+          unsyncReadReceipts: null,
+          syncToken: 0,
         };
+
+        if (newSyncToken) {
+          setSyncToken(newSyncToken);
+        }
 
         if (unsyncUsersData && !!Object.values(unsyncUsersData).length) {
           const users = new Map(Object.entries(unsyncUsersData));

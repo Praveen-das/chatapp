@@ -22,6 +22,10 @@ export default class SyncRegistryCreator {
     this.redis = client;
   }
 
+  disconnect() {
+    this.redis.disconnect();
+  }
+
   private getRegistryKey(userId: string | Types.ObjectId) {
     return `registry:${toString(userId)}`;
   }
@@ -137,6 +141,11 @@ export default class SyncRegistryCreator {
     await this.redis.sadd(key, ...userConversationIds);
   }
 
+  async getRegisteredConversations(userId: string): Promise<string[]> {
+    const key = this.getRegistryKey(userId);
+    return await this.redis.smembers(key);
+  }
+
   async saveConversationSyncState(collection: SaveConversationSyncState[]) {
     if (!collection.length) return Promise.resolve();
 
@@ -144,10 +153,47 @@ export default class SyncRegistryCreator {
 
     collection.forEach(({ conversationId, fieldValues }) => {
       const key = this.getConvSyncKey(conversationId);
-      pipeline.hset(key, ...fieldValues);
+      const updatedFields = [...fieldValues, "updatedAt", Date.now().toString()];
+      pipeline.hset(key, ...updatedFields);
     });
 
     return await pipeline.exec();
+  }
+
+  async getUnsyncStateByToken({ userId, syncToken }: { userId: string; syncToken: number }) {
+    const conversationSyncState: ConversationEntry[] = [];
+
+    const userConversationData = await this.getUserConversationData(userId);
+
+    if (!userConversationData) return null;
+
+    userConversationData.forEach((data) => {
+      const updatedAt = Number((data as any).updatedAt) || Number(data.messageTimestamp) || 0;
+      const messageTimestamp = Number(data.messageTimestamp) || 0;
+      const createdAt = Number((data as any).createdAt) || 0;
+
+      let state: ConversationEntry = {};
+
+      if (updatedAt > syncToken) {
+        if (createdAt > syncToken) {
+          state.newEntry = true;
+        } else {
+          state.needSync = true;
+        }
+      }
+
+      if (messageTimestamp > syncToken) {
+        state.lastKnownMessageTimestamp = syncToken;
+      }
+
+      if (Object.keys(state).length > 0) {
+        state.conversationId = data.conversationId;
+        state.host = data.host;
+        conversationSyncState.push(state);
+      }
+    });
+
+    return conversationSyncState;
   }
 
   async saveUserVersion(userId: string, version: number) {

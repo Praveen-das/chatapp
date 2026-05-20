@@ -15,6 +15,8 @@ export async function verifyAuth(req: Request, res: Response, next: NextFunction
   
       if (payload) {
         if (payload.expired) return res.status(401).send("Token expired");
+        (req as any).authUserId = payload.userId;
+        (req as any).authSessionId = payload.sessionId;
         return next();
       }
     }

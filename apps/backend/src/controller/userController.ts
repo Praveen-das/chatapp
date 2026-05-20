@@ -139,6 +139,11 @@ const _updateUserRule = async (req: string, reset: () => void) => {
 };
 
 const _deleteUser = async (req: Request, res: Response) => {
+  const authUserId = (req as any).authUserId;
+  if (!authUserId || authUserId !== req.params.id) {
+    return res.status(403).json({ error: "Forbidden: you can only delete your own account" });
+  }
+
   let userId = new Types.ObjectId(req.params.id);
 
   const user = await userServices.deleteUser(userId);

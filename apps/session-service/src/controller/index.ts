@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import sessionServices from "../services";
-import { verifyRefreshToken } from "@repo/utils";
+import { verifyRefreshToken, verifyAccessToken } from "@repo/utils";
 import { ISession } from "@repo/interfaces/sessionInterface";
 
 interface IGetSessionReq extends Request {
@@ -12,6 +12,18 @@ interface IGetSessionReq extends Request {
 
 async function _getSession(req: IGetSessionReq, res: Response): Promise<any> {
   const { sessionId, userId } = req.query;
+
+  // Verify access token and check ownership
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "Authorization required" });
+
+  const payload = await verifyAccessToken(token);
+  if (!payload) return res.status(401).json({ error: "Invalid token" });
+  if (payload.expired) return res.status(401).json({ error: "Token expired" });
+
+  if (userId && payload.userId !== userId) {
+    return res.status(403).json({ error: "Forbidden: cannot access another user's sessions" });
+  }
 
   // if (sessionId) {
   //   const session = await sessionServices.getSession(sessionId);
