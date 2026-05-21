@@ -50,59 +50,54 @@ services:
   #     - NODE_ENV=production
   #   ports:
   #     - 5000:5000
-      
-  # backend:
-  #   image: backend
-  #   restart: always
-  #   build:
-  #     context: .
-  #     dockerfile: ./apps/backend/Dockerfile
-  #   depends_on:
-  #     - pubsub
-  #     - kafka
-  #   environment:
-  #     - REDIS_HOST=pubsub
-  #     - REDIS_PORT=6379
-  #     - KAFKA_HOST=kafka
-  #     - NODE_ENV=production
-  #     - MONGODB_URL=mongodb://host.docker.internal:27017/chatdb
-  #     - JWT_USER_TOKEN_SECRET_KEY=c8de8aa33f43ce16cd67267acf47c6d253d13f78d27104f29e0e0a98f76d6c4216c0e452d6a071b616aeb4a6a64a1a3fd80f29e050ac568510ad8bc33ba60a30
-  #     - JWT_ACCESS_TOKEN_SECRET_KEY=8fe4dd1a542ae836b9715e7bc3b8c2f950f886d63c61bbb1fa8cd28f1c020ab78327a7ee69b9d7db325e451e68f959ab779f5e35b1806cc7459749520e39a27f
-  #   ports:
-  #     - 4000:4000
-  #     - 27017:27017
-  
-  # socket-service:
-  #   image: socket-service
-  #   restart: always
-  #   build:
-  #     context: .
-  #     dockerfile: ./apps/socket-service/Dockerfile
-  #   depends_on:
-  #     - pubsub
-  #     - kafka
-  #   environment:
-  #     - REDIS_HOST=pubsub
-  #     - REDIS_PORT=6379
-  #     - KAFKA_HOST=kafka
-  #     - NODE_ENV=production
-  #   ports:
-  #     - 3002:3002
-  
-  # gateway:
-  #   restart: always
-  #   image: gateway
-  #   build:
-  #     context: .
-  #     dockerfile: ./apps/gateway/Dockerfile
-  #   # depends_on:
-  #   #   - pubsub
-  #   #   - kafka
-  #   environment:
-  #     - SOCKET_SERVICE_URL=http://socket-service
-  #     - SESSION_SERVICE_URL=http://sessionservice
-  #     - BACKEND_URL=http://backend
-  #     - NODE_ENV=production
-  #   ports:
-  #     - 3001:3001
-  
+
+  backend:
+    image: backend
+    restart: always
+    build:
+      context: .
+      dockerfile: ./apps/backend/Dockerfile
+    depends_on:
+      - kafka
+    environment:
+      - REDIS_PORT=6379
+      - KAFKA_HOST=kafka
+      - NODE_ENV=production
+      - MONGODB_URL=mongodb://host.docker.internal:27017/chatdb
+      - JWT_USER_TOKEN_SECRET_KEY=c8de8aa33f43ce16cd67267acf47c6d253d13f78d27104f29e0e0a98f76d6c4216c0e452d6a071b616aeb4a6a64a1a3fd80f29e050ac568510ad8bc33ba60a30
+      - JWT_ACCESS_TOKEN_SECRET_KEY=8fe4dd1a542ae836b9715e7bc3b8c2f950f886d63c61bbb1fa8cd28f1c020ab78327a7ee69b9d7db325e451e68f959ab779f5e35b1806cc7459749520e39a27f
+    ports:
+      - 4000:4000
+      - 27017:27017
+
+  socket-service:
+    image: socket-service
+    restart: always
+    build:
+      context: .
+      dockerfile: ./apps/socket-service/Dockerfile
+    depends_on:
+      - kafka
+    environment:
+      - REDIS_PORT=6379
+      - KAFKA_HOST=kafka
+      - NODE_ENV=production
+    ports:
+      - 3002:3002
+
+  gateway:
+    restart: always
+    image: gateway
+    build:
+      context: .
+      dockerfile: ./apps/gateway/Dockerfile
+    # depends_on:
+    #   - pubsub
+    #   - kafka
+    environment:
+      - SOCKET_SERVICE_URL=http://socket-service
+      - SESSION_SERVICE_URL=http://sessionservice
+      - BACKEND_URL=http://backend
+      - NODE_ENV=production
+    ports:
+      - 3001:3001

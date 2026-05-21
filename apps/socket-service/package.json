@@ -17,7 +17,9 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@repo/interfaces": "*",
     "@repo/kafka": "*",
+    "@repo/utils": "*",
     "@skgdev/socket.io-msgpack-javascript": "^1.2.1",
     "@socket.io/redis-adapter": "^8.2.1",
     "@socket.io/redis-emitter": "^5.1.0",

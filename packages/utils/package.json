@@ -12,5 +12,9 @@
   "devDependencies": {
     "@repo/typescript-config": "*",
     "tsc-watch": "^6.2.1"
+  },
+  "dependencies": {
+    "@repo/interfaces": "*",
+    "jose": "^5.0.0"
   }
 }

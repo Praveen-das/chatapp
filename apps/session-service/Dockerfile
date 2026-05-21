@@ -21,7 +21,7 @@ RUN npm run build && \
     npm cache clean --force && \
     rm -rf /root/.npm && \
     npm prune --production
-    
+
 # Runner stage - minimal final image
 FROM base AS runner
 WORKDIR /app
