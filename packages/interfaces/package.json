@@ -2,7 +2,24 @@
   "name": "@repo/interfaces",
   "version": "0.0.0",
   "private": true,
+  "exports": {
+    "./conversationInterface": "./conversationInterface.ts",
+    "./conversationInterface.js": "./conversationInterface.ts",
+    "./groupInterface": "./groupInterface.ts",
+    "./groupInterface.js": "./groupInterface.ts",
+    "./messageInterface": "./messageInterface.ts",
+    "./messageInterface.js": "./messageInterface.ts",
+    "./syncRegistryInterface": "./syncRegistryInterface.ts",
+    "./syncRegistryInterface.js": "./syncRegistryInterface.ts",
+    "./userInterface": "./userInterface.ts",
+    "./userInterface.js": "./userInterface.ts",
+    "./type": "./type.d.ts",
+    "./type.js": "./type.d.ts",
+    "./sessionInterface": "./sessionInterface.d.ts",
+    "./sessionInterface.js": "./sessionInterface.d.ts"
+  },
   "dependencies": {
-    "bson-objectid": "*"
+    "bson-objectid": "*",
+    "mongoose": "^8.2.1"
   }
 }

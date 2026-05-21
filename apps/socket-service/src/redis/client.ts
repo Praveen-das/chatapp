@@ -1,6 +1,11 @@
 import Redis from 'ioredis'
 
-const client = new Redis(process.env.REDIS_SERVICE_URI!);
+const client = new Redis({
+  host: process.env.REDIS_SERVICE_URI,
+  port: Number(process.env.REDIS_PORT),
+  username: process.env.REDIS_USERNAME,
+  password: process.env.REDIS_PASSWORD,
+});
 
 client.on('error', err => {
   console.log('Redis subClient Error', err)
