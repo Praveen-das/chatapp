@@ -1,5 +1,5 @@
 import { Server } from "socket.io";
-import produceMessage from "../kafka/kafka";
+import { produceMessage, createEnvelope, KAFKA_TOPICS } from "../kafka/kafka";
 import { ISocket } from "../interfaces/socketInterfaces";
 import { IMessage } from "@repo/interfaces/messageInterface";
 import { GroupClearReq } from "@repo/interfaces/groupInterface";
@@ -27,7 +27,11 @@ export default function registerConversationHandlers(io: Server, socket: ISocket
         );
       });
 
-      produceMessage({ conversation, participants, userConversations }, "CREATE_CONVERSATION");
+      produceMessage(
+        createEnvelope("CREATE_CONVERSATION", { conversation, participants, userConversations }),
+        KAFKA_TOPICS.CONVERSATIONS,
+        conversation.id?.toString()
+      );
     }
   );
 
@@ -49,12 +53,20 @@ export default function registerConversationHandlers(io: Server, socket: ISocket
     const req = { id, updates: { deletedAt: Date.now() } };
 
     io.to(socket.userId!).emit("CLEAR_CONVERSATION", id);
-    produceMessage(req, "UPDATE_USER_CONVERSATION");
+    produceMessage(
+      createEnvelope("UPDATE_USER_CONVERSATION", req),
+      KAFKA_TOPICS.CONVERSATIONS,
+      id
+    );
   });
 
   socket.on("CLEAR_GROUP_CONVERSATION", (req: GroupClearReq) => {
     io.to(socket.userId!).emit("CLEAR_CONVERSATION", req.conversationId);
-    produceMessage(req, "CLEAR_GROUP_CONVERSATION_FOR_USER");
+    produceMessage(
+      createEnvelope("CLEAR_GROUP_CONVERSATION_FOR_USER", req),
+      KAFKA_TOPICS.GROUPS,
+      req.conversationId
+    );
   });
 
   socket.on("DELETE_CONVERSATION", (id: string) => {
@@ -65,22 +77,40 @@ export default function registerConversationHandlers(io: Server, socket: ISocket
 
     io.to(socket.userId!).emit("DELETE_CONVERSATION", id);
 
-    produceMessage(req, "UPDATE_USER_CONVERSATION");
+    produceMessage(
+      createEnvelope("UPDATE_USER_CONVERSATION", req),
+      KAFKA_TOPICS.CONVERSATIONS,
+      id
+    );
   });
 
   socket.on("ACTIVATE_CONVERSATION", (id: string) => {
     const req = { id, updates: { active: true } };
 
-    produceMessage(req, "UPDATE_USER_CONVERSATION");
+    produceMessage(
+      createEnvelope("UPDATE_USER_CONVERSATION", req),
+      KAFKA_TOPICS.CONVERSATIONS,
+      id
+    );
   });
 
   socket.on("ARCHIVE_CONVERSATION", async (conversation: IConversation) => {
     const id = conversation.id;
     const req = { id, updates: { archived: true } };
 
-    conversation.host === "group"
-      ? produceMessage(req, "UPDATE_GROUP_CONVERSATION")
-      : produceMessage(req, "UPDATE_USER_CONVERSATION");
+    if (conversation.host === "group") {
+      produceMessage(
+        createEnvelope("UPDATE_GROUP_CONVERSATION", req),
+        KAFKA_TOPICS.CONVERSATIONS,
+        id
+      );
+    } else {
+      produceMessage(
+        createEnvelope("UPDATE_USER_CONVERSATION", req),
+        KAFKA_TOPICS.CONVERSATIONS,
+        id
+      );
+    }
 
     io.to(socket.userId!).emit("UPDATE_CONVERSATION", id, { archived: true });
   });
@@ -89,9 +119,19 @@ export default function registerConversationHandlers(io: Server, socket: ISocket
     const id = conversation.id;
     const req = { id, updates: { archived: false } };
 
-    conversation.host === "group"
-      ? produceMessage(req, "UPDATE_GROUP_CONVERSATION")
-      : produceMessage(req, "UPDATE_USER_CONVERSATION");
+    if (conversation.host === "group") {
+      produceMessage(
+        createEnvelope("UPDATE_GROUP_CONVERSATION", req),
+        KAFKA_TOPICS.CONVERSATIONS,
+        id
+      );
+    } else {
+      produceMessage(
+        createEnvelope("UPDATE_USER_CONVERSATION", req),
+        KAFKA_TOPICS.CONVERSATIONS,
+        id
+      );
+    }
 
     socket.emit("UPDATE_CONVERSATION", id, { archived: false });
   });
@@ -107,7 +147,11 @@ export default function registerConversationHandlers(io: Server, socket: ISocket
         ...rest,
       };
 
-      produceMessage(req, "REGISTER_STARRED_MESSAGES");
+      produceMessage(
+        createEnvelope("REGISTER_STARRED_MESSAGES", req),
+        KAFKA_TOPICS.CONVERSATIONS,
+        conversationId
+      );
     }
   );
 
@@ -122,7 +166,11 @@ export default function registerConversationHandlers(io: Server, socket: ISocket
         ...rest,
       };
 
-      produceMessage(req, "UNREGISTER_STARRED_MESSAGES");
+      produceMessage(
+        createEnvelope("UNREGISTER_STARRED_MESSAGES", req),
+        KAFKA_TOPICS.CONVERSATIONS,
+        conversationId
+      );
     }
   );
 }

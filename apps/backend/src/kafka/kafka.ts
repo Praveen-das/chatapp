@@ -1,11 +1,40 @@
 import { Kafka } from "kafkajs";
-import { topics } from "../config/kafkaTopics";
+import { topics, messageTopic } from "../config/kafkaTopics";
 import createKafkaMessageController from "../controller/kafkaMessageController";
 import createKafkaBatchController from "../controller/kafkaBatchController";
+import fs from "fs";
+import path from "path";
+
+const getSSLConfig = () => {
+  // Option 1: Base64 strings from env (useful for serverless/containers)
+  if (process.env.KAFKA_SSL_CA_B64 && process.env.KAFKA_SSL_KEY_B64 && process.env.KAFKA_SSL_CERT_B64) {
+    return {
+      ca: [Buffer.from(process.env.KAFKA_SSL_CA_B64, "base64").toString("utf-8")],
+      key: Buffer.from(process.env.KAFKA_SSL_KEY_B64, "base64").toString("utf-8"),
+      cert: Buffer.from(process.env.KAFKA_SSL_CERT_B64, "base64").toString("utf-8"),
+      rejectUnauthorized: true,
+    };
+  }
+
+  // Option 2: Local file paths from env
+  if (process.env.KAFKA_SSL_CA_PATH && process.env.KAFKA_SSL_KEY_PATH && process.env.KAFKA_SSL_CERT_PATH) {
+    return {
+      ca: [fs.readFileSync(path.resolve(process.env.KAFKA_SSL_CA_PATH), "utf-8")],
+      key: fs.readFileSync(path.resolve(process.env.KAFKA_SSL_KEY_PATH), "utf-8"),
+      cert: fs.readFileSync(path.resolve(process.env.KAFKA_SSL_CERT_PATH), "utf-8"),
+      rejectUnauthorized: true,
+    };
+  }
+
+  return undefined;
+};
+
+const broker = process.env.KAFKA_HOST || "localhost:9092";
 
 const kafka = new Kafka({
   clientId: "chat-app",
-  brokers: [`${process.env.KAFKA_HOST || process.env.KAFKA_LOCALHOST}`],
+  brokers: [broker],
+  ssl: getSSLConfig(),
   requestTimeout: 1000 * 60 * 5,
   connectionTimeout: 3000,
   retry: {
@@ -32,7 +61,7 @@ async function initKafkaConsumer() {
   });
 
   await messageConsumer.connect();
-  await messageConsumer.subscribe({ topic: "MESSAGES", fromBeginning: true });
+  await messageConsumer.subscribe({ topic: messageTopic, fromBeginning: true });
   await messageConsumer.run({
     autoCommit: true,
     eachBatchAutoResolve: true,

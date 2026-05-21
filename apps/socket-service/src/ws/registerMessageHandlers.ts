@@ -1,5 +1,5 @@
 import { Server } from "socket.io";
-import produceMessage from "../kafka/kafka";
+import { produceMessage, createEnvelope, KAFKA_TOPICS } from "../kafka/kafka";
 import { ISocket } from "../interfaces/socketInterfaces";
 import { IMessage, MessageReadReceipt } from "@repo/interfaces/messageInterface";
 import { IDeleteForUserRequest, IDeleteRequest } from "@repo/interfaces/conversationInterface";
@@ -28,14 +28,28 @@ export default function registerMessageHandlers(io: Server, socket: ISocket) {
           conversationId,
         });
 
-        produceMessage({ messages: messagesWithoutPlaceholder }, "MESSAGES");
+        console.log({ messages })
+        produceMessage(
+          createEnvelope("SAVE", { messages: messagesWithoutPlaceholder }),
+          KAFKA_TOPICS.MESSAGES,
+          conversationId
+        );
       } else {
         io.to(to).emit("message receive", {
           messages,
           conversationId,
         });
 
-        produceMessage({ messages }, "MESSAGES");
+
+        try {
+          produceMessage(
+            createEnvelope("SAVE", { messages }),
+            KAFKA_TOPICS.MESSAGES,
+            conversationId
+          );
+        } catch (error) {
+          console.log((error as Error).message)
+        }
       }
 
       callback();
@@ -48,7 +62,10 @@ export default function registerMessageHandlers(io: Server, socket: ISocket) {
       io.to(rr.senderId).emit("change readReceipt", rr);
     });
 
-    produceMessage({ readReceipts: updates }, "UPDATE_READ_RECEIPTS");
+    produceMessage(
+      createEnvelope("UPDATE_READ_RECEIPTS", { readReceipts: updates }),
+      KAFKA_TOPICS.CONVERSATIONS
+    );
   });
 
   socket.on("request:delete_message", async ({ conversation, messages }: IDeleteRequest) => {
@@ -63,7 +80,11 @@ export default function registerMessageHandlers(io: Server, socket: ISocket) {
       messages,
     });
 
-    produceMessage({ messages }, "UPDATE_MESSAGES");
+    produceMessage(
+      createEnvelope("UPDATE_MESSAGES", { messages }),
+      KAFKA_TOPICS.MESSAGES,
+      conversation.conversationId
+    );
   });
 
   socket.on(
@@ -73,7 +94,11 @@ export default function registerMessageHandlers(io: Server, socket: ISocket) {
 
       callback({ conversationId, collection });
 
-      produceMessage({ collection }, "DELETE_MESSAGE_FOR_USER");
+      produceMessage(
+        createEnvelope("DELETE_MESSAGE_FOR_USER", { collection }),
+        KAFKA_TOPICS.MESSAGES,
+        conversationId
+      );
     }
   );
 }

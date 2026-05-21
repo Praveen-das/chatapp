@@ -1,10 +1,7 @@
 import { Consumer, EachBatchPayload } from "kafkajs";
+import { KafkaEnvelope } from "@repo/kafka";
 import messageController from "./messageController";
 import { IMessage } from "../interfaces/messageInterface";
-
-interface IReq {
-  messages: IMessage[];
-}
 
 const createKafkaBatchController =
   (consumer: Consumer) =>
@@ -24,7 +21,7 @@ const createKafkaBatchController =
     function resetConsumer() {
       pause();
       setTimeout(() => {
-        consumer.resume([{ topic: "MESSAGES" }]);
+        consumer.resume([{ topic: batch.topic }]);
       }, RESET_TIMEOUT);
     }
 
@@ -33,13 +30,26 @@ const createKafkaBatchController =
     for (const message of batch.messages) {
       if (!isRunning() || isStale()) break;
 
-      const messageContent = message.value?.toString();
+      const raw = message.value?.toString();
 
-      if (messageContent) {
+      if (raw) {
         try {
-          const { messages }: IReq = JSON.parse(messageContent);
-          if (messages && Array.isArray(messages)) {
-            messagesToSave.push(...messages);
+          const envelope: KafkaEnvelope = JSON.parse(raw);
+
+          if (envelope.action === "SAVE") {
+            // Batch-save new messages
+            const { messages } = envelope.payload as { messages: IMessage[] };
+            if (messages && Array.isArray(messages)) {
+              messagesToSave.push(...messages);
+            }
+          } else if (envelope.action === "UPDATE_MESSAGES") {
+            // Per-message update within batch
+            const payload = JSON.stringify(envelope.payload);
+            await messageController._updateUserMessages(payload, resetConsumer);
+          } else if (envelope.action === "DELETE_MESSAGE_FOR_USER") {
+            // Per-message delete within batch
+            const payload = JSON.stringify(envelope.payload);
+            await messageController._deleteMessagesForUser(payload, resetConsumer);
           }
         } catch (e) {
           console.error("Error parsing message in batch", e);

@@ -1,8 +1,17 @@
 import { Kafka } from "kafkajs";
+import fs from "fs";
+import path from "path";
 
 const kafka = new Kafka({
   clientId: "chat-application",
-  brokers: ["192.168.1.7:9092"],
+  brokers: ["kafka-f6c1f2-viralapp.h.aivencloud.com:28909"],
+  ssl: {
+    rejectUnauthorized: false,
+    ca: [fs.readFileSync(path.resolve("./certs/ca.pem")).toString("utf-8")],
+    key: fs.readFileSync(path.resolve("./certs/service.key")).toString("utf-8"),
+    cert: fs.readFileSync(path.resolve("./certs/service.cert")).toString("utf-8"),
+  },
+  // brokers: ["192.168.1.7:9092"],
 });
 
 async function init() {
@@ -15,31 +24,10 @@ async function init() {
 
     await admin.createTopics({
       topics: [
-        { topic: "MESSAGES" },
-        { topic: "UPDATE_MESSAGES" },
-        { topic: "CREATE_CONVERSATION" },
-        { topic: "CREATE_GROUP" },
-        { topic: "LEAVE_GROUP" },
-        { topic: "DELETE_GROUP_CONVERSATION" },
-        { topic: "CREATE_USER_CONVERSATION" },
-        { topic: "CREATE_GROUP_CONVERSATION" },
-        { topic: "JOIN_GROUP" },
-        { topic: "UPDATE_USER_CONVERSATION" },
-        { topic: "UPDATE_GROUP_CONVERSATION" },
-        { topic: "UPDATE_USER_BLOCK_STATUS" },
-        { topic: "UPDATE_USER" },
-        { topic: "DELETE_MESSAGE_FOR_USER" },
-        { topic: "CLEAR_CONVERSATION_FOR_USER" },
-        { topic: "CLEAR_GROUP_CONVERSATION_FOR_USER" },
-        { topic: "REGISTER_STARRED_MESSAGES" },
-        { topic: "UNREGISTER_STARRED_MESSAGES" },
-        { topic: "ADD_GROUP_TAG" },
-        { topic: "REMOVE_GROUP_TAG" },
-        { topic: "UPDATE_GROUP_INFO" },
-        { topic: "ADD_GROUP_ADMIN" },
-        { topic: "REMOVE_GROUP_ADMIN" },
-        { topic: "UPDATE_USER_RULE" },
-        { topic: "UPDATE_READ_RECEIPTS" },
+        { topic: "chat.messages", numPartitions: 3 },
+        { topic: "chat.conversations", numPartitions: 3 },
+        { topic: "chat.groups", numPartitions: 3 },
+        { topic: "chat.users", numPartitions: 3 },
       ],
     });
 

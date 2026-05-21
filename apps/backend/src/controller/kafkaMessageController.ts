@@ -1,4 +1,5 @@
 import { EachMessagePayload, Consumer } from "kafkajs";
+import { KafkaEnvelope } from "@repo/kafka";
 import messageController from "./messageController";
 import conversationController from "./conversationController";
 import userController from "./userController";
@@ -7,7 +8,7 @@ import groupController from "./groupController";
 const createKafkaMessageController =
   (consumer: Consumer) =>
   async ({ topic, partition, message: _message, heartbeat, pause }: EachMessagePayload) => {
-    const message = _message.value?.toString();
+    const raw = _message.value?.toString();
     const RESET_TIMEOUT = 60 * 1000;
 
     function resetConsumer() {
@@ -19,13 +20,54 @@ const createKafkaMessageController =
 
     const callback = () => resetConsumer();
 
-    if (!message) return;
+    if (!raw) return;
+
+    let envelope: KafkaEnvelope;
+    try {
+      envelope = JSON.parse(raw);
+    } catch {
+      console.error("Failed to parse Kafka envelope:", raw);
+      return;
+    }
+
+    const { action, payload } = envelope;
+    const message = JSON.stringify(payload);
 
     try {
-      switch (topic) {
+      switch (action) {
+        // ── Conversation actions ──
         case "CREATE_CONVERSATION":
           await conversationController._createConversation(message, callback);
           break;
+        case "CREATE_GROUP_CONVERSATION":
+          await conversationController._createGroupConversation(message, callback);
+          break;
+        case "DELETE_GROUP_CONVERSATION":
+          await conversationController._deleteGroupConversation(message, callback);
+          break;
+        case "UPDATE_USER_CONVERSATION":
+          await conversationController._updateUserConversationById(message, callback);
+          break;
+        case "UPDATE_GROUP_CONVERSATION":
+          await conversationController._updateGroupConversationById(message, callback);
+          break;
+        case "CLEAR_GROUP_CONVERSATION":
+          await conversationController._updateGroupConversationById(message, callback);
+          break;
+        case "UPDATE_USER_BLOCK_STATUS":
+          await conversationController._updateUserConversationBlockStatus(message, callback);
+          break;
+        case "REGISTER_STARRED_MESSAGES":
+          await conversationController._registerStarredMessages(message, callback);
+          break;
+        case "UNREGISTER_STARRED_MESSAGES":
+          await conversationController._unregisterStarredMessages(message, callback);
+          break;
+        case "UPDATE_READ_RECEIPTS":
+          await conversationController._saveMessageReadReceipt(message, callback);
+          break;
+
+        // ── Group actions ──
         case "JOIN_GROUP":
           await groupController._addMembersToGroup(message, callback);
           break;
@@ -51,19 +93,19 @@ const createKafkaMessageController =
           await groupController._removeUserAdmin(message, callback);
           break;
 
-        case "DELETE_GROUP_CONVERSATION":
-          await conversationController._deleteGroupConversation(message, callback);
+        // ── User actions ──
+        case "UPDATE_USER":
+        case "END_SESSION":
+          await userController._updateUserFromKafka(message, callback);
           break;
-        // case "CREATE_USER_CONVERSATION":
-        //   conversationController._createUserConversation(message, callback);
-        //   break;
-        // case "CREATE_GROUP":
-        //   groupController._createGroup(message, callback);
-        //   break;
-        case "CREATE_GROUP_CONVERSATION":
-          await conversationController._createGroupConversation(message, callback);
+        case "BULK_UPDATE_USERS":
+          await userController._bulkUpdateUsers(message, callback);
+          break;
+        case "UPDATE_USER_RULE":
+          await userController._updateUserRule(message, callback);
           break;
 
+        // ── Message actions (routed from chat.messages for per-message processing) ──
         case "UPDATE_MESSAGES":
           await messageController._updateUserMessages(message, callback);
           break;
@@ -71,54 +113,10 @@ const createKafkaMessageController =
           await messageController._deleteMessagesForUser(message, callback);
           break;
 
-        case "UPDATE_USER_CONVERSATION":
-          await conversationController._updateUserConversationById(message, callback);
-          break;
-        case "UPDATE_GROUP_CONVERSATION":
-          await conversationController._updateGroupConversationById(message, callback);
-          break;
-        case "CLEAR_GROUP_CONVERSATION":
-          await conversationController._updateGroupConversationById(message, callback);
-          break;
-        case "UPDATE_USER_BLOCK_STATUS":
-          await conversationController._updateUserConversationBlockStatus(message, callback);
-          break;
-        case "UPDATE_USER_RULE":
-          await userController._updateUserRule(message, callback);
-          break;
-        case "REGISTER_STARRED_MESSAGES":
-          await conversationController._registerStarredMessages(message, callback);
-          break;
-        case "UNREGISTER_STARRED_MESSAGES":
-          await conversationController._unregisterStarredMessages(message, callback);
-          break;
-        case "UPDATE_READ_RECEIPTS":
-          await conversationController._saveMessageReadReceipt(message, callback);
-          break;
-
-        case "UPDATE_USER":
-          await userController._updateUserFromKafka(message, callback);
-          break;
-        case "BULK_UPDATE_USERS":
-          await userController._bulkUpdateUsers(message, callback);
-          break;
-
-        case "END_SESSION":
-          await userController._updateUserFromKafka(message, callback);
-          break;
-
         default:
+          console.warn(`Unknown Kafka action: ${action} on topic: ${topic}`);
           break;
       }
-
-      // ✅ Commit ONLY after DB success
-      // await consumer.commitOffsets([
-      //   {
-      //     topic,
-      //     partition,
-      //     offset: (BigInt(message.offset) + 1n).toString(),
-      //   },
-      // ]);
     } catch (error) {
       console.log("error in kafka message controller", error);
     }

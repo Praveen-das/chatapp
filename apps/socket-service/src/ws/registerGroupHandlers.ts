@@ -1,5 +1,5 @@
 import { Server } from "socket.io";
-import produceMessage from "../kafka/kafka";
+import { produceMessage, createEnvelope, KAFKA_TOPICS } from "../kafka/kafka";
 import { Types } from "mongoose";
 import { ISocket } from "../interfaces/socketInterfaces";
 import { IMessage } from "@repo/interfaces/messageInterface";
@@ -36,7 +36,11 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
       try {
         const body = { groupId: conversation.conversationId, updates };
 
-        produceMessage(body, "UPDATE_GROUP_INFO");
+        produceMessage(
+          createEnvelope("UPDATE_GROUP_INFO", body),
+          KAFKA_TOPICS.GROUPS,
+          conversation.conversationId
+        );
 
         const updatedProperty = Object.keys(updates)[0]!;
 
@@ -72,7 +76,11 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
   );
 
   socket.on("DELETE_GROUP_CONVERSATION", async (req: GroupDeleteReq) => {
-    produceMessage(req, "DELETE_GROUP_CONVERSATION");
+    produceMessage(
+      createEnvelope("DELETE_GROUP_CONVERSATION", req),
+      KAFKA_TOPICS.CONVERSATIONS,
+      req.conversationId
+    );
     io.to(socket.userId!).emit("DELETE_GROUP_CONVERSATION", req.conversationId);
     socket.leave(req.channelId);
   });
@@ -80,9 +88,19 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
   socket.on("JOIN_GROUP", async ({ conversation, user, member, create, users }: JoinGroupParams) => {
     const conversationId = conversation.conversationId;
 
-    if (create) produceMessage({ groupConversations: [conversation] }, "CREATE_GROUP_CONVERSATION");
+    if (create) {
+      produceMessage(
+        createEnvelope("CREATE_GROUP_CONVERSATION", { groupConversations: [conversation] }),
+        KAFKA_TOPICS.CONVERSATIONS,
+        conversationId
+      );
+    }
 
-    produceMessage({ members: [member], groupId: conversationId }, "JOIN_GROUP");
+    produceMessage(
+      createEnvelope("JOIN_GROUP", { members: [member], groupId: conversationId }),
+      KAFKA_TOPICS.GROUPS,
+      conversationId
+    );
 
     socket.join(conversation.channelId!);
 
@@ -128,7 +146,11 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
       memberId,
     };
 
-    produceMessage(req, "LEAVE_GROUP");
+    produceMessage(
+      createEnvelope("LEAVE_GROUP", req),
+      KAFKA_TOPICS.GROUPS,
+      conversation.conversationId
+    );
 
     socket.leave(conversation.channelId!);
 
@@ -247,8 +269,16 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
       members: conversationMembers,
     };
 
-    produceMessage({ groupConversations }, "CREATE_GROUP_CONVERSATION");
-    produceMessage(body, "JOIN_GROUP");
+    produceMessage(
+      createEnvelope("CREATE_GROUP_CONVERSATION", { groupConversations }),
+      KAFKA_TOPICS.CONVERSATIONS,
+      conversationId
+    );
+    produceMessage(
+      createEnvelope("JOIN_GROUP", body),
+      KAFKA_TOPICS.GROUPS,
+      conversationId
+    );
   });
 
   socket.on("GROUP_REMOVE_MEMBER", async ({ conversation, user, memberId, admin }: GroupLeftReq) => {
@@ -258,7 +288,11 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
       memberId,
     };
 
-    produceMessage(req, "LEAVE_GROUP");
+    produceMessage(
+      createEnvelope("LEAVE_GROUP", req),
+      KAFKA_TOPICS.GROUPS,
+      conversation.conversationId
+    );
 
     const broadcastMessage: Partial<IMessage>[] = [
       {
@@ -314,7 +348,11 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
   socket.on("USER_MAKE_ADMIN", async ({ conversation, userId }: CUProps, callback: () => void) => {
     const body = { conversationId: conversation.conversationId, userId };
 
-    produceMessage(body, "ADD_GROUP_ADMIN");
+    produceMessage(
+      createEnvelope("ADD_GROUP_ADMIN", body),
+      KAFKA_TOPICS.GROUPS,
+      conversation.conversationId
+    );
 
     callback();
 
@@ -325,7 +363,11 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
     "USER_REMOVE_FROM_ADMIN",
     async ({ conversation, userId }: { conversation: IGroupConversation; userId: string }) => {
       const body = { conversationId: conversation.conversationId, userId };
-      produceMessage(body, "REMOVE_GROUP_ADMIN");
+      produceMessage(
+        createEnvelope("REMOVE_GROUP_ADMIN", body),
+        KAFKA_TOPICS.GROUPS,
+        conversation.conversationId
+      );
 
       io.to(conversation.channelId!).emit("SET_GROUP_ADMIN", conversation.conversationId, userId, false);
     }
@@ -336,7 +378,11 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
     async ({ conversation, tag, admin }: { conversation: IGroupConversation; tag: string; admin: IUser }) => {
       const body = { id: conversation.conversationId, tag };
 
-      produceMessage(body, "ADD_GROUP_TAG");
+      produceMessage(
+        createEnvelope("ADD_GROUP_TAG", body),
+        KAFKA_TOPICS.GROUPS,
+        conversation.conversationId
+      );
 
       const broadcastMessage: Partial<IMessage>[] = [
         {
@@ -371,7 +417,11 @@ export default function registerGroupHandlers(io: Server, socket: ISocket) {
     async ({ conversation, tag, admin }: { conversation: IGroupConversation; tag: string; admin: IUser }) => {
       const body = { id: conversation.conversationId, tag };
 
-      produceMessage(body, "REMOVE_GROUP_TAG");
+      produceMessage(
+        createEnvelope("REMOVE_GROUP_TAG", body),
+        KAFKA_TOPICS.GROUPS,
+        conversation.conversationId
+      );
 
       const broadcastMessage: Partial<IMessage>[] = [
         {

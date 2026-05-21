@@ -1,5 +1,5 @@
 import { Server } from "socket.io";
-import produceMessage from "../kafka/kafka";
+import { produceMessage, createEnvelope, KAFKA_TOPICS } from "../kafka/kafka";
 import { ISocket } from "../interfaces/socketInterfaces";
 import { IUserBlockRequest } from "@repo/interfaces/conversationInterface";
 import { IUserRuleChangeRequest } from "@repo/interfaces/userInterface";
@@ -29,7 +29,11 @@ export default async function registerUserHandlers(io: Server, socket: ISocket) 
       blocked,
     });
 
-    produceMessage(req, "UPDATE_USER_BLOCK_STATUS");
+    produceMessage(
+      createEnvelope("UPDATE_USER_BLOCK_STATUS", req),
+      KAFKA_TOPICS.CONVERSATIONS,
+      conversationId
+    );
   });
 
   socket.on("UPDATE_USER", (req: IUserUpdateRequest) => {
@@ -38,7 +42,11 @@ export default async function registerUserHandlers(io: Server, socket: ISocket) 
       updates: req.updates,
     };
 
-    produceMessage(body, "UPDATE_USER");
+    produceMessage(
+      createEnvelope("UPDATE_USER", body),
+      KAFKA_TOPICS.USERS,
+      req.userId
+    );
   });
 
   socket.on("UPDATE_USER_RULE", (req: IUserRuleChangeRequest, sockets: string[]) => {
@@ -46,7 +54,10 @@ export default async function registerUserHandlers(io: Server, socket: ISocket) 
       io.to(id).emit("UPDATE_USER_RULE", req);
     });
 
-    produceMessage(req, "UPDATE_USER_RULE");
+    produceMessage(
+      createEnvelope("UPDATE_USER_RULE", req),
+      KAFKA_TOPICS.USERS
+    );
   });
 
   socket.on("GET_USER_STATUS", async ({ userId }: { userId: string }, callback: (data: any) => void) => {

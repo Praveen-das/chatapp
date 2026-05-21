@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import client from "../../redis/client";
-import produceMessage from "../../kafka/kafka";
+import { produceMessage, createEnvelope, KAFKA_TOPICS } from "../../kafka/kafka";
 
 export const initUserPersistenceCron = () => {
   cron.schedule("5 * * * *", async () => {
@@ -33,7 +33,10 @@ export const initUserPersistenceCron = () => {
     }
 
     try {
-      const result = await produceMessage(body, "BULK_UPDATE_USERS");
+      const result = await produceMessage(
+        createEnvelope("BULK_UPDATE_USERS", body),
+        KAFKA_TOPICS.USERS
+      );
       const updatedUsers = body.map((user) => user.id);
       if (result) {
         await client.srem("dirty_users", updatedUsers);
