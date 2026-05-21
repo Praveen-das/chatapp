@@ -36,20 +36,20 @@ services:
   #   volumes:
   #     - /local-data/:/data
 
-  # sessionservice:
-  #   image: sessionservice
-  #   restart: always
-  #   build:
-  #     context: .
-  #     dockerfile: ./apps/session-service/Dockerfile
-  #   depends_on:
-  #     - sessionStore
-  #   environment:
-  #     - REDIS_HOST=sessionStore
-  #     - REDIS_PORT=6379
-  #     - NODE_ENV=production
-  #   ports:
-  #     - 5000:5000
+  sessionservice:
+    image: sessionservice
+    restart: always
+    build:
+      context: .
+      dockerfile: ./apps/session-service/Dockerfile
+    depends_on:
+      - sessionStore
+    environment:
+      - REDIS_HOST=sessionStore
+      - REDIS_PORT=6379
+      - NODE_ENV=production
+    ports:
+      - 5000:5000
 
   backend:
     image: backend
