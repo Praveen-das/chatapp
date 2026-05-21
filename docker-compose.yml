@@ -42,8 +42,6 @@ services:
     build:
       context: .
       dockerfile: ./apps/session-service/Dockerfile
-    depends_on:
-      - sessionStore
     environment:
       - REDIS_HOST=sessionStore
       - REDIS_PORT=6379

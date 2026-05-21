@@ -5,7 +5,7 @@ RUN apk update
 RUN apk add --no-cache libc6-compat
 
 WORKDIR /app
-RUN npm install turbo@^1.12.2 -g
+RUN npm install turbo@^2 -g
 COPY . .
 RUN turbo prune session-service --docker
 
