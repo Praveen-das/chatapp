@@ -215,7 +215,15 @@ export const AppContext = ({ children }: PropsWithChildren) => {
     async function init() {
       try {
         const userId = user?.id;
-        const { syncToken, setSyncToken } = usePersistentStore.getState();
+        const { setSyncToken } = usePersistentStore.getState();
+        const storedConversationsCount = useConversationStore.getState().conversations.length;
+
+        // On fresh mount (page reload), the in-memory conversation store is empty.
+        // A non-zero syncToken would skip the full load, leaving the UI blank.
+        // Only use the persisted token if conversations are already in memory.
+        const syncToken = storedConversationsCount > 0
+          ? usePersistentStore.getState().syncToken
+          : 0;
 
         const [unsyncEntries, sessions] = await Promise.all([
           axios

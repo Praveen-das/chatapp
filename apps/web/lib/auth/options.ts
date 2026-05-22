@@ -11,7 +11,7 @@ declare module "next-auth" {
     expires: number;
   }
 
-  interface User extends IUser {}
+  interface User extends IUser { }
 }
 
 declare module "next-auth/jwt" {

@@ -4,12 +4,12 @@ import { ISession } from "@repo/interfaces/sessionInterface";
 import { createAccessToken, createRefreshToken } from "@repo/utils";
 import axiosClient from "@lib/axiosClient";
 import { getDeviceDetails, getGeoLocationDetails } from "@lib/device";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { IUser } from "@repo/interfaces/userInterface";
-import { NextRequest } from "next/server";
 import { getServerSession as _getServerSession } from "next-auth";
-import { getToken } from "next-auth/jwt";
+import { decode } from "next-auth/jwt";
 import { AxiosError } from "axios";
+import { authOptions } from "@lib/auth/options";
 
 const cookie: any = {
   name: "token",
@@ -82,15 +82,25 @@ export async function refreshToken() {
 
 export async function validateRefreshToken() {
   try {
-    const req = new NextRequest(process.env.NEXTAUTH_URL!, { headers: { cookie: headers().get("cookie") || "" } });
-    const token = await getToken({ req: req as any });
+    const session = await _getServerSession(authOptions);
+    if (!session?.user) throw Error("Session not found, login again");
 
-    if (!token) throw Error("Token not found login again");
+    const cookieStore = await cookies();
+    const sessionToken =
+      cookieStore.get("next-auth.session-token")?.value ??
+      cookieStore.get("__Secure-next-auth.session-token")?.value;
+
+    if (!sessionToken) throw Error("Session token cookie not found");
+
+    const token = await decode({
+      token: sessionToken,
+      secret: process.env.NEXTAUTH_SECRET!,
+    });
+
+    if (!token?.refresh_token) throw Error("Token not found login again");
 
     const res = await axiosClient.get(`/session/token`, {
-      headers: {
-        Authorization: `Bearer ${token.refresh_token}`,
-      },
+      headers: { Authorization: `Bearer ${token.refresh_token}` },
     });
 
     return res.data;

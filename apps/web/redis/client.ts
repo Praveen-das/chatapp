@@ -1,32 +1,40 @@
 import Redis from "ioredis";
 
-const redisConfig = {
-  host: process.env.NEXT_PUBLIC_REDIS_HOST,
-  port: process.env.NEXT_PUBLIC_REDIS_PORT
-    ? parseInt(process.env.NEXT_PUBLIC_REDIS_PORT)
-    : 6379,
-  username: process.env.NEXT_PUBLIC_REDIS_USERNAME,
-  password: process.env.NEXT_PUBLIC_REDIS_PASSWORD,
+if (!process.env.NEXT_PUBLIC_REDIS_SERVICE_URI) {
+  throw new Error("Please provide NEXT_PUBLIC_REDIS_SERVICE_URI in the environment variables");
+}
+
+const redisUri = process.env.NEXT_PUBLIC_REDIS_SERVICE_URI;
+
+// Avoid creating multiple Redis instances during Next.js hot-reloads in development
+const globalForRedis = globalThis as unknown as {
+  redisClient: Redis | undefined;
+  redisSubscriber: Redis | undefined;
 };
 
-const client = new Redis(redisConfig);
+const redisOptions = {
+  maxRetriesPerRequest: null, // Allow ioredis to auto-reconnect without failing/throwing MaxRetriesPerRequestError
+};
+
+export const client = globalForRedis.redisClient ?? new Redis(redisUri, redisOptions);
+export const publisher = client;
+export const subscriber = globalForRedis.redisSubscriber ?? new Redis(redisUri, redisOptions);
+
+if (process.env.NODE_ENV !== "production") {
+  globalForRedis.redisClient = client;
+  globalForRedis.redisSubscriber = subscriber;
+}
 
 client.on("error", (err) => {
-  console.log("Redis client Error", err);
-  client.disconnect();
-  console.log("Client disconnected");
+  console.error("Redis client Error:", err);
 });
 
-// Create separate publisher and subscriber instances for resumable-stream
-export const publisher = client;
-export const subscriber = client.duplicate();
-
 publisher.on("error", (err) => {
-  console.log("Redis publisher Error", err);
+  console.error("Redis publisher Error:", err);
 });
 
 subscriber.on("error", (err) => {
-  console.log("Redis subscriber Error", err);
+  console.error("Redis subscriber Error:", err);
 });
 
 export default client;
