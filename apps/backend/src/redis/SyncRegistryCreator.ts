@@ -168,18 +168,15 @@ export default class SyncRegistryCreator {
     if (!userConversationData) return null;
 
     userConversationData.forEach((data) => {
-      const updatedAt = Number((data as any).updatedAt) || Number(data.messageTimestamp) || 0;
+      let state: ConversationEntry = {};
       const messageTimestamp = Number(data.messageTimestamp) || 0;
+      const updatedAt = Number((data as any).updatedAt) || 0;
       const createdAt = Number((data as any).createdAt) || 0;
 
-      let state: ConversationEntry = {};
-
-      if (updatedAt > syncToken) {
-        if (createdAt > syncToken) {
-          state.newEntry = true;
-        } else {
-          state.needSync = true;
-        }
+      if (createdAt > syncToken) {
+        state.newEntry = true;
+      } else if (updatedAt > syncToken) {
+        state.needSync = true;
       }
 
       if (messageTimestamp > syncToken) {

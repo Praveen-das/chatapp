@@ -4,13 +4,7 @@ import chroma from "chroma-js";
 import COLORS from "config/themes";
 import { useTheme } from "@hooks/useTheme";
 
-export default function EmojiPicker({
-  open,
-  onEmojiSelect,
-}: {
-  open: boolean;
-  onEmojiSelect: (emoji: any) => void;
-}) {
+export default function EmojiPicker({ open, onEmojiSelect }: { open: boolean; onEmojiSelect: (emoji: any) => void }) {
   const { bgcolor } = useTheme();
 
   const rgb = chroma(bgcolor).rgb().join(",");

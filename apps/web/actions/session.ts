@@ -52,31 +52,37 @@ export async function createTokens(user: IUser) {
   }
 }
 
-export async function refreshToken() {
+export type RefreshResult =
+  | { token: string; error?: undefined }
+  | { token?: undefined; error: "auth_failed" | "server_unavailable" };
+
+export async function refreshToken(): Promise<RefreshResult> {
   try {
     const res = await validateRefreshToken();
 
     if (!res) {
-      console.log("Invalid session");
-      return null;
+      return { error: "auth_failed" };
     }
 
     const access_token = await createAccessToken({ userId: res.userId });
-    return access_token;
+    return { token: access_token };
   } catch (error) {
-    if (error instanceof Error) {
-      console.log("instanceof Error refreshToken---->", error);
-    }
-
     if (error instanceof AxiosError) {
-      console.log("instanceof AxiosError refreshToken---->", {
-        status: error.response?.status,
+      const status = error.response?.status;
+      // 4xx = auth failure (bad token, unauthorized, etc.)
+      if (status && status >= 400 && status < 500) {
+        return { error: "auth_failed" };
+      }
+      // 5xx or no response (network error) = transient
+      console.error("refreshToken server error:", {
+        status,
         url: error.config?.url,
-        data: error.response?.data,
       });
+    } else {
+      console.error("refreshToken unexpected error:", error);
     }
 
-    return null;
+    return { error: "server_unavailable" };
   }
 }
 
@@ -105,11 +111,19 @@ export async function validateRefreshToken() {
 
     return res.data;
   } catch (error: any) {
-    console.log("validateRefreshToken error------>", {
-      status: error?.response?.status,
-      statusText: error?.response?.data,
-    });
+    // Re-throw AxiosErrors for server/network issues so refreshToken can classify them
+    if (error instanceof AxiosError) {
+      const status = error.response?.status;
+      if (!status || status >= 500) {
+        throw error;
+      }
+    }
 
+    // Auth errors (missing session, cookie, token, or 4xx) → return null
+    console.log("validateRefreshToken auth error:", {
+      message: error?.message,
+      status: error?.response?.status,
+    });
     return null;
   }
 }

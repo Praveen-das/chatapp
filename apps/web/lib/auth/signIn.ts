@@ -11,14 +11,14 @@ type IUserCreationReq = {
   profilePicture?: string;
 };
 
-export async function createUser(input: IUserCreationReq) {
-  try {
-    const data = await axiosClient.post<IUser & { error: any }>("/db/user", JSON.stringify(input)).then((res) => res.data);
-    return data;
-  } catch (error) {
-    console.log(error);
-    return null;
-  }
+export async function createUser(input: IUserCreationReq, otpToken: string) {
+  const data = await axiosClient
+    .post<IUser>("/db/user", input, {
+      headers: { "x-otp-token": otpToken },
+    })
+    .then((res) => res.data);
+
+  return data;
 }
 
 export async function fetchUser(phonenumber: string): Promise<IUser | null> {

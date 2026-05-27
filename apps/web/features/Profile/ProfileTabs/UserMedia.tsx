@@ -55,7 +55,7 @@ function UserMedia() {
             );
           })}
       </div>
-      <div className="w-full h-full bg-gradient-to-t from-base-200">
+      <div className="w-full h-full bg-linear-to-t from-base-200">
         {tab === "images" && <ImagePreviews media={media[tab]!} />}
         {tab === "link" && <Links links={media[tab]!} />}
       </div>

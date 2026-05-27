@@ -10,11 +10,11 @@
     "dev": "dotenv -- tsc-watch --onSuccess \"node dist/index.js\""
   },
   "devDependencies": {
-    "@repo/typescript-config": "*",
+    "@repo/typescript-config": "workspace:*",
     "tsc-watch": "^6.2.1"
   },
   "dependencies": {
-    "@repo/interfaces": "*",
+    "@repo/interfaces": "workspace:*",
     "jose": "^5.0.0"
   }
 }

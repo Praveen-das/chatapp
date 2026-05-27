@@ -11,11 +11,12 @@ import { useAttachments } from "store/attachments";
 import { useStore } from "store/global";
 import { useMenu } from "store/menu";
 import { useSessionStore } from "store/sessionStore";
-import { refreshToken } from "@actions/session";
+import { refreshToken, type RefreshResult } from "@actions/session";
 import useAccessToken from "@hooks/useAccessToken";
 import { useConversationStore } from "store/conversationStore";
 import { useMessageStore } from "store/messageStore";
 import { useE2eeStore } from "store/e2eStore";
+import { generateE2EKeyPair } from "@lib/e2e";
 
 const useContextData = () => {
   const axios = useAxios();
@@ -28,6 +29,7 @@ const useContextData = () => {
 
   const [isMounted, setMounted] = useState(false);
   const isSigningOut = useRef(false);
+  const hasInitialized = useRef(false);
   const [user, setUser] = useState(session?.user);
   const path = usePathname();
 
@@ -37,49 +39,92 @@ const useContextData = () => {
       setUser(session.user);
     } else if (!isSigningOut.current) {
       setUser(undefined);
+      hasInitialized.current = false;
     }
   }, [session?.user]);
 
   useEffect(() => {
-    if (user?.id) {
+    async function initE2eeKeys() {
+      if (!user?.id) {
+        useE2eeStore.getState().clearKeys();
+        return;
+      }
+
       const localPrivateKey = localStorage.getItem("e2e_private_key");
       const localPublicKey = localStorage.getItem("e2e_public_key");
 
       if (localPrivateKey && localPublicKey) {
+        // Case 1: Local keys exist — load them
         useE2eeStore.getState().setKeys(localPublicKey, localPrivateKey);
+
+        if (user.encryptedPrivateKey) {
+          useE2eeStore.getState().setHasCloudBackup(true);
+        }
+      } else if (user.encryptedPrivateKey && user.publicKey) {
+        // Case 2: Server has wrapped key but local is missing — redirect to recovery
+        useE2eeStore.getState().setNeedsRestore(true);
+        useE2eeStore.getState().setHasCloudBackup(true);
+
+        if (path !== "/register") {
+          router.replace("/register");
+        }
       } else {
-        // Local keys missing. Check if public & encrypted private key exist on server
-        if (user.encryptedPrivateKey && user.publicKey) {
-          useE2eeStore.getState().setNeedsRestore(true);
-          useE2eeStore.getState().setNeedsSetup(false);
-        } else {
-          useE2eeStore.getState().setNeedsSetup(true);
-          useE2eeStore.getState().setNeedsRestore(false);
+        // Case 3: Fresh user — silently generate keys
+        try {
+          const keypair = await generateE2EKeyPair();
+          localStorage.setItem("e2e_public_key", keypair.publicKey);
+          localStorage.setItem("e2e_private_key", keypair.privateKey);
+          await updateUser("publicKey", keypair.publicKey);
+          useE2eeStore.getState().setKeys(keypair.publicKey, keypair.privateKey);
+        } catch (error) {
+          console.error("Silent E2EE key generation failed:", error);
         }
       }
-    } else {
-      useE2eeStore.getState().clearKeys();
     }
+
+    initE2eeKeys();
   }, [user]);
 
   useEffect(() => {
     async function init() {
+      if (hasInitialized.current) return;
+      hasInitialized.current = true;
       try {
         if (!user) return;
 
-        const accessToken = await refreshToken();
+        const MAX_RETRIES = 3;
+        let result: RefreshResult = { error: "server_unavailable" };
 
-        if (!accessToken) await signOut();
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+          result = await refreshToken();
 
-        setAccessToken(accessToken);
+          // Success or definitive auth failure — stop retrying
+          if (result.token || result.error === "auth_failed") break;
+
+          // Transient failure — wait with backoff before retrying
+          if (attempt < MAX_RETRIES) {
+            await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
+          }
+        }
+
+        if (result.token) {
+          setAccessToken(result.token);
+        } else if (result.error === "auth_failed") {
+          await signOut();
+          return;
+        } else {
+          // All retries exhausted — server is down but session may still be valid
+          toast.error("Server is temporarily unavailable. Please try again later.");
+        }
       } catch (error) {
-        console.log("auth context", error);
+        console.error("auth context initialization error:", error);
+        await signOut();
       } finally {
         setMounted(true);
       }
     }
 
-    init();
+    if (user && !hasInitialized.current) init();
   }, [user]);
 
   useEffect(() => {
@@ -131,14 +176,22 @@ const useContextData = () => {
         console.log(error);
       }
     },
-    [axios, user]
+    [axios, user],
   );
 
   async function signOut() {
     isSigningOut.current = true;
-    const response = await _signOut({ callbackUrl: "/register", redirect: false });
-    router.replace(response.url);
-    socket.disconnect();
+    try {
+      const response = await _signOut({ callbackUrl: "/register", redirect: false });
+      router.replace(response.url);
+      socket.disconnect();
+    } catch (error) {
+      console.error("signOut failed:", error);
+    } finally {
+      // Always reset flags so the app can recover if signOut itself fails
+      isSigningOut.current = false;
+      hasInitialized.current = false;
+    }
   }
 
   return {
@@ -158,6 +211,34 @@ export const Context = createContext<AuthContextType | null>(null);
 
 function AuthContext({ children }: PropsWithChildren) {
   const value = useContextData();
+  const path = usePathname();
+  const isE2eeInitialized = useE2eeStore((s) => s.isInitialized);
+  const needsRestore = useE2eeStore((s) => s.needsRestore);
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  if (!hasMounted) {
+    return (
+      <div className="fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-[--base-300-100] gap-4">
+        <span className="loading loading-spinner loading-lg"></span>
+      </div>
+    );
+  }
+
+  const isAuth = !!value.user?.id;
+  const shouldBlock = isAuth && (!isE2eeInitialized || needsRestore) && path !== "/register";
+
+  if (shouldBlock) {
+    return (
+      <div className="fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-[--base-300-100] gap-4">
+        <span className="loading loading-spinner loading-lg"></span>
+      </div>
+    );
+  }
+
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 

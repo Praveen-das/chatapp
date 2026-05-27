@@ -1,5 +1,6 @@
 "use client";
 import axiosClient from "@lib/axiosClient";
+import { IUser } from "@repo/interfaces/userInterface";
 import { IPhoneNUmber, ITabs } from "app/register/components/types";
 import { AxiosError } from "axios";
 import { isProduction } from "config/constants";
@@ -17,44 +18,39 @@ const initialPhoneNumber = {
 const useContextData = () => {
   const [form, setForm] = useState<ITabs>("phone_number");
   const [phonenumber, setPhonenumber] = useState<IPhoneNUmber>(initialPhoneNumber);
-  const router = useRouter();
+  const [otpToken, setOtpToken] = useState<string | null>(null);
+  const [verifiedUser, setVerifiedUser] = useState<IUser | null>(null);
 
   const requestOTP = useCallback(async () => {
-    // if (!phonenumber) return;
-    // if (!phonenumber.data) return;
+    if (!phonenumber) return;
+    if (!phonenumber.data) return;
 
-    // const withCountryCode = phonenumber.value;
-    // const data = phonenumber.data;
+    const withCountryCode = phonenumber.value;
+    const data = phonenumber.data;
 
-    // if (!data) return;
+    if (!data) return;
 
-    // const withoutCountryCode = withCountryCode.slice(data.dialCode.length);
-    // const countryCode = data.countryCode.toUpperCase() as CountryCode;
+    const withoutCountryCode = withCountryCode.slice(data.dialCode.length);
+    const countryCode = data.countryCode.toUpperCase() as CountryCode;
 
     try {
-      // const isValid = isValidPhoneNumber(withoutCountryCode, countryCode);
+      const isValid = isValidPhoneNumber(withoutCountryCode, countryCode);
 
-      // if (!isValid) throw Error("Invalid phone number");
-      // if (phonenumber.error) setPhonenumber((prev) => ({ ...prev, error: "" }));
+      if (!isValid) throw Error("Invalid phone number");
+      if (phonenumber.error) setPhonenumber((prev) => ({ ...prev, error: "" }));
 
-      // const body = { phonenumber: "+" + phonenumber.value };
-      // const verification = await axiosClient.post("/db/otp/send", body).then((res) => res.data);
+      const body = { phonenumber: "+" + phonenumber.value };
+      const verification = await axiosClient.post("/db/otp/send", body).then((res) => res.data);
 
-      // if (verification.error) {
-      //   console.log(verification.error);
-      //   setPhonenumber((prev) => ({ ...prev, error: verification.error.message }));
-      //   return;
-      // }
-
-      // if (verification.status === "pending") {
-      //   setForm("otp");
-      // }
-
-      setForm("otp");
+      if (verification.status === "pending") {
+        setForm("otp");
+      }
     } catch (error) {
       console.log(error);
-      if (error instanceof AxiosError)
-        return setPhonenumber((prev) => ({ ...prev, error: error.response?.data.error || error.response?.statusText }));
+      if (error instanceof AxiosError) {
+        const msg = error.response?.data?.error?.message ?? error.response?.statusText;
+        return setPhonenumber((prev) => ({ ...prev, error: msg || "Failed to send OTP" }));
+      }
       if (error instanceof Error) return setPhonenumber((prev) => ({ ...prev, error: error.message }));
     }
   }, [phonenumber]);
@@ -65,6 +61,10 @@ const useContextData = () => {
     requestOTP,
     phonenumber,
     setPhonenumber,
+    otpToken,
+    setOtpToken,
+    verifiedUser,
+    setVerifiedUser,
   };
 };
 

@@ -64,7 +64,7 @@ function Chat({
           "bg-black bg-opacity-20": isSelected,
         },
         `${self ? "ml-auto flex-row-reverse" : "mr-auto"} 
-        group flex gap-3 text-xs px-4 py-3 `
+        group flex gap-3 text-xs px-4 py-3 `,
       )}
     >
       <div
@@ -137,7 +137,7 @@ function RenderChat({ chat, mode, ...chatProps }: { chat: IMessage } & IChatProp
     max-w-xl 
     text-base 
     rounded-2xl
-    overflow-hidden`
+    overflow-hidden`,
     ),
     messagePadding = classnames({
       "px-3": !isEmoji,

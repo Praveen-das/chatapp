@@ -232,7 +232,7 @@ function GeneralSettings() {
                 key={color}
                 onClick={() => handleTheme(color)}
                 tabIndex={0}
-                className={`flex flex-col gap-2 min-w-20 p-2 ${colorHex === color ? `ring-2 ring-inset ` : ""} shadow-md cursor-pointer rounded-xl bg-gradient-to-t from-base-200`}
+                className={`flex flex-col gap-2 min-w-20 p-2 ${colorHex === color ? `ring-2 ring-inset ` : ""} shadow-md cursor-pointer rounded-xl bg-linear-to-t from-base-200`}
                 style={{ "--tw-ring-color": "#" + color }}
               >
                 <div className={`w-4/5 h-4 ml-auto rounded-xl`} style={{ backgroundColor: "#" + color }} />

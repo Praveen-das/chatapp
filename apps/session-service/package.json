@@ -19,9 +19,9 @@
     "express": "^4.21.2",
     "ioredis": "^5.5.0"
   },
-  "packageManager": "npm@10.2.4",
+  "packageManager": "pnpm@10.12.1",
   "devDependencies": {
-    "@repo/utils": "*",
+    "@repo/utils": "workspace:*",
     "@types/body-parser": "^1.19.5",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",

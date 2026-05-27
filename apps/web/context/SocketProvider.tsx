@@ -73,6 +73,16 @@ const useContextData = () => {
   }, [user]);
 
   useEffect(() => {
+    const updateSyncCheckpoint = (timestamp?: number) => {
+      if (!timestamp) return;
+      const { syncToken, setSyncToken, clockSkew } = usePersistentStore.getState();
+      const estimatedServerTime = Date.now() + clockSkew;
+
+      if (timestamp > syncToken && timestamp <= estimatedServerTime + 5000) {
+        setSyncToken(timestamp);
+      }
+    };
+
     function onUserConnected({ userId }: { userId: string }) {
       updateUserStatus(userId, "online");
     }
@@ -113,6 +123,10 @@ const useContextData = () => {
         emitters.sendConversationActivationRequest(conversationId);
         updateConversation(conversationId, { ...conversationUpdates, active: true });
       } else updateConversation(conversationId, conversationUpdates);
+
+      if (recentMessage?.timestamp) {
+        updateSyncCheckpoint(recentMessage.timestamp);
+      }
 
       if (recentMessage?.from !== userRef.current?.id) {
         const receiptChangeRequest: MessageReadReceipt = isSelectedConversation
@@ -168,6 +182,9 @@ const useContextData = () => {
 
     function onReadReceiptChangeRequest(req: MessageReadReceipt) {
       updateReadReceipt(req);
+      if (req.updatedAt) {
+        updateSyncCheckpoint(req.updatedAt);
+      }
     }
 
     function handleUpdatingBlockStatus(conversationId: string, updates: Partial<IUserConversation>) {
@@ -201,6 +218,10 @@ const useContextData = () => {
       setUsers(groupMemberEntries);
       setConversation(conversation);
 
+      if (conversation.updatedAt) {
+        updateSyncCheckpoint(conversation.updatedAt);
+      }
+
       if (self) {
         setSelectedConversation(conversation.id);
         socket.selectedConversation = conversation;
@@ -215,6 +236,10 @@ const useContextData = () => {
       if (systemMessage) setMessageStore(conversationId, [systemMessage]);
 
       updateGroupConversation(conversationId, updates);
+
+      if (updates.updatedAt) {
+        updateSyncCheckpoint(updates.updatedAt);
+      }
     }
 
     function handleAddingMembersToGroup(
@@ -227,7 +252,7 @@ const useContextData = () => {
         members: IGroupMember[];
         users: IUser[];
       },
-      systemMessages: IMessage[]
+      systemMessages: IMessage[],
     ) {
       const existingConversation = useConversationStore
         .getState()
@@ -243,7 +268,7 @@ const useContextData = () => {
 
     function handleRemovingMemberFromGroup(
       { conversationId, userId }: { conversationId: string; userId: string },
-      systemMessages: IMessage[]
+      systemMessages: IMessage[],
     ) {
       const id = useConversationStore
         .getState()
@@ -261,6 +286,9 @@ const useContextData = () => {
 
     function handleUpdatingConversation(conversationId: string, update: Partial<IConversationBase>) {
       updateConversation(conversationId, update);
+      if (update.updatedAt) {
+        updateSyncCheckpoint(update.updatedAt);
+      }
     }
 
     function handleCreatingUserConversation(conversation: IUserConversation, user: IUser, select: boolean) {
@@ -278,6 +306,10 @@ const useContextData = () => {
         },
       });
 
+      if (conversation.updatedAt) {
+        updateSyncCheckpoint(conversation.updatedAt);
+      }
+
       if (select) {
         setSelectedConversation(conversation.id);
         socket.selectedConversation = conversation;
@@ -292,7 +324,7 @@ const useContextData = () => {
         groupId: string;
         tag: string;
       },
-      systemMessages: IMessage[]
+      systemMessages: IMessage[],
     ) {
       const conversations = useConversationStore.getState().conversations;
 
@@ -309,7 +341,7 @@ const useContextData = () => {
         groupId: string;
         tag: string;
       },
-      systemMessages: IMessage[]
+      systemMessages: IMessage[],
     ) {
       const conversations = useConversationStore.getState().conversations;
 
@@ -390,7 +422,7 @@ const useContextData = () => {
       conversation: IGroupConversation,
       users: IUser[],
       systemMessages: IMessage[],
-      self = false
+      self = false,
     ) {
       const { id, conversationId, members } = conversation;
       const existingConversation = useConversationStore
@@ -411,6 +443,10 @@ const useContextData = () => {
         setUsers(groupMemberEntries);
         setConversation(conversation);
         setMessageStore(id, systemMessages);
+      }
+
+      if (conversation.updatedAt) {
+        updateSyncCheckpoint(conversation.updatedAt);
       }
 
       useStore.getState().setDeviceTab("chatarea");

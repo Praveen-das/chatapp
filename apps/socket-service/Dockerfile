@@ -1,33 +1,31 @@
-FROM node:lts-alpine AS base
+FROM node:lts-slim AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable && corepack prepare pnpm@10.12.1 --activate
 
 FROM base AS builder
-RUN apk update
-RUN apk add --no-cache libc6-compat
 
 WORKDIR /app
-RUN npm install turbo@^2 -g
+RUN pnpm add -g turbo@^2
 COPY . .
 RUN turbo prune socket-service --docker
 
 FROM base AS installer
-RUN apk update
-RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY --from=builder /app/out/json/ .
-RUN npm install
+RUN pnpm install --frozen-lockfile
 COPY --from=builder /app/out/full/ .
-RUN npm run build && \
-    npm cache clean --force && \
-    rm -rf /root/.npm && \
-    npm prune --production
+RUN pnpm run build && \
+    pnpm store prune && \
+    pnpm prune --prod
 
 # Runner stage - minimal final image
 FROM base AS runner
 WORKDIR /app
 
 # Create a non-root user
-RUN addgroup -S expressjs && adduser -S expressjs -G expressjs
+RUN groupadd -r expressjs && useradd -r -g expressjs expressjs
 USER expressjs
 
 # Copy only built output and node_modules

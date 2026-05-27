@@ -1,11 +1,7 @@
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import RedisStore, { RedisReply } from "rate-limit-redis";
 import Redis from "ioredis";
-
-const connection = {
-  host: process.env.REDIS_HOST || "localhost",
-  port: parseInt(process.env.REDIS_PORT || "6379"),
-};
+import { connection } from "../redis/client";
 
 const redisClient = new Redis(connection);
 

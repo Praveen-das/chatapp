@@ -69,7 +69,7 @@ function LinkManagement({ conversationId }: { conversationId: string }) {
         </button>
         <label htmlFor="contact info">Invite via link</label>
       </div>
-      <div className="w-full h-full flex flex-col bg-gradient-to-t from-base-200 max-sm:mt-2 sm:mt-4">
+      <div className="w-full h-full flex flex-col bg-linear-to-t from-base-200 max-sm:mt-2 sm:mt-4">
         {conversation.invitationId ? (
           <div className="flex gap-6 text-sm flex-col overflow-y-scroll no-scrollbar">
             {/* profile */}

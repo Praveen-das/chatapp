@@ -2,7 +2,6 @@ import express from "express";
 import router from "./src/routes";
 import initDatabase from "./src/db/mongoose";
 import { initKafkaConsumer } from "./src/kafka/kafka";
-import cors from "cors";
 import bodyParser from "body-parser";
 import { verifyAuth } from "./src/middlewares/auth";
 import otpRoute from "./src/routes/otpRoute";
@@ -10,12 +9,7 @@ import { otpRateLimiter } from "./src/rateLimit/otp";
 
 (async () => {
   const app = express();
-
-  app.use(
-    cors({
-      origin: ["http://localhost:3000"],
-    })
-  );
+  app.set("trust proxy", 1);
 
   app.use(bodyParser.json());
 

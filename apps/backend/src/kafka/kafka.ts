@@ -9,9 +9,9 @@ const getSSLConfig = () => {
   // Option 1: Base64 strings from env (useful for serverless/containers)
   if (process.env.KAFKA_SSL_CA_B64 && process.env.KAFKA_SSL_KEY_B64 && process.env.KAFKA_SSL_CERT_B64) {
     return {
-      ca: [Buffer.from(process.env.KAFKA_SSL_CA_B64, "base64").toString("utf-8")],
-      key: Buffer.from(process.env.KAFKA_SSL_KEY_B64, "base64").toString("utf-8"),
-      cert: Buffer.from(process.env.KAFKA_SSL_CERT_B64, "base64").toString("utf-8"),
+      ca: [Buffer.from(process.env.KAFKA_SSL_CA_B64, "base64").toString("utf-8").replace(/\\n/g, "\n")],
+      key: Buffer.from(process.env.KAFKA_SSL_KEY_B64, "base64").toString("utf-8").replace(/\\n/g, "\n"),
+      cert: Buffer.from(process.env.KAFKA_SSL_CERT_B64, "base64").toString("utf-8").replace(/\\n/g, "\n"),
       rejectUnauthorized: true,
     };
   }

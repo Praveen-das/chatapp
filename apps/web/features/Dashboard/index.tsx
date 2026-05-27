@@ -46,7 +46,7 @@ export default function Dashboard(): JSX.Element {
 
   return (
     <div
-      className={`${deviceTab === "chatarea" ? "max-sm:opacity-0 max-sm:z-0" : "opacity-100"} max-sm:duration-300 relative max-sm:w-full sm:w-1/2 lg:w-[calc((100vw-(1rem*4))/3)] max-sm:h-dvh z-[50]`}
+      className={`${deviceTab === "chatarea" ? "max-sm:opacity-0 max-sm:z-0" : "opacity-100"} max-sm:duration-300 relative max-sm:w-full sm:w-1/2 lg:w-[calc((100vw-4rem)/3)] max-sm:h-dvh z-50`}
     >
       <Tabs activeTab={isMobile ? deviceTab || "dashboard" : "dashboard"} initialTab="dashboard">
         <Tab component="dashboard">

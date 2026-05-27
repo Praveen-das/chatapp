@@ -12,7 +12,7 @@ import "./inputStyle.css";
 import RenderErrorMessage from "./RenderErrorMessage";
 
 export default function ProfileCreationForm() {
-  const { phonenumber } = useRegistrationForm();
+  const { phonenumber, otpToken } = useRegistrationForm();
   const [username, setUsername] = useState("");
   const [profilePicture, setProfilePicture] = useState("");
 
@@ -22,14 +22,22 @@ export default function ProfileCreationForm() {
 
   async function handleCreatingUser() {
     try {
+      const trimmed = username.trim();
+      if (!trimmed) throw Error("Username is required");
+      if (trimmed.length < 3) throw Error("Username must be at least 3 characters");
+      if (trimmed.length > 20) throw Error("Username must be at most 20 characters");
+      if (!otpToken) throw Error("OTP verification expired, please verify again");
+
       setLoading(true);
+      setError("");
 
       const user = {
         id: new ObjectID().toHexString(),
         phoneNumber: phonenumber.value,
-        username,
+        username: trimmed,
         profilePicture,
         type: "signup",
+        otpToken,
         redirect: false,
       };
 
@@ -42,7 +50,11 @@ export default function ProfileCreationForm() {
       if (res?.error) return setError(res.error);
       if (res?.ok) return router.replace("/");
     } catch (error) {
-      console.log("errrrrrrrrrr", error);
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError("An error occurred during profile registration");
+      }
     } finally {
       setLoading(false);
     }

@@ -5,6 +5,7 @@ import { IUser } from "../interfaces/userInterface";
 import { verifyUserToken } from "@repo/utils";
 import { bulkUpdateUsersSchema, updateUserSchema, userSchema } from "../schemas/userSchema";
 import { ZodError } from "zod";
+import { verifyOtpToken } from "../lib/otpToken";
 
 type IUserCreationReq = {
   username: string;
@@ -15,7 +16,24 @@ type IUserCreationReq = {
 
 const _createUser = async (req: Request<any, any, IUserCreationReq>, res: Response) => {
   try {
+    // Verify OTP token from header — proves the phone number was verified
+    const otpToken = req.headers["x-otp-token"] as string | undefined;
+
+    if (!otpToken) {
+      return res.status(401).json({ error: { message: "OTP verification required" } });
+    }
+
+    const verifiedPhone = await verifyOtpToken(otpToken);
+    if (!verifiedPhone) {
+      return res.status(401).json({ error: { message: "OTP token invalid or expired" } });
+    }
+
     const data = userSchema.parse(req.body);
+
+    // Ensure the phone number matches the OTP-verified one
+    if ("+" + data.phoneNumber !== verifiedPhone && data.phoneNumber !== verifiedPhone) {
+      return res.status(403).json({ error: { message: "Phone number mismatch" } });
+    }
 
     let body: IUser = {
       ...data,
@@ -28,12 +46,16 @@ const _createUser = async (req: Request<any, any, IUserCreationReq>, res: Respon
 
     res.json(user);
   } catch (error) {
-    console.log("error _createUser----->", error);
     if (error instanceof ZodError) {
-      res.json({ error: error.errors[0] });
-    } else {
-      res.json({ error: error });
+      return res.status(400).json({ error: { message: error.errors[0]?.message } });
     }
+    if (error instanceof MongooseError) {
+      return res.status(500).json({ error: { message: error.message } });
+    }
+    if (error instanceof Error && (error as any).code === 11000) {
+      return res.status(409).json({ error: { message: "Username already exists", code: 11000 } });
+    }
+    return res.status(500).json({ error: { message: "Failed to create user" } });
   }
 };
 

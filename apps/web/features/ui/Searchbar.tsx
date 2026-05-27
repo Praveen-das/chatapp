@@ -33,7 +33,7 @@ export default function Searchbar({
 
       const highlightedText = text.replace(
         regex,
-        (matched: string) => "<span class='bg-primary'>" + matched + "</span>"
+        (matched: string) => "<span class='bg-primary'>" + matched + "</span>",
       );
 
       elm.innerHTML = highlightedText;
@@ -53,7 +53,7 @@ export default function Searchbar({
       className={`flex items-center ${onClick ? "flex-row-reverse" : ""} gap-2 rounded-2xl px-3 py-2 bg-[--base-100-300] shadow-lg`}
     >
       <div className={`btn btn-circle btn-xs btn-ghost `}>
-        <MagnifyingGlassIcon  />
+        <MagnifyingGlassIcon />
       </div>
       <input value={query} onChange={handleChange} className="w-full h-full bg-transparent  outline-none" type="text" />
     </div>

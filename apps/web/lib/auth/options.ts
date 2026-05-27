@@ -34,6 +34,7 @@ export const authOptions: AuthOptions = {
         username: { label: "Username", type: "text" },
         profilePicture: { label: "ProfilePicture", type: "text" },
         type: { label: "Credential type", type: "text" },
+        otpToken: { label: "OTP Token", type: "text" },
       },
       async authorize(credentials) {
         try {
@@ -45,11 +46,12 @@ export const authOptions: AuthOptions = {
             case "signin": {
               const user = await fetchUser(credentials.phoneNumber!);
               if (!user) throw new Error("UNREGISTERED_USER");
-              console.log("sigining in existing user");
               return user;
             }
 
             case "signup": {
+              if (!credentials.otpToken) throw new Error("OTP verification required");
+
               const req = {
                 id: credentials.id,
                 username: credentials.username,
@@ -57,20 +59,17 @@ export const authOptions: AuthOptions = {
                 profilePicture: credentials.profilePicture,
               };
 
-              const newUser = await createUser(req)!;
-              if (!newUser) throw new Error("USER_CREATION_FAILED");
-              if (newUser.error) {
-                if (newUser.error.code === 11000) throw new Error("Username already exists");
-                throw new Error(newUser.error.message);
-              }
+              const newUser = await createUser(req, credentials.otpToken);
               return newUser;
             }
           }
 
           return null;
         } catch (error: any) {
-          console.log("authorize error--------->", error.message);
-          throw new Error(error.message);
+          // Extract backend error message from Axios response if available
+          const message =
+            error?.response?.data?.error?.message ?? error?.message ?? "Authentication failed";
+          throw new Error(message);
         }
       },
     }),

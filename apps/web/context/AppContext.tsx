@@ -17,6 +17,7 @@ import {
   IdbReadReceiptRecord,
 } from "@repo/interfaces/syncRegistryInterface";
 import { PropsWithChildren, useEffect, useState } from "react";
+import { toast } from "react-toastify";
 import { useAttachments } from "store/attachments";
 import { useConversationStore } from "store/conversationStore";
 import { useStore } from "store/global";
@@ -82,7 +83,7 @@ export const AppContext = ({ children }: PropsWithChildren) => {
             s && {
               ...s,
               self: s.sessionId === session?.sessionId,
-            }
+            },
         )
         .filter((s) => s);
 
@@ -126,7 +127,7 @@ export const AppContext = ({ children }: PropsWithChildren) => {
 
         const { unreadMessages, aiMessages, messages, imageAttachments, urlAttachments } = await processMessagesForUser(
           conversation.messages,
-          conversation
+          conversation,
         );
 
         const mediaStore = { images: imageAttachments, link: urlAttachments };
@@ -212,7 +213,7 @@ export const AppContext = ({ children }: PropsWithChildren) => {
       }
     }
 
-    async function init() {
+    async function performDeltaSync(signal?: AbortSignal) {
       try {
         const userId = user?.id;
         const { setSyncToken } = usePersistentStore.getState();
@@ -221,24 +222,18 @@ export const AppContext = ({ children }: PropsWithChildren) => {
         // On fresh mount (page reload), the in-memory conversation store is empty.
         // A non-zero syncToken would skip the full load, leaving the UI blank.
         // Only use the persisted token if conversations are already in memory.
-        const syncToken = storedConversationsCount > 0
-          ? usePersistentStore.getState().syncToken
-          : 0;
+        const syncToken = storedConversationsCount > 0 ? usePersistentStore.getState().syncToken : 0;
 
-        const [unsyncEntries, sessions] = await Promise.all([
-          axios
-            .post<AppPostReq>(
-              `/db/conversation/${userId}`,
-              { syncToken },
-              { signal: conversationController.signal }
-            )
-            .then((res) => res.data),
-          axios<ISession[]>(`/session/fetch?userId=${userId}`, { signal: sessionController.signal }).then(
-            (res) => res.data
-          ),
-        ]);
+        const unsyncEntries = await axios
+          .post<AppPostReq>(`/db/conversation/${userId}`, { syncToken }, { signal })
+          .then((res) => res.data);
 
-        const { unsyncConversationsData, unsyncUsersData, unsyncReadReceipts, syncToken: newSyncToken } = unsyncEntries || {
+        const {
+          unsyncConversationsData,
+          unsyncUsersData,
+          unsyncReadReceipts,
+          syncToken: newSyncToken,
+        } = unsyncEntries || {
           unsyncConversationsData: null,
           unsyncUsersData: null,
           unsyncReadReceipts: null,
@@ -247,6 +242,8 @@ export const AppContext = ({ children }: PropsWithChildren) => {
 
         if (newSyncToken) {
           setSyncToken(newSyncToken);
+          const skew = newSyncToken - Date.now();
+          usePersistentStore.getState().setClockSkew(skew);
         }
 
         if (unsyncUsersData && !!Object.values(unsyncUsersData).length) {
@@ -277,6 +274,21 @@ export const AppContext = ({ children }: PropsWithChildren) => {
             updateReadReceipt(receipt);
           });
         }
+      } catch (error) {
+        console.error("Delta sync error:", error);
+      }
+    }
+
+    async function init() {
+      try {
+        const userId = user?.id;
+
+        const [_, sessions] = await Promise.all([
+          performDeltaSync(conversationController.signal),
+          axios<ISession[]>(`/session/fetch?userId=${userId}`, { signal: sessionController.signal }).then(
+            (res) => res.data,
+          ),
+        ]);
 
         if (sessions.length > 0) {
           const { currentSession, activeSessions } = initSessions(sessions);
@@ -288,7 +300,13 @@ export const AppContext = ({ children }: PropsWithChildren) => {
           console.log("connecting websock");
           const { channels, connections } = getSocketMetadata(storedConversations);
 
-          sendPresence([...connections]);
+          const userRules = user?.rules || [];
+          const blockedUsers = storedConversations
+            .filter((c) => c.host === "user" && c.blocked === true)
+            .map((c) => getReceiver(c!)?.id!)
+            .filter((id) => Boolean(id));
+
+          sendPresence([...connections], userRules, blockedUsers);
           socket.auth = { userId, channels, session: currentSession };
           if (!socket.connected) socket.connect();
         }
@@ -299,11 +317,50 @@ export const AppContext = ({ children }: PropsWithChildren) => {
       }
     }
 
+    function handleDisconnect() {
+      if (!toast.isActive("network-status")) {
+        toast.error("Reconnecting...", {
+          toastId: "network-status",
+          autoClose: false,
+          closeOnClick: false,
+          draggable: false,
+          hideProgressBar: true,
+        });
+      }
+    }
+
+    function handleConnect() {
+      if (useConversationStore.getState().isLoaded) {
+        console.log("Connection restored. Triggering delta sync...");
+        performDeltaSync();
+
+        if (toast.isActive("network-status")) {
+          toast.update("network-status", {
+            render: "Connected",
+            type: "success",
+            autoClose: 3000,
+            closeOnClick: true,
+            draggable: true,
+            hideProgressBar: true,
+          });
+        }
+      }
+    }
+
+    socket.on("disconnect", handleDisconnect);
+    socket.on("connect", handleConnect);
+    window.addEventListener("offline", handleDisconnect);
+    window.addEventListener("online", handleConnect);
+
     init();
 
     return () => {
       conversationController.abort();
       sessionController.abort();
+      socket.off("connect", handleConnect);
+      socket.off("disconnect", handleDisconnect);
+      window.removeEventListener("offline", handleDisconnect);
+      window.removeEventListener("online", handleConnect);
     };
   }, [socket, session?.user.id]);
 

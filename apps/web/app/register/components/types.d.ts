@@ -7,4 +7,4 @@ type IPhoneNUmber = {
   error?: string;
 };
 
-type ITabs = "phone_number" | "otp" | "profile_info";
+type ITabs = "phone_number" | "otp" | "recovery_key" | "profile_info";

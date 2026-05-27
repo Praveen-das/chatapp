@@ -9,8 +9,9 @@ import { uploadImage } from "@lib/imageKit";
 import TextInput from "../../ui/TextInput";
 import Tags from "../../ui/TagInput";
 import Header from "./SharedComponents/Header";
-import { Cog6ToothIcon, NoSymbolIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import { Cog6ToothIcon, NoSymbolIcon, UserGroupIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
 import { ArrowLeftStartOnRectangleIcon, ChevronRightIcon } from "@heroicons/react/24/solid";
+import { useE2eeStore } from "store/e2eStore";
 
 const Settings = () => {
   const { user, updateUser, signOut } = useAuth();
@@ -161,7 +162,7 @@ const Settings = () => {
             <label htmlFor="notification">Ai Assistant</label>
             <ChevronRightIcon className="size-5 ml-auto" />
           </div> */}
-          {/* <div className="w-full min-h-[2px] bg-gradient-to-r from-black/20 to-transparent" /> */}
+          {/* <div className="w-full min-h-[2px] bg-linear-to-r from-black/20 to-transparent" /> */}
 
           {/* Blocked Contacts */}
           <div
@@ -182,6 +183,17 @@ const Settings = () => {
           >
             <UserGroupIcon className="size-5" />
             <label htmlFor="notification">Active Sessions</label>
+            <ChevronRightIcon className="size-5 ml-auto" />
+          </div>
+
+          {/* Security & Encryption */}
+          <div
+            onClick={() => useE2eeStore.getState().setShowBackupModal(true)}
+            tabIndex={0}
+            className="hover:bg-[--hover-secondary] w-full flex gap-4 items-center duration-200 max-sm:px-0 px-4 py-4 rounded-2xl cursor-pointer"
+          >
+            <ShieldCheckIcon className="size-5" />
+            <label htmlFor="notification">Security & Encryption</label>
             <ChevronRightIcon className="size-5 ml-auto" />
           </div>
         </div>

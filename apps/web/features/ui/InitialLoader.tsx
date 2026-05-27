@@ -26,8 +26,17 @@ function LoadingPage({ isLoaded, onComplete }: { isLoaded: boolean; onComplete: 
     return () => clearInterval(time);
   }, []);
 
+  useEffect(() => {
+    if (isLoaded) {
+      const timer = setTimeout(() => {
+        onComplete(true);
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoaded, onComplete]);
+
   return (
-    <div className="fixed inset-0 z-[5000] w-full h-screen flex justify-center items-center">
+    <div className="fixed inset-0 z-5000 w-full h-screen flex justify-center items-center">
       <div className="grid place-items-center gap-2 text-center">
         <Logo width={70} height={70} />
         <div className="text-xl ">{APP_NAME}</div>

@@ -7,11 +7,11 @@
   overflow-y: scroll;
 }
 
-.connections::-webkit-scrollbar{
+.connections::-webkit-scrollbar {
   display: none;
 }
 
-.person{
+.person {
   width: 100%;
   min-height: 70px;
   background-color: rgba(255, 255, 255, 0.048);

@@ -1,12 +1,9 @@
 import express from "express";
 import router from "./routes/index";
-import cors from "cors";
 import bodyParser from "body-parser";
 
 (async () => {
   const app = express();
-
-  app.use(cors({ origin: ["http://localhost:3001"] }));
 
   app.use(bodyParser.json());
 

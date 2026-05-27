@@ -108,7 +108,7 @@ function AiWelcomeScreen() {
           transition={{ type: "spring", stiffness: 300, damping: 20 }}
           className="relative group"
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-primary to-secondary rounded-3xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500" />
+          <div className="absolute inset-0 bg-linear-to-br from-primary to-secondary rounded-3xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500" />
           <div className="relative w-24 h-24 bg-base-100 rounded-3xl flex items-center justify-center shadow-lg ring-1 ring-base-content/5">
             <Brain className="w-10 h-10 text-primary" strokeWidth={1.5} />
           </div>
@@ -405,7 +405,7 @@ function LargeScreenChatWindow({ children }: { children: React.ReactNode }) {
             variants={variants}
             className="max-lg:hidden relative rounded-2xl overflow-hidden"
           >
-            <div className={`absolute w-[calc((100vw-(1rem*4))/3)] h-full`}>{children}</div>
+            <div className={`absolute w-[calc((100vw-4rem)/3)] h-full`}>{children}</div>
           </motion.div>
         )}
       </AnimatePresence>

@@ -13,8 +13,8 @@ export function userEmitters(socket: ISocket, user: IUser) {
       socket.emit("GET_USER_STATUS", { userId }, callback);
     },
 
-    sendPresence: (to: Array<string>) => {
-      socket.emit("USER_CONNECTED", to);
+    sendPresence: (to: Array<string>, rules?: string[], blockedUsers?: string[]) => {
+      socket.emit("USER_CONNECTED", to, rules, blockedUsers);
     },
 
     sendOTPVerificationRequest: (userId: string) => {

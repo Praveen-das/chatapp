@@ -33,6 +33,7 @@ export function messageEmitters(socket: ISocket) {
           if (m.message && conversation.host === "user" && myPrivateKey) {
             const receiverId = conversation.members.find((member) => member.userId !== conversation.userId)?.userId;
             const receiver = receiverId ? useStore.getState().users.get(receiverId) : null;
+
             if (receiver?.publicKey) {
               m.message = await encryptMessage(m.message, receiver.publicKey, myPrivateKey);
             }
@@ -73,7 +74,7 @@ export function messageEmitters(socket: ISocket) {
           (result: any, error: Error) => {
             if (error) return reject(error);
             resolve(result);
-          }
+          },
         );
       }),
 

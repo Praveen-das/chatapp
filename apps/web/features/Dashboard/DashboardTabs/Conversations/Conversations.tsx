@@ -82,7 +82,7 @@ function DisplayConversations() {
       <Searchbar query={searchQuery} onChange={setSearchQuery} />
       <div className="flex flex-col overflow-hidden h-full">
         <Menu_Conversation />
-        <div className="flex flex-1 h-full w-full flex-col mt-4 gap-6 overflow-y-scroll no-scrollbar [&>:first-child]:z-20">
+        <div className="flex flex-1 h-full w-full flex-col mt-4 gap-6 overflow-y-scroll no-scrollbar *:first:z-20">
           {searchQuery ? (
             Object.keys(queryResult).map((key) => {
               let k = key as keyof typeof queryResult;

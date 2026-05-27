@@ -6,14 +6,15 @@ import OtpInput from "react-otp-input";
 import "react-phone-input-2/lib/style.css";
 import "./inputStyle.css";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
 import { motion } from "framer-motion";
 import { AxiosError } from "axios";
 import RenderErrorMessage from "./RenderErrorMessage";
 import { useRegistrationForm } from "context/RegistrationFormContext";
+import axiosClient from "@lib/axiosClient";
 
 export default function OtpInputForm() {
-  const { phonenumber, setForm, requestOTP } = useRegistrationForm();
+  const { phonenumber, setForm, requestOTP, setOtpToken, setVerifiedUser } = useRegistrationForm();
   const [loading, setLoading] = useState(false);
   const [otp, setOtp] = useState<string>();
   const [otpError, setOtpError] = useState<string>("");
@@ -21,45 +22,61 @@ export default function OtpInputForm() {
 
   async function handleOTPVerification() {
     try {
-      // if (!phonenumber.value) throw Error("phonenumber not provided");
-      // if (!otp) throw Error("OTP not provided");
-      // if (otp.length < 6) throw Error("Invalid OTP");
+      if (!phonenumber.value) throw Error("phonenumber not provided");
+      if (!otp) throw Error("OTP not provided");
+      if (otp.length < 6) throw Error("Invalid OTP");
 
       setLoading(true);
       setOtpError("");
 
-      // const body = { phonenumber: "+" + phonenumber.value, code: otp };
+      const body = { phonenumber: "+" + phonenumber.value, code: otp };
 
-      // const verificationCheck = await axiosClient.post("/db/otp/verify", JSON.stringify(body)).then((res) => res.data);
+      const verificationCheck = await axiosClient.post("/db/otp/verify", body).then((res) => res.data);
 
-      // if (verificationCheck.error) {
-      //   switch (verificationCheck.error.code) {
-      //     case 20404:
-      //       throw Error("OTP Expired");
-      //     default:
-      //       throw Error("Unknown error occurred try again later");
-      //   }
-      // }
+      if (verificationCheck.status === "pending") throw Error("Invalid OTP");
 
-      // if (verificationCheck.status === "pending") throw Error("Invalid OTP");
+      if (verificationCheck.status === "approved") {
+        // Store the OTP token for the signup flow
+        if (verificationCheck.otpToken) {
+          setOtpToken(verificationCheck.otpToken);
+        }
 
-      // if (verificationCheck.status === "approved") {
-      // }
+        const res = await signIn("credentials", {
+          phoneNumber: phonenumber.value,
+          type: "signin",
+          redirect: false,
+        });
 
-      const res = await signIn("credentials", {
-        phoneNumber: phonenumber.value,
-        type: "signin",
-        redirect: false,
-      });
+        if (res?.ok) {
+          // Skip recovery if local keys already exist
+          const localPub = localStorage.getItem("e2e_public_key");
+          const localPriv = localStorage.getItem("e2e_private_key");
+          if (localPub && localPriv) {
+            return router.replace("/");
+          }
 
-      if (res?.ok) return router.replace("/");
-      else if (res?.error === "UNREGISTERED_USER") setForm("profile_info");
+          // No local keys — check if the user has a recovery key backup
+          const session = await getSession();
+          const user = session?.user;
+          if (user?.encryptedPrivateKey && user?.publicKey) {
+            setVerifiedUser(user);
+            setForm("recovery_key");
+            return;
+          }
+          return router.replace("/");
+        } else if (res?.error === "UNREGISTERED_USER") setForm("profile_info");
+      }
     } catch (error) {
-      console.log(error);
-      if (error instanceof AxiosError) return setOtpError(error.response?.data.error || error.response?.statusText);
-      if (error instanceof Error) return setOtpError(error.message);
-      setLoading(false);
+      if (error instanceof AxiosError) {
+        const msg = error.response?.data?.error?.message ?? error.response?.statusText;
+        setOtpError(msg || "Verification failed");
+      } else if (error instanceof Error) {
+        setOtpError(error.message);
+      } else {
+        setOtpError("An unknown error occurred");
+      }
     } finally {
+      setLoading(false);
     }
   }
 
@@ -91,7 +108,7 @@ export default function OtpInputForm() {
           numInputs={6}
           renderSeparator={<span>-</span>}
           renderInput={(props) => (
-            <input {...props} className="!border-[1px] !border-[--avatarBg] rounded-xl !bg-transparent" />
+            <input {...props} className="!border !border-[--avatarBg] rounded-xl !bg-transparent" />
           )}
         />
       </motion.div>
@@ -108,7 +125,7 @@ export default function OtpInputForm() {
         </button>
       </motion.div>
 
-      <ResendOtp onResend={handleOTPVerification} />
+      <ResendOtp onResend={requestOTP} />
     </div>
   );
 }

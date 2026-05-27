@@ -12,6 +12,8 @@ interface IPersistentStoreContext {
   setUserNotificationPref: (key: string, value: boolean) => void;
   syncToken: number;
   setSyncToken: (token: number) => void;
+  clockSkew: number;
+  setClockSkew: (skew: number) => void;
 
   // setUserPref: (pref: IUserPref) => void,
   // getUserPref: (userId: string) => IUserPref,
@@ -27,6 +29,8 @@ export const usePersistentStore = create(
           set((s) => ({ userNotificationPref: { ...s.userNotificationPref, [key]: value } })),
         syncToken: 0,
         setSyncToken: (token) => set({ syncToken: token }),
+        clockSkew: 0,
+        setClockSkew: (skew) => set({ clockSkew: skew }),
       };
     },
     {

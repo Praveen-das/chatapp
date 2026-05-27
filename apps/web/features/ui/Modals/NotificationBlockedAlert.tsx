@@ -12,7 +12,7 @@ export const NotificationBlockedAlert = () => {
       </label>
       <div className="px-6 mt-4 ml-auto">
         <form method="dialog">
-          <button className="btn [--b2:--b1] px-8 btn-sm">Okay</button>
+          <button className="btn [--b2:var(--b1)] px-8 btn-sm">Okay</button>
         </form>
       </div>
     </FramerWrapper>

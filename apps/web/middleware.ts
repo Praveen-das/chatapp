@@ -17,8 +17,9 @@ export default async function middleware(req: NextRequest, event: NextResponse) 
     if (isLoginPage) return NextResponse.next();
     return NextResponse.redirect(new URL("/register", req.nextUrl));
   } else {
-    if (!isPrivateRoute) return NextResponse.redirect(new URL("/", req.nextUrl));
-    if (isLoginPage) return NextResponse.redirect(new URL("/", req.nextUrl));
+    if (!isPrivateRoute && !isLoginPage) {
+      return NextResponse.redirect(new URL("/", req.nextUrl));
+    }
   }
   return NextResponse.next();
 }

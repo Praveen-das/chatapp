@@ -7,13 +7,13 @@
     "dev": "turbo dev",
     "clientOnly": "set NEXT_PUBLIC_CLIENT_ONLY=true && turbo dev --filter=web",
     "web": "turbo dev --filter=web",
-    "server": "turbo dev --filter=gateway --filter=backend --filter=socket-service --filter=session-service",
+    "server": "turbo dev --filter=backend --filter=socket-service --filter=session-service",
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {
-    "@repo/eslint-config": "*",
-    "@repo/typescript-config": "*",
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
     "@types/cors": "^2.8.17",
     "@types/node": "^22.14.0",
     "prettier": "^3.1.1",
@@ -22,11 +22,8 @@
   "engines": {
     "node": ">=18"
   },
-  "packageManager": "npm@10.2.4",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
+  "packageManager": "pnpm@10.12.1",
+
   "dependencies": {
     "@bull-board/api": "^6.14.2",
     "@bull-board/express": "^6.14.2",
@@ -35,5 +32,16 @@
     "mongoose": "^8.13.2",
     "node-jose-tools": "^2.0.4",
     "zod": "^3.24.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@swc/core",
+      "cbor-extract",
+      "core-js-pure",
+      "msgpackr-extract",
+      "sharp",
+      "tailwindcss-corner-shape",
+      "unrs-resolver"
+    ]
   }
 }

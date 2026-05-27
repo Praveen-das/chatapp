@@ -86,7 +86,7 @@ async function createUserConversation(userConversations: z.infer<typeof userConv
 
 async function createGroupConversation(
   groupConversations: z.infer<typeof groupConversationsSchema>,
-  session?: mongoose.mongo.ClientSession
+  session?: mongoose.mongo.ClientSession,
 ) {
   try {
     const ops = groupConversations.map((doc) => ({
@@ -184,13 +184,13 @@ async function updateUserConversationBlockStatus({
       const res = await Conversations.findOneAndUpdate(
         { id: conversationId },
         { $push: { blockedList }, $inc: { version: 1 } },
-        { new: true }
+        { new: true },
       );
     } else {
       const res = await Conversations.findOneAndUpdate(
         { id: conversationId },
         { $pull: { blockedList: { userId: blockedId } }, $inc: { version: 1 } },
-        { new: true }
+        { new: true },
       );
     }
   } catch (error) {
@@ -217,7 +217,7 @@ async function clearConversation(req: IDeleteConversationRequest) {
           "members.$.timeOfDeletion": req.timeOfDeletion,
         },
       },
-      { upsert: true }
+      { upsert: true },
     );
 
     return res;
@@ -235,7 +235,7 @@ async function unsetConversationDeletion(conversationId: Types.ObjectId) {
           "members.$[].deletedForUser": "",
         },
       },
-      { upsert: true }
+      { upsert: true },
     );
 
     return res;
@@ -291,7 +291,7 @@ const createPipeline = (
   userId: Types.ObjectId,
   host: "user" | "group" | "ai",
   req: any,
-  readReceiptEntries?: Types.ObjectId[]
+  readReceiptEntries?: Types.ObjectId[],
 ) => {
   const matchStage = { $match: { userId, conversationId: new Types.ObjectId(conversationId) } };
 
@@ -327,12 +327,7 @@ const createPipeline = (
 
   if (req.needSync) {
     if (host === "group") pipeline.push(...groupLookup(), ...membersLookup(), starredMessagesLookup());
-    if (host === "user")
-      pipeline.push(
-        ...conversationLookup(),
-        userLookup({ localField: "members", as: "members" }),
-        starredMessagesLookup()
-      );
+    if (host === "user") pipeline.push(...conversationLookup(), ...membersLookup(), starredMessagesLookup());
   }
 
   if (req.lastKnownMessageTimestamp) {
@@ -376,18 +371,11 @@ async function fetchConversations(userId: Types.ObjectId, conversationEntries: C
       };
 
       const collection = (() => {
-        switch (Object.keys(req)[0]) {
-          case "newEntry":
-            return "newEntry";
-          case "needSync":
-            return req.lastKnownMessageTimestamp ? "newEntry" : "needSync";
-          case "lastKnownMessageTimestamp":
-            return "messages";
-          case "unSyncUserIds":
-            return "unSyncUserIds";
-          default:
-            return null;
-        }
+        if (req.newEntry) return "newEntry";
+        if (req.needSync) return req.lastKnownMessageTimestamp ? "newEntry" : "needSync";
+        if (req.lastKnownMessageTimestamp) return "messages";
+        if (req.unSyncUserIds) return "unSyncUserIds";
+        return null;
       })();
 
       if (!collection) continue;
@@ -406,6 +394,7 @@ async function fetchConversations(userId: Types.ObjectId, conversationEntries: C
       });
 
       const result = await Promise.all(promises);
+
       const data: Record<string, any> = {};
 
       Array.from(resultKeys).forEach((collection, i) => {

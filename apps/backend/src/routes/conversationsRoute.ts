@@ -1,8 +1,4 @@
 import {
-  IdbReadReceiptRecord,
-  IIdbConversastionRecord,
-  IIdbUserRecord,
-  IIdbUserRecordValue,
   SaveConversationSyncState,
   SaveConversationSyncStateFieldValues,
 } from "@repo/interfaces/syncRegistryInterface";
@@ -12,8 +8,6 @@ import { objectId } from "../schemas/objectId";
 import conversationServices from "../services/conversationServices";
 import * as groupServices from "../services/groupServices";
 import userServices from "../services/userServices";
-import messageServices from "../services/messageServices";
-import conversationController from "../controller/conversationController";
 import MessageReadReceipt from "../models/MessageReadReceipt";
 import { Types } from "mongoose";
 
@@ -65,7 +59,7 @@ async function doFullSync(userIdParsed: Types.ObjectId, userId: string, res: any
   return res.json({
     unsyncConversationsData: { newEntry: newConversations },
     unsyncUsersData: globalUsers,
-    syncToken: Date.now()
+    syncToken: Date.now(),
   });
 }
 
@@ -76,13 +70,10 @@ router.post(
       any,
       any,
       {
-        idbConvRecord?: IIdbConversastionRecord;
-        idbMembersRecord?: IIdbUserRecordValue[];
-        idbReadReceiptRecord?: IdbReadReceiptRecord;
         syncToken?: number;
       }
     >,
-    res
+    res,
   ) => {
     try {
       const userId = req.params.userId;
@@ -90,7 +81,7 @@ router.post(
       if (!req.body) return res.json({ error: new Error("Body not found") });
       if (!userId) return res.json("userId not provided");
 
-      const { idbConvRecord, idbMembersRecord, idbReadReceiptRecord, syncToken } = req.body;
+      const { syncToken } = req.body;
       const userIdParsed = objectId.parse(userId);
 
       // 1. Sync Token (Vector Clock) Synchronization Path
@@ -105,20 +96,21 @@ router.post(
           return doFullSync(userIdParsed, userId, res);
         }
 
-        if (!unsyncEntries.length) {
+        if (unsyncEntries.length === 0) {
           console.log("########### conversations upto date by token ###########");
           const activeConversations = await syncRegistry.getRegisteredConversations(userId);
-          const activeConversationObjectIds = activeConversations.map(id => new Types.ObjectId(id));
+          const activeConversationObjectIds = activeConversations.map((id) => new Types.ObjectId(id));
 
           const [globalUsers, unsyncReadReceipts] = await Promise.all([
             userServices.getUsersFromConversations(userIdParsed),
             MessageReadReceipt.find({
               conversationId: { $in: activeConversationObjectIds },
-              updatedAt: { $gt: tokenVal }
-            })
+              updatedAt: { $gt: tokenVal },
+            }),
           ]);
 
           const unsyncUsersData: Record<string, any> = {};
+
           Object.entries(globalUsers).forEach(([k, v]) => {
             if (v && (v as any).updatedAt && (v as any).updatedAt > tokenVal) {
               unsyncUsersData[k] = v;
@@ -126,27 +118,32 @@ router.post(
           });
 
           if (!Object.keys(unsyncUsersData).length && !unsyncReadReceipts.length) {
-            return res.json({ unsyncConversationsData: null, unsyncUsersData: null, unsyncReadReceipts: null, syncToken: Date.now() });
+            return res.json({
+              unsyncConversationsData: null,
+              unsyncUsersData: null,
+              unsyncReadReceipts: null,
+              syncToken: Date.now(),
+            });
           }
 
           return res.json({
             unsyncConversationsData: null,
             unsyncUsersData: Object.keys(unsyncUsersData).length ? unsyncUsersData : null,
             unsyncReadReceipts: unsyncReadReceipts.length ? unsyncReadReceipts : null,
-            syncToken: Date.now()
+            syncToken: Date.now(),
           });
         }
 
         console.log("########### fetching recent conversation updates since token ###########");
         const activeConversations = await syncRegistry.getRegisteredConversations(userId);
-        const activeConversationObjectIds = activeConversations.map(id => new Types.ObjectId(id));
+        const activeConversationObjectIds = activeConversations.map((id) => new Types.ObjectId(id));
 
         const [unsyncConversationsData, globalUsers, unsyncReadReceipts] = await Promise.all([
           conversationServices.fetchConversations(userIdParsed, unsyncEntries),
           userServices.getUsersFromConversations(userIdParsed),
           MessageReadReceipt.find({
             conversationId: { $in: activeConversationObjectIds },
-            updatedAt: { $gt: tokenVal }
+            updatedAt: { $gt: tokenVal },
           }),
         ]);
 
@@ -165,53 +162,17 @@ router.post(
           unsyncConversationsData,
           unsyncUsersData: Object.keys(unsyncUsersData).length ? unsyncUsersData : null,
           unsyncReadReceipts: unsyncReadReceipts.length ? unsyncReadReceipts : null,
-          syncToken: Date.now()
+          syncToken: Date.now(),
         });
       }
 
-      // 2. Fallback Baseline / Differential Sync Path
-      if (!idbConvRecord || !idbMembersRecord || !idbReadReceiptRecord) {
-        return doFullSync(userIdParsed, userId, res);
-      }
-
-      const [unsyncEntries, unsyncUsers, readReceiptEntries] = await Promise.all([
-        syncRegistry.getUnsyncState({ userId, idbConvRecord }),
-        syncRegistry.getUnsyncUsers(idbMembersRecord),
-        syncRegistry.getSyncReadReceiptEntries(userId, idbReadReceiptRecord),
-      ]);
-
-      console.log("unsyncEntries----->", unsyncEntries?.length);
-      console.log("unsyncUsers----->", unsyncUsers.length);
-      console.log("readReceiptRecord----->", readReceiptEntries);
-
-      if (unsyncEntries === null || !Object.keys(idbConvRecord).length) {
-        console.log("########### fetching conversations ###########");
-        return doFullSync(userIdParsed, userId, res);
-      }
-
-      if (!unsyncEntries.length && !unsyncUsers.length && !readReceiptEntries.length) {
-        console.log("########### conversations upto date ###########");
-        return res.json(null);
-      }
-
-      console.log("########### fetching recent conversation updates ###########");
-
-      const [unsyncConversationsData, unsyncUsersData, unsyncReadReceipts] = await Promise.all([
-        conversationServices.fetchConversations(userIdParsed, unsyncEntries),
-        userServices.fetchUnsyncUsers(unsyncUsers),
-        messageServices.getReadReceipts(readReceiptEntries),
-      ]);
-
-      console.log("unsyncConversationsData----->", Object.keys(unsyncConversationsData || {}).length);
-      console.log("unsyncUsersData----->", Object.keys(unsyncUsersData || {}).length);
-      console.log("unsyncReadReceipts----->", unsyncReadReceipts.length);
-
-      return res.json({ unsyncConversationsData, unsyncUsersData, unsyncReadReceipts, syncToken: Date.now() });
+      // 2. Fallback Baseline Sync Path
+      return doFullSync(userIdParsed, userId, res);
     } catch (error) {
       console.log("Error in fetching user conversations", error);
       res.send(error);
     }
-  }
+  },
 );
 
 export default router;

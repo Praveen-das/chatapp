@@ -131,13 +131,12 @@ function AiInfo() {
 }
 
 function UserInfo({ userId, blocked, blockedByUser }: { userId: string; blocked: boolean; blockedByUser: boolean }) {
-  const user = useUser(userId)!;
-
-  const { username, profilePicture, rules } = user;
+  const user = useUser(userId);
 
   const { getUserStatus } = useSocket();
 
   useEffect(() => {
+    if (!user?.id) return;
     getUserStatus(user.id, (data) => {
       if (!data) return;
 
@@ -145,11 +144,26 @@ function UserInfo({ userId, blocked, blockedByUser }: { userId: string; blocked:
 
       updateUserStatus(data.userId, data.status, Number(data.lastSeen));
     });
-  }, [user.id]);
+  }, [user?.id]);
+
+  if (!user) {
+    return (
+      <>
+        <Avatar url={undefined} size="40px" onlineIndication={false} />
+        <div className="grid gap-1">
+          <label className="text-sm truncate" htmlFor="username">
+            Loading...
+          </label>
+        </div>
+      </>
+    );
+  }
+
+  const { username, profilePicture, rules } = user;
 
   const isOnline = user.status === "online";
   const isHidden = Boolean(rules?.includes("hide_profilepicture"));
-  const canShowLastSeen = (isOnline || !rules?.includes("hide_lastseen")) && !blockedByUser && !blocked;
+  const canShowLastSeen = isOnline || (user.lastSeen !== null && user.lastSeen !== undefined && !isNaN(Number(user.lastSeen)));
 
   return (
     <>

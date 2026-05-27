@@ -1,0 +1,81 @@
+# Traefik Dynamic Configuration — Local Dev (host services)
+# =============================================================
+# Routes to services running on the HOST machine via host.docker.internal
+
+http:
+  # ── Routers ──────────────────────────────────────────────
+  routers:
+    backend:
+      rule: "PathPrefix(`/db`)"
+      entryPoints:
+        - web
+      middlewares:
+        - strip-db
+        - cors-headers
+      service: backend
+
+    session:
+      rule: "PathPrefix(`/session`)"
+      entryPoints:
+        - web
+      middlewares:
+        - strip-session
+        - cors-headers
+      service: session
+
+    socket:
+      rule: "PathPrefix(`/socket.io`)"
+      entryPoints:
+        - web
+      middlewares:
+        - cors-headers
+      service: socket
+
+  # ── Services (pointing to host machine) ──────────────────
+  services:
+    backend:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:4000"
+
+    session:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:5000"
+
+    socket:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:3002"
+
+  # ── Middlewares ──────────────────────────────────────────
+  middlewares:
+    strip-db:
+      stripPrefix:
+        prefixes:
+          - "/db"
+
+    strip-session:
+      stripPrefix:
+        prefixes:
+          - "/session"
+
+    cors-headers:
+      headers:
+        accessControlAllowMethods:
+          - "GET"
+          - "POST"
+          - "PUT"
+          - "DELETE"
+          - "OPTIONS"
+          - "PATCH"
+        accessControlAllowHeaders:
+          - "Origin"
+          - "Authorization"
+          - "Content-Type"
+          - "Accept"
+          - "Cache-Control"
+        accessControlAllowOriginList:
+          - "http://localhost:3000"
+        accessControlMaxAge: 100
+        addVaryHeader: true

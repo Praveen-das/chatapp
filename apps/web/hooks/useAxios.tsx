@@ -23,16 +23,20 @@ const useAxios = () => {
         const prevRequest = error?.config;
         if (error?.response?.status === 401 && !prevRequest?.sent) {
           prevRequest.sent = true;
-          const access_token = await refreshToken();
+          const result = await refreshToken();
 
-          if (!access_token) {
-            clearLocalSession();
-            return Promise.reject(error);
+          if (result.token) {
+            setAccessToken(result.token);
+            prevRequest.headers["Authorization"] = `Bearer ${result.token}`;
+            return axiosClient(prevRequest);
           }
 
-          setAccessToken(access_token);
-          prevRequest.headers["Authorization"] = `Bearer ${access_token}`;
-          return axiosClient(prevRequest);
+          // Only clear session on definitive auth failure, not server outages
+          if (result.error === "auth_failed") {
+            clearLocalSession();
+          }
+
+          return Promise.reject(error);
         }
         return Promise.reject(error);
       }

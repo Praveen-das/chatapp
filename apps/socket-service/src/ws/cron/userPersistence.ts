@@ -3,7 +3,7 @@ import client from "../../redis/client";
 import { produceMessage, createEnvelope, KAFKA_TOPICS } from "../../kafka/kafka";
 
 export const initUserPersistenceCron = () => {
-  cron.schedule("5 * * * *", async () => {
+  cron.schedule("*/5 * * * *", async () => {
     console.log("Running user persistence cron job...");
     const dirtyUsers = await client.smembers("dirty_users");
 

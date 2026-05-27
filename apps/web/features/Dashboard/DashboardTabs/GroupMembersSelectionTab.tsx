@@ -36,7 +36,7 @@ const GroupMembersSelectionTab = () => {
                 <label
                   key={m.id}
                   onClick={() => handleSelectedUser(m)}
-                  className="truncate max-w-36 flex-shrink-0 bg-[--100-primary] text-white px-2 py-1 rounded-full cursor-pointer hover:line-through"
+                  className="truncate max-w-36 shrink-0 bg-[--100-primary] text-white px-2 py-1 rounded-full cursor-pointer hover:line-through"
                   htmlFor=""
                 >
                   {m.id}

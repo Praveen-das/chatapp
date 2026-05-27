@@ -6,7 +6,6 @@ import { SessionProvider } from "next-auth/react";
 import { ThemeProvider } from "next-themes";
 import { PropsWithChildren } from "react";
 import { ToastContainer } from "react-toastify";
-
 import E2ESecurityPinModal from "@features/ui/Modals/E2ESecurityPinModal";
 
 function Provider({ children }: PropsWithChildren) {

@@ -45,7 +45,7 @@ function Conversation({ conversation, isSelected }: IConve): React.JSX.Element {
   
   const class_selected = classNames({
     "sm:bg-base-200": isDarkMode && isSelected,
-    "sm:bg-primary text-white [--avatarBg:oklch(1_0_0_/_0.20)]": isLightMode && isSelected,
+    "sm:bg-primary text-white [--avatarBg:oklch(1_0_0/0.20)]": isLightMode && isSelected,
   });
   
   return (
