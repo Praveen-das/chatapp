@@ -1,23 +1,29 @@
 import { Router } from "express";
-import sessionServices from "../services";
 import sessionController from "../controller";
+import { validate } from "../middleware/validation.middleware";
+import {
+  saveSessionSchema,
+  updateSessionSchema,
+  deleteSessionSchema,
+  clearSessionsSchema,
+  getSessionSchema,
+  refreshTokenSchema,
+} from "../schemas/session.schema";
 
 const router = Router();
 
-router.get("/health", (_, res:any) => res.json({ status: "ok" }));
+router.get("/health", (_, res: any) => res.json({ status: "ok" }));
 
-// router.get("/", sessionServices.getAllSessions);
+router.get("/fetch", validate(getSessionSchema), sessionController.getSession);
 
-router.get('/fetch', sessionController._getSession)
+router.get("/token", validate(refreshTokenSchema), sessionController.refreshToken);
 
-router.get('/token', sessionController._refreshtoken)
+router.post("/", validate(saveSessionSchema), sessionController.saveSession);
 
-router.post("/", sessionServices.saveSession);
+router.patch("/", validate(updateSessionSchema), sessionController.updateSession);
 
-router.patch("/", sessionServices.updateSession);
+router.delete("/delete/:id", validate(deleteSessionSchema), sessionController.deleteSession);
 
-router.delete("/delete/:id", sessionServices.deleteSession);
-
-router.post("/clear", sessionServices.clearUserSessions);
+router.post("/clear", validate(clearSessionsSchema), sessionController.clearUserSessions);
 
 export default router;

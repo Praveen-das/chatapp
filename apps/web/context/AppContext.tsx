@@ -1,21 +1,16 @@
 "use client";
-import InitialLoader from "@features/ui/InitialLoader";
+import { useLoading } from "@features/ui/InitialLoader";
+import InitializationError from "@features/ui/InitializationError";
 import useAuth from "@hooks/useAuth";
 import useAxios from "@hooks/useAxios";
 import { IConversation } from "@interfaces/conversationInterface";
 import { IMessage } from "@interfaces/messageInterface";
-import { getGlobalUsers, getReceiver, handleSettingGroupAdmin } from "@lib/conversation";
+import { getReceiver, handleSettingGroupAdmin } from "@lib/conversation";
 import { processMessagesForUser, registerMessages } from "@lib/messages";
 import socket from "@lib/ws";
 import { MessageReadReceipt } from "@repo/interfaces/messageInterface";
 import { ISession } from "@repo/interfaces/sessionInterface";
-import {
-  ConversationFetchResponse,
-  IIdbConversastionRecord,
-  IIdbUserRecordValue,
-  IdbValues,
-  IdbReadReceiptRecord,
-} from "@repo/interfaces/syncRegistryInterface";
+import { ConversationFetchResponse } from "@repo/interfaces/syncRegistryInterface";
 import { PropsWithChildren, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { useAttachments } from "store/attachments";
@@ -45,11 +40,12 @@ export const AppContext = ({ children }: PropsWithChildren) => {
   const { session, updateSession } = useAuth();
   const { sendReadReceiptChangeRequest, sendPresence, sendConversationActivationRequest } = useSocket();
   const setIsLoaded = useConversationStore((s) => s.conversationActions.setIsLoaded);
-  const isLoaded = useConversationStore((s) => s.isLoaded);
   const axios = useAxios();
   const setModal = useStore((s) => s.setModal);
 
-  const [isMounted, setIsMounted] = useState(false);
+  const { finishLoading } = useLoading();
+  const [syncError, setSyncError] = useState<Error | null>(null);
+  const [retryTrigger, setRetryTrigger] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -219,9 +215,6 @@ export const AppContext = ({ children }: PropsWithChildren) => {
         const { setSyncToken } = usePersistentStore.getState();
         const storedConversationsCount = useConversationStore.getState().conversations.length;
 
-        // On fresh mount (page reload), the in-memory conversation store is empty.
-        // A non-zero syncToken would skip the full load, leaving the UI blank.
-        // Only use the persisted token if conversations are already in memory.
         const syncToken = storedConversationsCount > 0 ? usePersistentStore.getState().syncToken : 0;
 
         const unsyncEntries = await axios
@@ -276,6 +269,11 @@ export const AppContext = ({ children }: PropsWithChildren) => {
         }
       } catch (error) {
         console.error("Delta sync error:", error);
+        const errObj = error instanceof Error ? error : new Error(String(error));
+        setSyncError(errObj);
+        throw errObj;
+      } finally {
+        finishLoading();
       }
     }
 
@@ -285,16 +283,25 @@ export const AppContext = ({ children }: PropsWithChildren) => {
 
         const [_, sessions] = await Promise.all([
           performDeltaSync(conversationController.signal),
-          axios<ISession[]>(`/session/fetch?userId=${userId}`, { signal: sessionController.signal }).then(
-            (res) => res.data,
-          ),
+          axios<ISession[]>(`/session/fetch?userId=${userId}`, { signal: sessionController.signal })
+            .then((res) => res.data)
+            .catch((err) => {
+              console.error("Failed to fetch active sessions:", err);
+              return [] as ISession[];
+            }),
         ]);
 
-        if (sessions.length > 0) {
-          const { currentSession, activeSessions } = initSessions(sessions);
+        console.log({ sessions });
+
+        const validSessions = Array.isArray(sessions) ? sessions : [];
+
+        if (validSessions.length > 0) {
+          const { currentSession, activeSessions } = initSessions(validSessions);
           const storedConversations = useConversationStore.getState().conversations;
 
-          setCurrentSession(currentSession!);
+          if (currentSession) {
+            setCurrentSession(currentSession);
+          }
           setActiveSessions(activeSessions);
 
           console.log("connecting websock");
@@ -310,9 +317,12 @@ export const AppContext = ({ children }: PropsWithChildren) => {
           socket.auth = { userId, channels, session: currentSession };
           if (!socket.connected) socket.connect();
         }
+        setSyncError(null);
       } catch (error) {
-        console.log("Sessions setter error", error);
+        console.error("Sessions setter error:", error);
+        setSyncError(error instanceof Error ? error : new Error(String(error)));
       } finally {
+        finishLoading();
         setIsLoaded(true);
       }
     }
@@ -362,7 +372,7 @@ export const AppContext = ({ children }: PropsWithChildren) => {
       window.removeEventListener("offline", handleDisconnect);
       window.removeEventListener("online", handleConnect);
     };
-  }, [socket, session?.user.id]);
+  }, [socket, session?.user.id, retryTrigger]);
 
   useEffect(() => {
     if (Notification.permission === "default") Notification.requestPermission();
@@ -371,9 +381,20 @@ export const AppContext = ({ children }: PropsWithChildren) => {
       useConversationStore.getState().reset();
       useMessageStore.getState().reset();
       setIsLoaded(false);
-      setIsMounted(false);
     };
   }, []);
 
-  return <>{isLoaded && isMounted ? children : <InitialLoader isLoaded={isLoaded} onComplete={setIsMounted} />}</>;
+  if (syncError) {
+    return (
+      <InitializationError
+        error={syncError}
+        onRetry={() => {
+          setIsLoaded(false);
+          setRetryTrigger((prev) => prev + 1);
+        }}
+      />
+    );
+  }
+
+  return <>{children}</>;
 };

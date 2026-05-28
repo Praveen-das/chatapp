@@ -1,58 +1,60 @@
-import { Request, Response } from "express";
 import sessionStore from "../session";
 import { ISession } from "@repo/interfaces/sessionInterface";
 
-async function getAllSessions(req: Request, res: Response) {
+async function getAllSessions(): Promise<any[]> {
   const sessions = await sessionStore.findAllSessions();
-  res.json(sessions);
+  return sessions;
 }
 
-async function saveSession(req: Request, res: Response) {
-  const session = req.body;
-
-  session.data = JSON.stringify(session.data);
-
-  const response = await sessionStore.saveSession(session);
-
-  res.json("ok");
+async function saveSession(session: ISession): Promise<string> {
+  const sessionToSave = {
+    ...session,
+    data: typeof session.data === "string" ? session.data : JSON.stringify(session.data),
+  };
+  await sessionStore.saveSession(sessionToSave as any);
+  return "ok";
 }
 
-async function updateSession(req: Request, res: Response) {
-  const session = req.body;
-  const response = await sessionStore.updateSession(session);
-  res.json(response);
+async function updateSession(session: ISession): Promise<any> {
+  const sessionToUpdate = {
+    ...session,
+    data: typeof session.data === "string" ? session.data : JSON.stringify(session.data),
+  };
+  const response = await sessionStore.updateSession(sessionToUpdate as any);
+  return response;
 }
 
-async function getSession(sessionId: string) {
+async function getSession(sessionId: string): Promise<ISession | null> {
   const response = await sessionStore.findSession(sessionId);
   if (!response) return null;
-  return response;
-  // try {
-  //   const session = JSON.parse(response.data!) as ISession;
-  // } catch (error) {
-  //   console.error("Error parsing session data:", error);
-  //   return null;
-  // }
+
+  const session = { ...response };
+  if (session.data && typeof session.data === "string") {
+    try {
+      session.data = JSON.parse(session.data);
+    } catch (error) {
+      console.error("Error parsing session data:", error);
+    }
+  }
+  return session as unknown as ISession;
 }
 
-async function getUserSessions(userId: string) {
+async function getUserSessions(userId: string): Promise<ISession[]> {
   const response = await sessionStore.findUserSessions(userId);
-  return response as any as ISession[];
+  return response as unknown as ISession[];
 }
 
-async function deleteSession(req: Request, res: Response) {
-  const sessionId = req.params.id;
-  const response = await sessionStore.deleteSession(sessionId!);
-  res.json(response);
+async function deleteSession(sessionId: string): Promise<any> {
+  const response = await sessionStore.deleteSession(sessionId);
+  return response;
 }
 
-async function clearUserSessions(req: Request, res: Response) {
-  const { sessionIds, userId } = req.body;
+async function clearUserSessions(sessionIds: string[], userId: string): Promise<any> {
   const response = await sessionStore.clearUserSessions(sessionIds, userId);
-  res.json(response);
+  return response;
 }
 
-export default {
+export const sessionService = {
   getAllSessions,
   getSession,
   saveSession,
@@ -61,3 +63,5 @@ export default {
   deleteSession,
   clearUserSessions,
 };
+
+export default sessionService;

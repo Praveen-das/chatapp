@@ -1,4 +1,5 @@
 "use client";
+import { useLoading } from "@features/ui/InitialLoader";
 import useAxios from "@hooks/useAxios";
 import { useSearch } from "@hooks/useSearch";
 import socket from "@lib/ws";
@@ -26,6 +27,7 @@ const useContextData = () => {
     required: true,
   });
   const { setAccessToken } = useAccessToken();
+  const { finishLoading } = useLoading();
 
   const [isMounted, setMounted] = useState(false);
   const isSigningOut = useRef(false);
@@ -65,8 +67,9 @@ const useContextData = () => {
         useE2eeStore.getState().setNeedsRestore(true);
         useE2eeStore.getState().setHasCloudBackup(true);
 
-        if (path !== "/register") {
-          router.replace("/register");
+        if (path !== "/recover") {
+          router.replace("/recover");
+          return;
         }
       } else {
         // Case 3: Fresh user — silently generate keys
@@ -211,33 +214,6 @@ export const Context = createContext<AuthContextType | null>(null);
 
 function AuthContext({ children }: PropsWithChildren) {
   const value = useContextData();
-  const path = usePathname();
-  const isE2eeInitialized = useE2eeStore((s) => s.isInitialized);
-  const needsRestore = useE2eeStore((s) => s.needsRestore);
-  const [hasMounted, setHasMounted] = useState(false);
-
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
-
-  if (!hasMounted) {
-    return (
-      <div className="fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-[--base-300-100] gap-4">
-        <span className="loading loading-spinner loading-lg"></span>
-      </div>
-    );
-  }
-
-  const isAuth = !!value.user?.id;
-  const shouldBlock = isAuth && (!isE2eeInitialized || needsRestore) && path !== "/register";
-
-  if (shouldBlock) {
-    return (
-      <div className="fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-[--base-300-100] gap-4">
-        <span className="loading loading-spinner loading-lg"></span>
-      </div>
-    );
-  }
 
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }

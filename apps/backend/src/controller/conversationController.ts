@@ -1,7 +1,13 @@
 import { Request, Response } from "express";
 import conversationServices from "../services/conversationServices";
-import { Types } from "mongoose";
-import { conversationSchema, userConversationsSchema, conversationBlockRequest } from "../schemas/conversationSchema";
+import { ZodError } from "zod";
+import mongoose, { Types } from "mongoose";
+import {
+  conversationSchema,
+  userConversationsSchema,
+  conversationBlockRequest,
+  syncConversationsSchema,
+} from "../schemas/conversationSchema";
 import { groupConversationsSchema, membersSchema } from "../schemas/groupSchema";
 import { objectId } from "../schemas/objectId";
 import { syncRegistry } from "../lib/SyncRegistry";
@@ -252,6 +258,50 @@ const _saveMessageReadReceipt = async (req: string, reset: () => void) => {
   }
 };
 
+const _syncConversations = async (req: Request, res: Response) => {
+  try {
+    // Check if database is connected before executing any query
+    if (mongoose.connection.readyState !== 1) {
+      console.error("[_syncConversations] Database connection outage detected: readyState =", mongoose.connection.readyState);
+      return res.status(503).json({
+        error: { message: "Database connection failed. Please ensure MongoDB is running and connected." },
+      });
+    }
+
+    const parsed = syncConversationsSchema.parse({
+      params: req.params,
+      body: req.body,
+    });
+
+    const { userId } = parsed.params;
+    const { syncToken } = parsed.body;
+
+    const result = await conversationServices.syncUserConversations(userId, req.params.userId!, syncToken);
+
+    return res.json(result);
+  } catch (error: any) {
+    if (error instanceof ZodError) {
+      return res.status(400).json({ error: { message: error.errors[0]?.message || "Validation failed" } });
+    }
+
+    // Check for explicit mongoose/mongodb connection or server selection failures
+    if (
+      mongoose.connection.readyState !== 1 ||
+      error.name === "MongooseServerSelectionError" ||
+      error.name === "MongoNetworkError" ||
+      error.name === "MongoServerSelectionError"
+    ) {
+      console.error("[_syncConversations] Database exception: connection outage detected:", error);
+      return res.status(503).json({
+        error: { message: "Database connection failed. Please ensure MongoDB is running and connected." },
+      });
+    }
+
+    console.error("Error in fetching user conversations", error);
+    return res.status(500).json({ error: { message: "Internal server error" } });
+  }
+};
+
 export default {
   _createConversation,
   // _createUserConversation,
@@ -268,4 +318,5 @@ export default {
   _registerStarredMessages,
   _unregisterStarredMessages,
   _saveMessageReadReceipt,
+  _syncConversations,
 };

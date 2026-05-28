@@ -1,64 +1,96 @@
 import { Request, Response } from "express";
-import sessionServices from "../services";
+import sessionService from "../services";
 import { verifyRefreshToken, verifyAccessToken } from "@repo/utils";
-import { ISession } from "@repo/interfaces/sessionInterface";
+import { UnauthorizedError, ForbiddenError, NotFoundError } from "../utils/errors";
+import { asyncHandler } from "../utils/asyncHandler";
 
-interface IGetSessionReq extends Request {
-  query: {
-    sessionId: string;
-    userId: string;
-  };
-}
-
-async function _getSession(req: IGetSessionReq, res: Response): Promise<any> {
-  const { sessionId, userId } = req.query;
-
+async function getSession(req: Request, res: Response): Promise<void> {
+  const { sessionId, userId } = req.query as { sessionId?: string; userId?: string };
   // Verify access token and check ownership
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) return res.status(401).json({ error: "Authorization required" });
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.split(" ")[1];
+
+  if (!token) {
+    throw new UnauthorizedError("Authorization required");
+  }
 
   const payload = await verifyAccessToken(token);
-  if (!payload) return res.status(401).json({ error: "Invalid token" });
-  if (payload.expired) return res.status(401).json({ error: "Token expired" });
+
+  if (!payload) {
+    throw new UnauthorizedError("Invalid token");
+  }
+
+  if (payload.expired) {
+    throw new UnauthorizedError("Token expired");
+  }
 
   if (userId && payload.userId !== userId) {
-    return res.status(403).json({ error: "Forbidden: cannot access another user's sessions" });
+    throw new ForbiddenError("Forbidden: cannot access another user's sessions");
   }
-
-  // if (sessionId) {
-  //   const session = await sessionServices.getSession(sessionId);
-  //   return res.json(session);
-  // }
 
   if (userId) {
-    const response = await sessionServices.getUserSessions(userId);
-    return res.json(response);
+    const response = await sessionService.getUserSessions(userId);
+    res.json(response);
+    return;
   }
 
-  return res.json("no sessions found");
+  res.json("no sessions found");
 }
 
-async function _refreshtoken(req: IGetSessionReq, res: Response): Promise<any> {
-  const token = req.headers.authorization?.split(" ")[1];
-
-  if (!token) return res.status(401).json({ message: "Token not found" });
+async function refreshToken(req: Request, res: Response): Promise<void> {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.split(" ")[1];
+  if (!token) {
+    throw new UnauthorizedError("Token not found");
+  }
 
   const payload = await verifyRefreshToken(token);
 
-  if (payload) {
-    if (payload.expired) return res.status(401).send("Token expired");
-
-    const session = await sessionServices.getSession(payload.sessionId);
-
-    if (!session) return res.status(404).json("Session not found");
-
-    return res.json(session);
+  if (!payload) {
+    throw new UnauthorizedError("Invalid token");
+  }
+  if (payload.expired) {
+    throw new UnauthorizedError("Token expired");
   }
 
-  return res.status(401).json("Invalid token");
+  const session = await sessionService.getSession(payload.sessionId);
+
+  if (!session) {
+    throw new NotFoundError("Session not found");
+  }
+
+  res.json(session);
 }
 
-export default {
-  _getSession,
-  _refreshtoken,
+async function saveSession(req: Request, res: Response): Promise<void> {
+  const response = await sessionService.saveSession(req.body);
+  res.json(response);
+}
+
+async function updateSession(req: Request, res: Response): Promise<void> {
+  const response = await sessionService.updateSession(req.body);
+  res.json(response);
+}
+
+async function deleteSession(req: Request, res: Response): Promise<void> {
+  const sessionId = req.params.id;
+  const response = await sessionService.deleteSession(sessionId!);
+  res.json(response);
+}
+
+async function clearUserSessions(req: Request, res: Response): Promise<void> {
+  const { sessionIds, userId } = req.body;
+  const response = await sessionService.clearUserSessions(sessionIds, userId);
+  res.json(response);
+}
+
+export const sessionController = {
+  getSession: asyncHandler(getSession),
+  refreshToken: asyncHandler(refreshToken),
+  saveSession: asyncHandler(saveSession),
+  updateSession: asyncHandler(updateSession),
+  deleteSession: asyncHandler(deleteSession),
+  clearUserSessions: asyncHandler(clearUserSessions),
 };
+
+export default sessionController;

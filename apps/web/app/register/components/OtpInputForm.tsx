@@ -21,6 +21,7 @@ export default function OtpInputForm() {
   const router = useRouter();
 
   async function handleOTPVerification() {
+    let shouldKeepLoading = false;
     try {
       if (!phonenumber.value) throw Error("phonenumber not provided");
       if (!otp) throw Error("OTP not provided");
@@ -52,6 +53,7 @@ export default function OtpInputForm() {
           const localPub = localStorage.getItem("e2e_public_key");
           const localPriv = localStorage.getItem("e2e_private_key");
           if (localPub && localPriv) {
+            shouldKeepLoading = true;
             return router.replace("/");
           }
 
@@ -60,9 +62,10 @@ export default function OtpInputForm() {
           const user = session?.user;
           if (user?.encryptedPrivateKey && user?.publicKey) {
             setVerifiedUser(user);
-            setForm("recovery_key");
-            return;
+            shouldKeepLoading = true;
+            return router.replace("/recover");
           }
+          shouldKeepLoading = true;
           return router.replace("/");
         } else if (res?.error === "UNREGISTERED_USER") setForm("profile_info");
       }
@@ -76,7 +79,9 @@ export default function OtpInputForm() {
         setOtpError("An unknown error occurred");
       }
     } finally {
-      setLoading(false);
+      if (!shouldKeepLoading) {
+        setLoading(false);
+      }
     }
   }
 

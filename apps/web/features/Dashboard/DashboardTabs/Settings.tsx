@@ -188,7 +188,7 @@ const Settings = () => {
 
           {/* Security & Encryption */}
           <div
-            onClick={() => useE2eeStore.getState().setShowBackupModal(true)}
+            onClick={() => handleMenu("securitySettings")}
             tabIndex={0}
             className="hover:bg-[--hover-secondary] w-full flex gap-4 items-center duration-200 max-sm:px-0 px-4 py-4 rounded-2xl cursor-pointer"
           >

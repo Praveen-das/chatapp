@@ -6,12 +6,10 @@ import { motion } from "framer-motion";
 import { ShieldCheckIcon } from "@heroicons/react/24/outline";
 import { unwrapPrivateKey, generateE2EKeyPair } from "@lib/e2e";
 import { useE2eeStore } from "store/e2eStore";
-import { useRegistrationForm } from "context/RegistrationFormContext";
 import useAuth from "hooks/useAuth";
 import RenderErrorMessage from "./RenderErrorMessage";
 
 export default function RecoveryKeyForm() {
-  const { verifiedUser } = useRegistrationForm();
   const { user: currentUser, updateUser } = useAuth();
   const router = useRouter();
 
@@ -28,7 +26,7 @@ export default function RecoveryKeyForm() {
       return;
     }
 
-    const targetUser = verifiedUser || currentUser;
+    const targetUser = currentUser;
 
     if (!targetUser?.encryptedPrivateKey || !targetUser?.publicKey) {
       setError("No recovery key found. Try starting fresh.");
@@ -36,6 +34,7 @@ export default function RecoveryKeyForm() {
     }
 
     setIsLoading(true);
+    let shouldKeepLoading = false;
 
     try {
       const salt = targetUser.id || targetUser.phoneNumber || "static_salt";
@@ -47,17 +46,21 @@ export default function RecoveryKeyForm() {
       useE2eeStore.getState().setKeys(targetUser.publicKey, decryptedPrivateKey);
       useE2eeStore.getState().setHasCloudBackup(true);
 
+      shouldKeepLoading = true;
       router.replace("/");
     } catch {
       setError("Incorrect PIN. Please try again.");
     } finally {
-      setIsLoading(false);
+      if (!shouldKeepLoading) {
+        setIsLoading(false);
+      }
     }
   }
 
   async function handleSkip() {
     // Generate fresh keys — old encrypted messages will be unreadable
     setIsLoading(true);
+    let shouldKeepLoading = false;
     try {
       const keypair = await generateE2EKeyPair();
       localStorage.setItem("e2e_public_key", keypair.publicKey);
@@ -71,12 +74,15 @@ export default function RecoveryKeyForm() {
       useE2eeStore.getState().setKeys(keypair.publicKey, keypair.privateKey);
       useE2eeStore.getState().setHasCloudBackup(false);
 
+      shouldKeepLoading = true;
       router.replace("/");
     } catch (err) {
       console.error("Skip recovery failed:", err);
       setError("Failed to generate new keys. Please try again.");
     } finally {
-      setIsLoading(false);
+      if (!shouldKeepLoading) {
+        setIsLoading(false);
+      }
     }
   }
 

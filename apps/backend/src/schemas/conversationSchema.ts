@@ -23,3 +23,12 @@ export const conversationBlockRequest = z.object({
 });
 
 export const userConversationsSchema = z.array(userConversationSchema);
+
+export const syncConversationsSchema = z.object({
+  params: z.object({
+    userId: objectId,
+  }),
+  body: z.object({
+    syncToken: z.number().optional(),
+  }),
+});

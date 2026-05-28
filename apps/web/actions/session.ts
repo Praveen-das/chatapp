@@ -93,8 +93,7 @@ export async function validateRefreshToken() {
 
     const cookieStore = await cookies();
     const sessionToken =
-      cookieStore.get("next-auth.session-token")?.value ??
-      cookieStore.get("__Secure-next-auth.session-token")?.value;
+      cookieStore.get("next-auth.session-token")?.value ?? cookieStore.get("__Secure-next-auth.session-token")?.value;
 
     if (!sessionToken) throw Error("Session token cookie not found");
 

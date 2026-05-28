@@ -208,22 +208,17 @@ export default function E2ESecurityPinModal() {
             /* Backup is active — show reset flow */
             <div className="w-full">
               {resetStep === 0 && (
-                <div className="flex w-full justify-stretch gap-3 mx-auto">
-                  <button
-                    type="button"
-                    onClick={handleDismiss}
-                    className="btn flex-1 [--b2:--b1]"
-                    disabled={isLoading}
-                  >
-                    Close
-                  </button>
+                <div className="flex flex-col w-full gap-2.5 mx-auto mt-2">
                   <button
                     type="button"
                     onClick={() => setResetStep(1)}
-                    className="btn btn-primary flex-1"
+                    className="btn btn-primary w-full"
                     disabled={isLoading}
                   >
                     Reset PIN
+                  </button>
+                  <button type="button" onClick={handleDismiss} className="btn w-full [--b2:--b1]" disabled={isLoading}>
+                    Close
                   </button>
                 </div>
               )}

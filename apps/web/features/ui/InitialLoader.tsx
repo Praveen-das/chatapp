@@ -1,5 +1,7 @@
+"use client";
 import { APP_NAME } from "config/constants";
-import React, { useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import Logo from "public/favicon.svg";
 
 function generateRandomNumber(min: number, max: number) {
@@ -8,7 +10,24 @@ function generateRandomNumber(min: number, max: number) {
 
 const MaxLoaded = generateRandomNumber(70, 90);
 
-function LoadingPage({ isLoaded, onComplete }: { isLoaded: boolean; onComplete: (value: boolean) => void }) {
+interface LoadingContextType {
+  finishLoading: () => void;
+}
+
+const LoadingContext = createContext<LoadingContextType | null>(null);
+
+export function useLoading() {
+  const context = useContext(LoadingContext);
+  if (!context) {
+    throw new Error("useLoading must be used within a LoadingPage provider");
+  }
+  return context;
+}
+
+export function LoadingPage({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const [value, setValue] = useState(0);
 
   useEffect(() => {
@@ -20,36 +39,46 @@ function LoadingPage({ isLoaded, onComplete }: { isLoaded: boolean; onComplete: 
           return next;
         });
       },
-      300 + Math.random() * 200
+      300 + Math.random() * 200,
     );
 
     return () => clearInterval(time);
   }, []);
 
+  const finishLoading = () => {
+    console.log("finishloading called");
+    setIsLoaded(true);
+  };
+
   useEffect(() => {
-    if (isLoaded) {
-      const timer = setTimeout(() => {
-        onComplete(true);
-      }, 600);
-      return () => clearTimeout(timer);
+    if (pathname !== "/") {
+      setIsLoaded(true);
+      setIsMounted(true);
     }
-  }, [isLoaded, onComplete]);
+  }, [pathname]);
 
   return (
-    <div className="fixed inset-0 z-5000 w-full h-screen flex justify-center items-center">
-      <div className="grid place-items-center gap-2 text-center">
-        <Logo width={70} height={70} />
-        <div className="text-xl ">{APP_NAME}</div>
-        <div className="text-sm mt-2">Loading your chats {value !== 0 && `${isLoaded ? 100 : value}%`}</div>
-        <div className="w-56 h-1 bg-slate-700 mt-2">
-          <div
-            onTransitionEnd={() => isLoaded && onComplete(true)}
-            style={{ width: `${isLoaded ? 100 : value}%` }}
-            className="h-full bg-slate-400 duration-500"
-          />
+    <LoadingContext.Provider value={{ finishLoading }}>
+      {children}
+      {(!isLoaded || !isMounted) && (
+        <div className="fixed inset-0 z-[9999999] w-full h-screen flex justify-center items-center bg-[--base-300-100] text-white">
+          <div className="grid place-items-center gap-2 text-center">
+            <Logo width={70} height={70} />
+            <div className="text-xl font-semibold tracking-wide">{APP_NAME}</div>
+            <div className="text-sm mt-2 text-slate-400">
+              Loading your chats {value !== 0 && `${isLoaded ? 100 : value}%`}
+            </div>
+            <div className="w-56 h-1 bg-slate-800 rounded-full mt-2 overflow-hidden">
+              <div
+                onTransitionEnd={() => isLoaded && setIsMounted(true)}
+                style={{ width: `${isLoaded ? 100 : value}%` }}
+                className="h-full bg-white duration-500 ease-out transition-all"
+              />
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </LoadingContext.Provider>
   );
 }
 

@@ -26,6 +26,9 @@ import { groupConversationsSchema, membersSchema } from "../schemas/groupSchema"
 import { readReceiptSchema, readReceiptsSchema } from "../schemas/readReceiptSchema.js";
 import MessageReadReceipt from "../models/MessageReadReceipt.js";
 import { syncRegistry } from "../lib/SyncRegistry.js";
+import { fetchGroupsByUserId } from "./groupServices.js";
+import userServices from "./userServices.js";
+import { SaveConversationSyncState, SaveConversationSyncStateFieldValues } from "@repo/interfaces/syncRegistryInterface.js";
 
 async function saveConversations({
   conversationBody,
@@ -152,6 +155,7 @@ async function getUserConversation(userId: Types.ObjectId) {
     return res as IUserConversation[];
   } catch (error) {
     console.log("getUserConversation-------->", error);
+    throw error;
   }
 }
 
@@ -403,11 +407,10 @@ async function fetchConversations(userId: Types.ObjectId, conversationEntries: C
 
       return data;
     }
-
     return null;
   } catch (error) {
     console.log("fetchConversations--->", error);
-    return [];
+    throw error;
   }
 }
 
@@ -440,6 +443,167 @@ async function saveMessageReadReceipt(readReceipts: z.infer<typeof readReceiptsS
   }
 }
 
+async function doFullSync(userIdParsed: Types.ObjectId, userId: string) {
+  try {
+    const conversationIds: string[] = [];
+    const conversationSyncState: SaveConversationSyncState[] = [];
+
+    const result = await Promise.all([
+      getUserConversation(userIdParsed),
+      fetchGroupsByUserId(userIdParsed),
+      userServices.getUsersFromConversations(userIdParsed),
+    ]);
+
+    const userConversations = result[0];
+    const groupConversations = result[1];
+    const globalUsers = result[2];
+
+    if (!userConversations || !groupConversations || !globalUsers) {
+      throw new Error("One or more database baseline queries failed to return data");
+    }
+
+    const newConversations = [...userConversations, ...groupConversations];
+
+    newConversations.forEach((c) => {
+      if (!c) return;
+      let conversationId = c.conversationId.toHexString();
+      let messageTimestamp = c.messages?.at(-1)?.timestamp;
+      let version = c.version;
+
+      let conversationSyncStateValues: SaveConversationSyncStateFieldValues = [
+        "conversationId",
+        conversationId,
+        "version",
+        version,
+        "host",
+        c.host,
+        "createdAt",
+        c.createdAt || Date.now(),
+        "updatedAt",
+        c.updatedAt || Date.now(),
+      ];
+
+      messageTimestamp && conversationSyncStateValues.push("messageTimestamp", messageTimestamp);
+
+      conversationIds.push(conversationId);
+      conversationSyncState.push({ conversationId, fieldValues: conversationSyncStateValues });
+    });
+
+    await Promise.all([
+      syncRegistry.registerConversations(userId, conversationIds),
+      syncRegistry.saveConversationSyncState(conversationSyncState),
+    ]);
+
+    return {
+      unsyncConversationsData: { newEntry: newConversations },
+      unsyncUsersData: globalUsers,
+      syncToken: Date.now(),
+    };
+  } catch (error) {
+    if (error instanceof mongoose.Error) {
+      console.error(`[doFullSync] Database error performing baseline sync for user ${userId}:`, {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      });
+    } else {
+      console.error(`[doFullSync] Unexpected error performing database baseline synchronization for user ${userId}:`, error);
+    }
+    throw error;
+  }
+}
+
+async function syncUserConversations(userIdParsed: Types.ObjectId, userId: string, syncToken?: number) {
+  try {
+    // 1. Sync Token (Vector Clock) Synchronization Path
+    if (syncToken !== undefined && Number(syncToken) > 0) {
+      const tokenVal = Number(syncToken);
+      console.log(`########### running syncToken-based sync for token: ${tokenVal} ###########`);
+
+      const unsyncEntries = await syncRegistry.getUnsyncStateByToken({ userId, syncToken: tokenVal });
+
+      if (unsyncEntries === null) {
+        console.log("Registry missing, performing full fallback baseline load");
+        return doFullSync(userIdParsed, userId);
+      }
+
+      if (unsyncEntries.length === 0) {
+        console.log("########### conversations upto date by token ###########");
+        const activeConversations = await syncRegistry.getRegisteredConversations(userId);
+        const activeConversationObjectIds = activeConversations.map((id) => new Types.ObjectId(id));
+
+        const [globalUsers, unsyncReadReceipts] = await Promise.all([
+          userServices.getUsersFromConversations(userIdParsed),
+          MessageReadReceipt.find({
+            conversationId: { $in: activeConversationObjectIds },
+            updatedAt: { $gt: tokenVal },
+          }),
+        ]);
+
+        const unsyncUsersData: Record<string, any> = {};
+
+        Object.entries(globalUsers).forEach(([k, v]) => {
+          if (v && (v as any).updatedAt && (v as any).updatedAt > tokenVal) {
+            unsyncUsersData[k] = v;
+          }
+        });
+
+        return {
+          unsyncConversationsData: null,
+          unsyncUsersData: Object.keys(unsyncUsersData).length ? unsyncUsersData : null,
+          unsyncReadReceipts: unsyncReadReceipts.length ? unsyncReadReceipts : null,
+          syncToken: Date.now(),
+        };
+      }
+
+      console.log("########### fetching recent conversation updates since token ###########");
+      const activeConversations = await syncRegistry.getRegisteredConversations(userId);
+      const activeConversationObjectIds = activeConversations.map((id) => new Types.ObjectId(id));
+
+      const [unsyncConversationsData, globalUsers, unsyncReadReceipts] = await Promise.all([
+        fetchConversations(userIdParsed, unsyncEntries),
+        userServices.getUsersFromConversations(userIdParsed),
+        MessageReadReceipt.find({
+          conversationId: { $in: activeConversationObjectIds },
+          updatedAt: { $gt: tokenVal },
+        }),
+      ]);
+
+      const unsyncUsersData: Record<string, any> = {};
+      Object.entries(globalUsers).forEach(([k, v]) => {
+        if (v && (v as any).updatedAt && (v as any).updatedAt > tokenVal) {
+          unsyncUsersData[k] = v;
+        }
+      });
+
+      console.log("unsyncConversationsData (token)----->", Object.keys(unsyncConversationsData || {}).length);
+      console.log("unsyncUsersData (token)----->", Object.keys(unsyncUsersData || {}).length);
+      console.log("unsyncReadReceipts (token)----->", unsyncReadReceipts.length);
+
+      return {
+        unsyncConversationsData,
+        unsyncUsersData: Object.keys(unsyncUsersData).length ? unsyncUsersData : null,
+        unsyncReadReceipts: unsyncReadReceipts.length ? unsyncReadReceipts : null,
+        syncToken: Date.now(),
+      };
+    }
+
+    // 2. Fallback Baseline Sync Path
+    return doFullSync(userIdParsed, userId);
+  } catch (error) {
+    if (error instanceof mongoose.Error) {
+      console.error(`[syncUserConversations] Database error performing sync for user ${userId}:`, {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      });
+    } else {
+      console.error(`[syncUserConversations] Unexpected error performing sync for user ${userId}:`, error);
+    }
+    throw error;
+  }
+}
+
 export default {
   saveConversations,
   createConversation,
@@ -460,4 +624,5 @@ export default {
   registerStarredMessages,
   unregisterStarredMessages,
   saveMessageReadReceipt,
+  syncUserConversations,
 };

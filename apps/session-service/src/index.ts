@@ -1,6 +1,7 @@
 import express from "express";
 import router from "./routes/index";
 import bodyParser from "body-parser";
+import { errorHandler } from "./middleware/errorHandler";
 
 (async () => {
   const app = express();
@@ -11,11 +12,10 @@ import bodyParser from "body-parser";
 
   const PORT = process.env.PORT || 5000;
 
-  app.use('/',router); 
+  app.use("/", router);
 
-  app.use((err:any,req:any,res:any,next:any)=>{
-    console.log('ERROR----------------->',err);
-  })
+  //@ts-ignore
+  app.use(errorHandler);
 
   app.listen(PORT, () => {
     console.log(`session-service runnning on port ${PORT}`);

@@ -7,19 +7,22 @@ import { ThemeProvider } from "next-themes";
 import { PropsWithChildren } from "react";
 import { ToastContainer } from "react-toastify";
 import E2ESecurityPinModal from "@features/ui/Modals/E2ESecurityPinModal";
+import Loader from "@features/ui/InitialLoader";
 
 function Provider({ children }: PropsWithChildren) {
   return (
-    <SessionProvider refetchOnWindowFocus={false}>
-      <AuthContext>
-        <ThemeProvider disableTransitionOnChange enableSystem>
-          <ToastContainer limit={3} position="bottom-left" theme="dark" />
-          <InitTheme />
-          <E2ESecurityPinModal />
-          {children}
-        </ThemeProvider>
-      </AuthContext>
-    </SessionProvider>
+    <Loader>
+      <SessionProvider refetchOnWindowFocus={false}>
+        <AuthContext>
+          <ThemeProvider disableTransitionOnChange enableSystem>
+            <ToastContainer limit={3} position="bottom-left" theme="dark" />
+            <InitTheme />
+            <E2ESecurityPinModal />
+            {children}
+          </ThemeProvider>
+        </AuthContext>
+      </SessionProvider>
+    </Loader>
   );
 }
 

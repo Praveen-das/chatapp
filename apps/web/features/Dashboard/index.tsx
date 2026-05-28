@@ -15,6 +15,7 @@ import FetchedUser from "./DashboardTabs/FetchedUser";
 import useMediaQuery from "@hooks/useMediaQuery";
 import { useEffect } from "react";
 import AiSettings from "./DashboardTabs/AiSettings";
+import SecuritySettings from "./DashboardTabs/SecuritySettings";
 
 // async function getContactData() {
 //   const supported = "contacts" in navigator && "ContactsManager" in window;
@@ -87,6 +88,9 @@ export default function Dashboard(): JSX.Element {
             </Tab>
             <Tab component="activeSessions">
               <ActiveSessions />
+            </Tab>
+            <Tab component="securitySettings">
+              <SecuritySettings />
             </Tab>
           </Tabs>
         </Tab>

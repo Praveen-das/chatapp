@@ -21,6 +21,7 @@ export default function ProfileCreationForm() {
   const router = useRouter();
 
   async function handleCreatingUser() {
+    let shouldKeepLoading = false;
     try {
       const trimmed = username.trim();
       if (!trimmed) throw Error("Username is required");
@@ -48,7 +49,10 @@ export default function ProfileCreationForm() {
 
       const res = await signIn("credentials", user);
       if (res?.error) return setError(res.error);
-      if (res?.ok) return router.replace("/");
+      if (res?.ok) {
+        shouldKeepLoading = true;
+        return router.replace("/");
+      }
     } catch (error) {
       if (error instanceof Error) {
         setError(error.message);
@@ -56,7 +60,9 @@ export default function ProfileCreationForm() {
         setError("An error occurred during profile registration");
       }
     } finally {
-      setLoading(false);
+      if (!shouldKeepLoading) {
+        setLoading(false);
+      }
     }
   }
 
