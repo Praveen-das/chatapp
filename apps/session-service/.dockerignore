@@ -1,24 +1,47 @@
-**/.classpath
-**/.dockerignore
+# ── Dependencies ──────────────────────────────────
+**/node_modules
+
+# ── Build outputs ─────────────────────────────────
+**/.next
+**/out
+**/build
+**/dist
+**/coverage
+**/.turbo
+
+# ── Environment & secrets ─────────────────────────
 **/.env
+**/.env.*
+**/secrets.dev.yaml
+**/secrets.yaml
+**/*.pem
+
+# ── Version control & IDE ─────────────────────────
 **/.git
 **/.gitignore
-**/.project
-**/.settings
-**/.toolstarget
-**/.vs
 **/.vscode
-**/*.*proj.user
-**/*.dbmdl
-**/*.jfm
-**/charts
+**/.idea
+**/.DS_Store
+
+# ── Docker (avoid recursive COPY) ────────────────
+**/Dockerfile*
 **/docker-compose*
 **/compose*
-**/Dockerfile*
-**/node_modules
-**/npm-debug.log
-**/obj
-**/secrets.dev.yaml
-**/values.dev.yaml
-LICENSE
+**/.dockerignore
+
+# ── Debug logs ────────────────────────────────────
+**/npm-debug.log*
+**/pnpm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+
+# ── Package manager cache ─────────────────────────
+**/.pnp
+**/.pnp.js
+
+# ── Docs & meta ──────────────────────────────────
 README.md
+LICENSE
+
+# ── Misc ──────────────────────────────────────────
+**/dummyData.ts

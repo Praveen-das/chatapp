@@ -11,8 +11,6 @@
   "devDependencies": {
     "@types/node-cron": "^3.0.11",
     "dotenv-cli": "^7.3.0",
-    "nodemon": "^3.0.3",
-    "ts-node": "^10.9.2",
     "tsc-watch": "^6.0.4",
     "typescript": "^5.9.3"
   },
@@ -20,27 +18,12 @@
     "@repo/interfaces": "workspace:*",
     "@repo/kafka": "workspace:*",
     "@repo/utils": "workspace:*",
-    "@skgdev/socket.io-msgpack-javascript": "^1.2.1",
     "@socket.io/redis-adapter": "^8.2.1",
-    "@socket.io/redis-emitter": "^5.1.0",
     "@socket.io/sticky": "^1.0.4",
-    "@types/flat": "^5.0.5",
     "axios": "^1.6.8",
-    "axios-retry": "^4.1.0",
-    "bson": "^6.8.0",
-    "flat": "^6.0.1",
-    "flatted": "^3.3.2",
     "ioredis": "^5.3.2",
     "mongoose": "^8.2.0",
     "node-cron": "^4.2.1",
-    "plaiceholder": "^3.0.0",
-    "redis": "^4.6.13",
-    "sharp": "^0.33.5",
-    "socket.io": "^4.7.4",
-    "socket.io-cbor-x-parser": "^1.0.3",
-    "socket.io-msgpack-parser": "^3.0.2",
-    "socket.io-parser": "^4.2.4",
-    "superjson": "^2.2.2",
-    "zod": "^3.24.2"
+    "socket.io": "^4.7.4"
   }
 }
