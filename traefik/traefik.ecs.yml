@@ -1,0 +1,31 @@
+# Traefik Static Configuration — ECS
+# =============================================================
+# Uses the ECS provider for service discovery (no Docker socket)
+
+api:
+  dashboard: false
+
+entryPoints:
+  web:
+    address: ":80"
+
+providers:
+  ecs:
+    autoDiscoverClusters: false
+    clusters:
+      - "chatvia-cluster"           # ← Your ECS cluster name
+    region: "ap-south-1"            # ← Your AWS region
+    exposedByDefault: false         # Only route services with traefik.enable=true
+    defaultRule: "PathPrefix(`/{{ .Name }}`)"
+  file:
+    directory: "/etc/traefik/dynamic"
+    watch: false                    # No hot-reload needed in a container
+
+log:
+  level: WARN
+
+accessLog:
+  bufferingSize: 100
+
+ping:
+  entryPoint: web
