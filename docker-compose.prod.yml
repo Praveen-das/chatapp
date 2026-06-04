@@ -1,19 +1,26 @@
+# =============================================================
+# Production Docker Compose — EC2 + ECR
+# =============================================================
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Required .env vars:
+#   ECR_REGISTRY=<account-id>.dkr.ecr.<region>.amazonaws.com
+#   IMAGE_TAG=latest  (or git sha, semver, etc.)
+# =============================================================
+
 services:
   sessionservice:
-    image: sessionservice
+    image: ${ECR_REGISTRY}/chatapp-session-service:${IMAGE_TAG:-latest}
     restart: always
-    build:
-      context: .
-      dockerfile: ./apps/session-service/Dockerfile
     depends_on:
-      - traefik
+      traefik:
+        condition: service_healthy
     environment:
       - REDIS_SERVICE_URI=${REDIS_SERVICE_URI}
       - JWT_USER_TOKEN_SECRET_KEY=${JWT_USER_TOKEN_SECRET_KEY}
       - JWT_REFRESH_TOKEN_SECRET_KEY=${JWT_REFRESH_TOKEN_SECRET_KEY}
       - JWT_ACCESS_TOKEN_SECRET_KEY=${JWT_ACCESS_TOKEN_SECRET_KEY}
-    ports:
-      - "5000:5000"
     networks:
       - backend-net
     labels:
@@ -25,13 +32,11 @@ services:
       - "traefik.http.services.session.loadbalancer.server.port=5000"
 
   backend:
-    image: backend
+    image: ${ECR_REGISTRY}/chatapp-backend:${IMAGE_TAG:-latest}
     restart: always
-    build:
-      context: .
-      dockerfile: ./apps/backend/Dockerfile
     depends_on:
-      - traefik
+      traefik:
+        condition: service_healthy
     environment:
       - MONGODB_URL=${MONGODB_URL}
       - JWT_USER_TOKEN_SECRET_KEY=${JWT_USER_TOKEN_SECRET_KEY}
@@ -48,9 +53,6 @@ services:
       - KAFKA_SSL_CA_B64=${KAFKA_SSL_CA_B64}
       - KAFKA_SSL_CERT_B64=${KAFKA_SSL_CERT_B64}
       - KAFKA_SSL_KEY_B64=${KAFKA_SSL_KEY_B64}
-    ports:
-      - "4000:4000"
-      - "27017:27017"
     networks:
       - backend-net
     labels:
@@ -62,13 +64,11 @@ services:
       - "traefik.http.services.backend.loadbalancer.server.port=4000"
 
   socket-service:
-    image: socket-service
+    image: ${ECR_REGISTRY}/chatapp-socket-service:${IMAGE_TAG:-latest}
     restart: always
-    build:
-      context: .
-      dockerfile: ./apps/socket-service/Dockerfile
     depends_on:
-      - traefik
+      traefik:
+        condition: service_healthy
     environment:
       - REDIS_SERVICE_URI=${REDIS_SERVICE_URI}
       - REDIS_HOST=${REDIS_HOST}
@@ -79,8 +79,6 @@ services:
       - KAFKA_SSL_CA_B64=${KAFKA_SSL_CA_B64}
       - KAFKA_SSL_CERT_B64=${KAFKA_SSL_CERT_B64}
       - KAFKA_SSL_KEY_B64=${KAFKA_SSL_KEY_B64}
-    ports:
-      - "3002:3002"
     networks:
       - backend-net
     labels:
@@ -89,24 +87,20 @@ services:
       - "traefik.http.routers.socket.entrypoints=web"
       - "traefik.http.routers.socket.middlewares=cors-headers@file"
       - "traefik.http.services.socket.loadbalancer.server.port=3002"
-      # Enable WebSocket transport via Traefik's default ServersTransport
       - "traefik.http.services.socket.loadbalancer.passHostHeader=true"
 
   traefik:
     image: traefik:v3.4
     restart: always
     ports:
-      - "3001:80"       # Clients still hit :3001
-      - "8080:8080"     # Dashboard (dev only)
+      - "80:80"         # Public HTTP
+      # - "443:443"     # Uncomment when adding TLS
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik.yml:/etc/traefik/traefik.yml:ro
-      - ./dynamic:/etc/traefik/dynamic:ro
+      - ./traefik.prod.yml:/etc/traefik/traefik.yml:ro
+      - ./dynamic/prod:/etc/traefik/dynamic:ro
     networks:
-      - frontend
       - backend-net
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "traefik", "healthcheck"]
       interval: 30s
@@ -123,7 +117,6 @@ services:
           memory: 128M
 
 networks:
-  frontend:
-    driver: bridge
   backend-net:
+    name: chatapp_backend-net   # Explicit name — no directory-prefix surprises
     driver: bridge

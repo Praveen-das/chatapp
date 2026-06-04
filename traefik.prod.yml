@@ -1,0 +1,32 @@
+# Traefik Static Configuration — Production
+# =============================================================
+
+# Dashboard disabled in production
+api:
+  dashboard: false
+
+entryPoints:
+  web:
+    address: ":80"
+  # Uncomment for TLS:
+  # websecure:
+  #   address: ":443"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+    network: chatapp_backend-net    # Matches the explicit network name
+    watch: true
+  file:
+    directory: "/etc/traefik/dynamic"
+    watch: true
+
+log:
+  level: WARN    # Less noise in production
+
+accessLog:
+  bufferingSize: 100   # Buffer access logs for performance
+
+ping:
+  entryPoint: web

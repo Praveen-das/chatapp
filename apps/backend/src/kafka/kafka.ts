@@ -81,4 +81,4 @@ consumer.on("consumer.network.request_timeout", () => {
   console.log("Consumer request timeout");
 });
 
-export { initKafkaConsumer, consumer, messageConsumer, kafka };
+export { initKafkaConsumer };

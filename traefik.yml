@@ -3,7 +3,7 @@
 
 api:
   dashboard: true
-  insecure: true   # Dashboard on :8080 without auth (dev only)
+  insecure: true # Dashboard on :8080 without auth (dev only)
 
 entryPoints:
   web:
@@ -12,7 +12,7 @@ entryPoints:
 providers:
   docker:
     endpoint: "unix:///var/run/docker.sock"
-    exposedByDefault: false    # Only route services with traefik.enable=true
+    exposedByDefault: false # Only route services with traefik.enable=true
     network: chatapp_backend-net
     watch: true
   file:
@@ -23,3 +23,6 @@ log:
   level: INFO
 
 accessLog: {}
+
+ping:
+  entryPoint: web

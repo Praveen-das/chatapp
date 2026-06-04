@@ -1,0 +1,26 @@
+# Traefik Dynamic Configuration — Production
+# =============================================================
+# Only shared middlewares live here.
+# Routers & services are discovered via Docker labels.
+
+http:
+  middlewares:
+    cors-headers:
+      headers:
+        accessControlAllowMethods:
+          - "GET"
+          - "POST"
+          - "PUT"
+          - "DELETE"
+          - "OPTIONS"
+          - "PATCH"
+        accessControlAllowHeaders:
+          - "Origin"
+          - "Authorization"
+          - "Content-Type"
+          - "Accept"
+          - "Cache-Control"
+        accessControlAllowOriginList:
+          - "*"                           # TODO: Lock down to specific domains before real production
+        accessControlMaxAge: 3600
+        addVaryHeader: true
