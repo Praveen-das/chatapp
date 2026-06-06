@@ -5,7 +5,9 @@ export interface ISocket extends Socket {
   selectedConversation?: IConversation | null;
 }
 
-const socket: ISocket = io("http://localhost:3001/", {
+const baseURL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+
+const socket: ISocket = io(`${baseURL}/`, {
   transports: ["websocket"],
   autoConnect: false,
 });

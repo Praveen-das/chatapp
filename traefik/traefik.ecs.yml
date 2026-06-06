@@ -2,24 +2,27 @@
 # =============================================================
 # Uses the ECS provider for service discovery (no Docker socket)
 
-api:
-  dashboard: false
+# api:
+#   dashboard: true
+#   insecure: true # Serves dashboard on :8080 — lock down via SG/ALB
 
 entryPoints:
   web:
     address: ":80"
+  # dashboard:
+  #   address: ":8080"
 
 providers:
   ecs:
     autoDiscoverClusters: false
     clusters:
-      - "chatvia-cluster"           # ← Your ECS cluster name
-    region: "ap-south-1"            # ← Your AWS region
-    exposedByDefault: false         # Only route services with traefik.enable=true
+      - "chatvia-prod"
+    region: "ap-south-1" # ← Your AWS region
+    exposedByDefault: false # Only route services with traefik.enable=true
     defaultRule: "PathPrefix(`/{{ .Name }}`)"
   file:
     directory: "/etc/traefik/dynamic"
-    watch: false                    # No hot-reload needed in a container
+    watch: false # No hot-reload needed in a container
 
 log:
   level: WARN

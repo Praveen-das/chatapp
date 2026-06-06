@@ -1,0 +1,96 @@
+{
+  "family": "chatvia-socket-service",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "socket-service",
+      "image": "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/chatvia-socket-service:latest",
+      "essential": true,
+      "dockerLabels": {
+        "traefik.enable": "true",
+        "traefik.http.routers.chatvia-socket-service.rule": "PathPrefix(`/socket.io`)",
+        "traefik.http.routers.chatvia-socket-service.entrypoints": "web",
+        "traefik.http.routers.chatvia-socket-service.middlewares": "cors-headers@file",
+        "traefik.http.services.chatvia-socket-service.loadbalancer.server.port": "3002",
+        "traefik.http.services.chatvia-socket-service.loadbalancer.passHostHeader": "true",
+        "traefik.http.services.chatvia-socket-service.loadbalancer.sticky": "true",
+        "traefik.http.services.chatvia-socket-service.loadbalancer.sticky.cookie.name": "sticky_socket"
+      },
+      "portMappings": [
+        {
+          "containerPort": 3002,
+          "protocol": "tcp"
+        },
+        {
+          "containerPort": 3003,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "PORT", "value": "3002" },
+        { "name": "HEALTH_PORT", "value": "3003" }
+      ],
+      "secrets": [
+        {
+          "name": "REDIS_SERVICE_URI",
+          "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/chatvia/socket-service/REDIS_SERVICE_URI"
+        },
+        {
+          "name": "REDIS_HOST",
+          "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/chatvia/socket-service/REDIS_HOST"
+        },
+        {
+          "name": "REDIS_PORT",
+          "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/chatvia/socket-service/REDIS_PORT"
+        },
+        {
+          "name": "REDIS_USERNAME",
+          "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/chatvia/socket-service/REDIS_USERNAME"
+        },
+        {
+          "name": "REDIS_PASSWORD",
+          "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/chatvia/socket-service/REDIS_PASSWORD"
+        },
+        {
+          "name": "KAFKA_HOST",
+          "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/chatvia/socket-service/KAFKA_HOST"
+        },
+        {
+          "name": "KAFKA_SSL_CA_B64",
+          "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/chatvia/socket-service/KAFKA_SSL_CA_B64"
+        },
+        {
+          "name": "KAFKA_SSL_CERT_B64",
+          "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/chatvia/socket-service/KAFKA_SSL_CERT_B64"
+        },
+        {
+          "name": "KAFKA_SSL_KEY_B64",
+          "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/chatvia/socket-service/KAFKA_SSL_KEY_B64"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/chatvia-socket-service",
+          "awslogs-region": "REGION",
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group": "true"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "node -e \"const http=require('http');const r=http.request({hostname:'localhost',port:3003,path:'/health',timeout:2000},res=>{process.exit(res.statusCode===200?0:1)});r.on('error',()=>process.exit(1));r.end();\""
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 15
+      }
+    }
+  ]
+}

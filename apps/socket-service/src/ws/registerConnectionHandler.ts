@@ -8,17 +8,38 @@ import registerSessionHandler from "./registerSessionHandler";
 import { ISocket } from "../interfaces/socketInterfaces";
 
 export async function onConnection(io: Server, socket: ISocket) {
-    console.log(`Socket ${socket.id} connected connected to ${process.pid}`);
+  console.log(`Socket ${socket.id} connected to ${process.pid}`);
 
-    registerSessionHandler(io,socket);
+  // --- Side effects moved from middleware ---
+  const { channels, session } = socket.handshake.auth;
 
-    registerUserHandlers(io, socket);
+  // Join user's personal room (for targeted emits)
+  if (socket.userId) {
+    socket.join(socket.userId);
+  }
 
-    registerConversationHandlers(io, socket)
+  // Join channel rooms (group conversations)
+  const channelList: string[] = channels || [];
 
-    registerMessageHandlers(io, socket);
+  if (channelList.length > 0) {
+    channelList.forEach((channel) => socket.join(channel));
+  }
 
-    registerGroupHandlers(io, socket);
+  // Notify other sessions about this connection
+  if (socket.userId && session) {
+    io.to(socket.userId).emit("SAVE_SESSION", session);
+  }
+  // --- End moved side effects ---
 
-    handleDisconnection(io, socket);
+  registerSessionHandler(io, socket);
+
+  registerUserHandlers(io, socket);
+
+  registerConversationHandlers(io, socket);
+
+  registerMessageHandlers(io, socket);
+
+  registerGroupHandlers(io, socket);
+
+  handleDisconnection(io, socket);
 }

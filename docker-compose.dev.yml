@@ -30,8 +30,8 @@ services:
     build:
       context: .
       dockerfile: ./apps/backend/Dockerfile
-    depends_on:
-      - traefik
+    # depends_on:
+    #   - traefik
     environment:
       - MONGODB_URL=${MONGODB_URL}
       - JWT_USER_TOKEN_SECRET_KEY=${JWT_USER_TOKEN_SECRET_KEY}
@@ -67,8 +67,8 @@ services:
     build:
       context: .
       dockerfile: ./apps/socket-service/Dockerfile
-    depends_on:
-      - traefik
+    # depends_on:
+    #   - traefik
     environment:
       - REDIS_SERVICE_URI=${REDIS_SERVICE_URI}
       - REDIS_HOST=${REDIS_HOST}
@@ -79,8 +79,10 @@ services:
       - KAFKA_SSL_CA_B64=${KAFKA_SSL_CA_B64}
       - KAFKA_SSL_CERT_B64=${KAFKA_SSL_CERT_B64}
       - KAFKA_SSL_KEY_B64=${KAFKA_SSL_KEY_B64}
+      - HEALTH_PORT=3003
     ports:
       - "3002:3002"
+      - "3003:3003"
     networks:
       - backend-net
     labels:
@@ -89,15 +91,16 @@ services:
       - "traefik.http.routers.socket.entrypoints=web"
       - "traefik.http.routers.socket.middlewares=cors-headers@file"
       - "traefik.http.services.socket.loadbalancer.server.port=3002"
-      # Enable WebSocket transport via Traefik's default ServersTransport
       - "traefik.http.services.socket.loadbalancer.passHostHeader=true"
 
   traefik:
-    image: traefik:v3.4
+    image: chatapp-gateway
+    build:
+      context: ./traefik
+      dockerfile: Dockerfile
     restart: always
     ports:
       - "3001:80"       # Clients still hit :3001
-      - "8080:8080"     # Dashboard (dev only)
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik.yml:/etc/traefik/traefik.yml:ro

@@ -7,3 +7,4 @@ COPY traefik.ecs.yml /etc/traefik/traefik.yml
 COPY dynamic/ /etc/traefik/dynamic/
 
 EXPOSE 80
+EXPOSE 8080

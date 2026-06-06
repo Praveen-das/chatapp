@@ -21,6 +21,6 @@ http:
           - "Accept"
           - "Cache-Control"
         accessControlAllowOriginList:
-          - "*"                           # TODO: Lock down to specific domains before real production
+          - "*" # TODO: Lock down to specific domains before real production
         accessControlMaxAge: 3600
         addVaryHeader: true

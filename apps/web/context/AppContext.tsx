@@ -21,6 +21,7 @@ import { useSessionStore } from "store/sessionStore";
 import { usePersistentStore } from "store/persistentStore";
 import useSocket from "./SocketProvider";
 import { IUser } from "@repo/interfaces/userInterface";
+import useAccessToken from "@hooks/useAccessToken";
 
 const { setActiveSessions, setCurrentSession } = useSessionStore.getState().actions;
 const { setConversations, updateConversation, upsertConversation } =
@@ -314,7 +315,10 @@ export const AppContext = ({ children }: PropsWithChildren) => {
             .filter((id) => Boolean(id));
 
           sendPresence([...connections], userRules, blockedUsers);
-          socket.auth = { userId, channels, session: currentSession };
+
+          const token = useAccessToken.getState().accessToken;
+
+          socket.auth = { token, channels, session: currentSession };
           if (!socket.connected) socket.connect();
         }
         setSyncError(null);

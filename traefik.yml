@@ -1,9 +1,9 @@
 # Traefik Static Configuration
 # =============================================================
 
-api:
-  dashboard: true
-  insecure: true # Dashboard on :8080 without auth (dev only)
+# api:
+#   dashboard: true
+#   insecure: true # Dashboard on :8080 without auth (dev only)
 
 entryPoints:
   web:

@@ -87,6 +87,6 @@ COPY --from=installer --chown=expressjs:expressjs /app/packages/utils ./packages
 
 USER expressjs
 
-EXPOSE 3002
+EXPOSE 3002 3003
 
 CMD ["node", "apps/socket-service/dist/index.js"]

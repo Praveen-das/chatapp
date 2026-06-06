@@ -90,6 +90,7 @@ services:
       - KAFKA_SSL_CA_B64=${KAFKA_SSL_CA_B64}
       - KAFKA_SSL_CERT_B64=${KAFKA_SSL_CERT_B64}
       - KAFKA_SSL_KEY_B64=${KAFKA_SSL_KEY_B64}
+      - HEALTH_PORT=3003
     networks:
       - backend-net
     labels:
@@ -101,13 +102,14 @@ services:
       - "traefik.http.services.socket.loadbalancer.passHostHeader=true"
 
   traefik:
-    image: ${ECR_REGISTRY}/chatvia-gateway:${IMAGE_TAG:-latest}
+    image: chatapp-gateway
     build:
       context: ./traefik
       dockerfile: Dockerfile
     restart: always
     ports:
-      - "3001:80"
+      - "80:80"
+      # - "8080:8080"
     networks:
       - backend-net
     healthcheck:

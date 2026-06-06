@@ -1,35 +1,29 @@
-import { Server, Socket } from "socket.io";
+import { verifyAccessToken } from "@repo/utils";
+import { ISocket } from "../interfaces/socketInterfaces";
 
-import client from "../redis/client";
+/**
+ * Pure auth gate — verifies the access token and attaches userId to socket.
+ * No side effects (no joins, no emits). Those belong in the connection handler.
+ */
+export default async function mainAuthMiddleware(socket: ISocket, next: (err?: Error) => void) {
+  const token = socket.handshake.auth.token;
 
-interface ISocket extends Socket {
-  user?: {
-    id: string;
-    username: string;
-  };
-  sessionId?: string;
-  userId?: string;
-  username?: string;
-}
-
-export default async function mainAuthMiddleware(socket: ISocket, io: Server, next: any) {
-  const auth = socket.handshake.auth;
-  const userId = auth.userId;
-  const session = auth.session;
-  const channels: string[] = auth.channels || [];
-
-  if (userId) {
-    socket.userId = userId;
-    socket.join(userId);
-
-    if (!!channels.length) {
-      channels.forEach((channel) => socket.join(channel));
-    }
-
-    io.to(userId).emit("SAVE_SESSION", session);
-
-    return next();
+  if (!token) {
+    return next(new Error("Authentication error: no token provided"));
   }
 
-  return next(new Error("Not authorized"));
+  const payload = await verifyAccessToken(token);
+
+  if (!payload) {
+    return next(new Error("Authentication error: invalid token"));
+  }
+
+  if (payload.expired) {
+    return next(new Error("Authentication error: token expired"));
+  }
+
+  socket.userId = payload.userId;
+  socket.sessionId = payload.sessionId;
+
+  return next();
 }

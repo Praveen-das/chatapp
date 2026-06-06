@@ -1,9 +1,7 @@
 import { IUserConversation } from "@interfaces/conversationInterface";
 import { getReceiverMetadata, getActiveUsers } from "@lib/conversation";
 import { ISocket } from "@lib/ws";
-import otp_socket from "@lib/ws_otp";
 import { IUserBlockRequest } from "@repo/interfaces/conversationInterface";
-import { ISession } from "@repo/interfaces/sessionInterface";
 import { IUser, IUserRuleChangeRequest } from "@repo/interfaces/userInterface";
 import { useConversationStore } from "store/conversationStore";
 
@@ -15,14 +13,6 @@ export function userEmitters(socket: ISocket, user: IUser) {
 
     sendPresence: (to: Array<string>, rules?: string[], blockedUsers?: string[]) => {
       socket.emit("USER_CONNECTED", to, rules, blockedUsers);
-    },
-
-    sendOTPVerificationRequest: (userId: string) => {
-      otp_socket.auth = { OTP_REQUEST: true };
-      otp_socket.connect();
-      otp_socket.emit("OTP_REQUEST", { userId }, () => {
-        otp_socket.disconnect();
-      });
     },
 
     sendRequestToEndSession: (sessionIds: string[]) => {
@@ -63,7 +53,7 @@ export function userEmitters(socket: ISocket, user: IUser) {
       socket.emit(
         "UPDATE_USER_RULE",
         req,
-        sockets
+        sockets,
         //     , ({ userId, rule }: IUserRuleChangeRequest) => {
         //     if (userId === user.id) {
         //       const hasRule = user.rules?.includes(rule);
