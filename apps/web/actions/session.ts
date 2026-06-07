@@ -58,7 +58,12 @@ export async function createTokens(user: IUser) {
       },
     };
 
-    !process.env.NEXT_PUBLIC_CLIENT_ONLY && (await axiosClient.post("/session", JSON.stringify(sessionData)));
+    try {
+      console.log("saving session to db");
+      await axiosClient.post("/session", JSON.stringify(sessionData));
+    } catch (error) {
+      console.log("error in saving session to db:", (error as AxiosError).message);
+    }
 
     return { access_token, refresh_token, sessionId };
   } catch (error: any) {
@@ -73,14 +78,26 @@ export type RefreshResult =
 
 export async function refreshToken(): Promise<RefreshResult> {
   try {
-    const res = await validateRefreshToken();
+    let res = null;
+    try {
+      res = await validateRefreshToken();
 
-    if (!res) {
-      return { error: "auth_failed" };
+      if (!res) {
+        console.log("no response");
+        return { error: "auth_failed" };
+      }
+    } catch (error) {
+      console.log("error in validateRefreshToken");
+      throw error;
     }
 
-    const access_token = await createAccessToken({ userId: res.userId });
-    return { token: access_token };
+    try {
+      const access_token = await createAccessToken({ userId: res.userId });
+      return { token: access_token };
+    } catch (error) {
+      console.log("error in createAccessToken");
+      throw error;
+    }
   } catch (error) {
     if (error instanceof AxiosError) {
       const status = error.response?.status;

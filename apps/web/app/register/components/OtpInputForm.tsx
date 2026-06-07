@@ -53,6 +53,7 @@ export default function OtpInputForm() {
           // Skip recovery if local keys already exist
           const localPub = localStorage.getItem("e2e_public_key");
           const localPriv = localStorage.getItem("e2e_private_key");
+
           if (localPub && localPriv) {
             shouldKeepLoading = true;
             return router.replace("/");
@@ -61,11 +62,13 @@ export default function OtpInputForm() {
           // No local keys — check if the user has a recovery key backup
           const session = await getSession();
           const user = session?.user;
+
           if (user?.encryptedPrivateKey && user?.publicKey) {
             setVerifiedUser(user);
             shouldKeepLoading = true;
             return router.replace("/recover");
           }
+
           shouldKeepLoading = true;
           return router.replace("/");
         } else if (res?.error === "UNREGISTERED_USER") setForm("profile_info");

@@ -99,6 +99,7 @@ const useContextData = () => {
         let result: RefreshResult = { error: "server_unavailable" };
 
         for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+          console.log("refreshToken attempt: ", attempt);
           result = await refreshToken();
 
           // Success or definitive auth failure — stop retrying
@@ -109,7 +110,7 @@ const useContextData = () => {
             await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
           }
         }
-
+        console.log({ result });
         if (result.token) {
           setAccessToken(result.token);
         } else if (result.error === "auth_failed") {

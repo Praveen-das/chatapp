@@ -14,7 +14,7 @@ const useAxios = () => {
         }
         return config;
       },
-      (error) => Promise.reject(error)
+      (error) => Promise.reject(error),
     );
 
     let responseIntercept = axiosClient.interceptors.response.use(
@@ -23,6 +23,7 @@ const useAxios = () => {
         const prevRequest = error?.config;
         if (error?.response?.status === 401 && !prevRequest?.sent) {
           prevRequest.sent = true;
+          console.log("refreshToken triggered!");
           const result = await refreshToken();
 
           if (result.token) {
@@ -39,7 +40,7 @@ const useAxios = () => {
           return Promise.reject(error);
         }
         return Promise.reject(error);
-      }
+      },
     );
 
     return () => {
