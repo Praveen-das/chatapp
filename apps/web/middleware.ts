@@ -5,6 +5,8 @@ const privateRoutes = ["/api", "/server"];
 
 export default async function middleware(req: NextRequest, event: NextResponse) {
   const pathname = req.nextUrl.pathname;
+
+  if (pathname.startsWith("/db") || pathname.startsWith("/session")) return NextResponse.next();
   const token = await getToken({ req: req as any });
   const isAuthenticated = !!token?.user?.id;
   const isPrivateRoute = privateRoutes.some((route) => pathname.startsWith(route)) || pathname === "/";

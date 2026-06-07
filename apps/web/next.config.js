@@ -6,8 +6,12 @@ module.exports = {
   async rewrites() {
     return [
       {
-        source: "/api/external/:path*",
-        destination: "http://gateway-alb-313359290.ap-south-1.elb.amazonaws.com*",
+        source: "/db/:path*",
+        destination: `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"}/db/:path*`,
+      },
+      {
+        source: "/session/:path*",
+        destination: `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"}/session/:path*`,
       },
     ];
   },
