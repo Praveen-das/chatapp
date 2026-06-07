@@ -28,6 +28,6 @@ export async function fetchUser(phonenumber: string): Promise<IUser | null> {
     if (res.data?.error) throw res.data.error;
     return res.data;
   } catch (error: any) {
-    throw error.message;
+    throw error;
   }
 }

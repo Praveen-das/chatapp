@@ -3,6 +3,7 @@ import { IUser } from "@repo/interfaces/userInterface";
 import { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { createUser, fetchUser } from "./signIn";
+import { AxiosError } from "axios";
 
 declare module "next-auth" {
   interface Session {
@@ -11,7 +12,7 @@ declare module "next-auth" {
     expires: number;
   }
 
-  interface User extends IUser { }
+  interface User extends IUser {}
 }
 
 declare module "next-auth/jwt" {
@@ -67,8 +68,7 @@ export const authOptions: AuthOptions = {
           return null;
         } catch (error: any) {
           // Extract backend error message from Axios response if available
-          const message =
-            error?.response?.data?.error?.message ?? error?.message ?? "Authentication failed";
+          const message = error?.response?.data?.error?.message ?? error?.message ?? "Authentication failed";
           throw new Error(message);
         }
       },
@@ -78,11 +78,15 @@ export const authOptions: AuthOptions = {
   callbacks: {
     async jwt({ token, user, session, trigger }) {
       if (user) {
-        const { refresh_token, sessionId } = await createTokens(user);
-
         token.user = user;
-        token.refresh_token = refresh_token;
-        token.sessionId = sessionId;
+        try {
+          const { refresh_token, sessionId } = await createTokens(user);
+          token.refresh_token = refresh_token;
+          token.sessionId = sessionId;
+        } catch (error) {
+          console.error("[jwt callback] createTokens failed:", error);
+          // Still set user on token — session works without refresh_token
+        }
       }
 
       if (trigger === "update" && session?.user) {

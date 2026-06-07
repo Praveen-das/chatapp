@@ -24,8 +24,18 @@ const cookie: any = {
 
 export async function createTokens(user: IUser) {
   try {
-    const { os, browser, device } = getDeviceDetails();
-    const { city } = await getGeoLocationDetails();
+    let os = "Unknown", browser = "Unknown", device = "Unknown", city = "Unknown";
+    try {
+      ({ os, browser, device } = getDeviceDetails());
+    } catch {
+      // Device details unavailable (e.g. missing user-agent header)
+    }
+    try {
+      ({ city } = await getGeoLocationDetails());
+    } catch {
+      // Geo lookup failed (network / rate-limit)
+    }
+
     const sessionId = crypto.randomUUID();
 
     const access_token = await createAccessToken({ userId: user.id, sessionId });
@@ -46,8 +56,8 @@ export async function createTokens(user: IUser) {
     !process.env.NEXT_PUBLIC_CLIENT_ONLY && (await axiosClient.post("/session", JSON.stringify(sessionData)));
 
     return { access_token, refresh_token, sessionId };
-  } catch (error) {
-    console.log(error);
+  } catch (error: any) {
+    console.error("[createTokens] actual error:", error);
     throw Error("Token creation failed");
   }
 }
