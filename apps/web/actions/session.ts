@@ -24,15 +24,20 @@ const cookie: any = {
 
 export async function createTokens(user: IUser) {
   try {
-    let os = "Unknown", browser = "Unknown", device = "Unknown", city = "Unknown";
+    let os = "Unknown",
+      browser = "Unknown",
+      device = "Unknown",
+      city = "Unknown";
     try {
       ({ os, browser, device } = getDeviceDetails());
-    } catch {
+    } catch (error) {
+      console.log("getDeviceDetails failed", error);
       // Device details unavailable (e.g. missing user-agent header)
     }
     try {
       ({ city } = await getGeoLocationDetails());
-    } catch {
+    } catch (error) {
+      console.log("getGeoLocationDetails failed", error);
       // Geo lookup failed (network / rate-limit)
     }
 
