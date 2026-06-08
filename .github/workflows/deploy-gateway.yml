@@ -2,7 +2,7 @@ name: Deploy Gateway to Amazon ECS
 
 on:
   push:
-    branches: ["master"]
+    branches: ["main"]
     paths:
       - "traefik/**"
       - "docker-compose.prod.yml"
