@@ -9,7 +9,7 @@ export const saveSessionSchema = z.object({
       os: z.string().optional(),
       device: z.string().optional(),
       city: z.string().optional(),
-      timestamp: z.number(),
+      timestamp: z.number().optional(),
     }),
     self: z.boolean().optional(),
     expired: z.boolean().optional(),
