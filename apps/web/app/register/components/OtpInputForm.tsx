@@ -32,16 +32,15 @@ export default function OtpInputForm() {
 
       const body = { phonenumber: "+" + phonenumber.value, code: otp };
 
-      // const verificationCheck = await axiosClient.post("/db/otp/verify", body).then((res) => res.data);
+      const verificationCheck = await axiosClient.post("/db/otp/verify", body).then((res) => res.data);
 
-      // if (verificationCheck.status === "pending") throw Error("Invalid OTP");
+      if (verificationCheck.status === "pending") throw Error("Invalid OTP");
 
-      // if (verificationCheck.status === "approved") {
-      if (true) {
+      if (verificationCheck.status === "approved") {
         // Store the OTP token for the signup flow
-        // if (verificationCheck.otpToken) {
-        //   setOtpToken(verificationCheck.otpToken);
-        // }
+        if (verificationCheck.otpToken) {
+          setOtpToken(verificationCheck.otpToken);
+        }
 
         const res = await signIn("credentials", {
           phoneNumber: phonenumber.value,

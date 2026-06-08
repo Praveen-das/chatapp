@@ -40,11 +40,11 @@ const useContextData = () => {
       if (phonenumber.error) setPhonenumber((prev) => ({ ...prev, error: "" }));
 
       const body = { phonenumber: "+" + phonenumber.value };
-      // const verification = await axiosClient.post("/db/otp/send", body).then((res) => res.data);
+      const verification = await axiosClient.post("/db/otp/send", body).then((res) => res.data);
 
-      // if (verification.status === "pending") {
-      // }
-      setForm("otp");
+      if (verification.status === "pending") {
+        setForm("otp");
+      }
     } catch (error) {
       console.log(error);
       if (error instanceof AxiosError) {
