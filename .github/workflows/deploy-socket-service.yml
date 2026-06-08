@@ -2,7 +2,7 @@ name: Deploy Socket Service to Amazon ECS
 
 on:
   push:
-    branches: ["master"]
+    branches: ["main"]
     paths:
       - "apps/socket-service/**"
       - "packages/**"

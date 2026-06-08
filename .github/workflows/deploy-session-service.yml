@@ -2,7 +2,7 @@ name: Deploy Session Service to Amazon ECS
 
 on:
   push:
-    branches: ["master"]
+    branches: ["main"]
     paths:
       - "apps/session-service/**"
       - "packages/**"

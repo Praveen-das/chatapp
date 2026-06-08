@@ -2,7 +2,7 @@ name: Deploy Backend to Amazon ECS
 
 on:
   push:
-    branches: ["master"]
+    branches: ["main"]
     paths:
       - "apps/backend/**"
       - "packages/**"
