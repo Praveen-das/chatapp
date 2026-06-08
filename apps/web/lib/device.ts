@@ -49,12 +49,10 @@ export function getDeviceDetails() {
 }
 
 export async function getGeoLocationDetails(): Promise<{ city: string }> {
-  const response = await fetch("https://ipapi.co/json/")
+  return await fetch("https://ipapi.co/json/")
     .then((res) => res.json())
     .catch((err) => {
       console.log("getGeoLocationDetails error:", err);
       throw err;
     });
-
-  return response;
 }
