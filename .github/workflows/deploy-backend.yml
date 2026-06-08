@@ -1,0 +1,66 @@
+name: Deploy Backend to Amazon ECS
+
+on:
+  push:
+    branches: ["master"]
+    paths:
+      - "apps/backend/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "turbo.json"
+      - "docker-compose.prod.yml"
+      - "ecs/task-definitions/backend.json"
+      - ".github/workflows/deploy-backend.yml"
+
+env:
+  AWS_REGION: ap-south-1
+  ECS_CLUSTER: chatvia-prod
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker compose -f docker-compose.prod.yml build backend
+          docker compose -f docker-compose.prod.yml push backend
+
+      - name: Fill in the new image ID in the Backend ECS task definition
+        id: task-def-backend
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ecs/task-definitions/backend.json
+          container-name: chatvia-backend-container
+          image: ${{ steps.login-ecr.outputs.registry }}/chatvia-backend-service:${{ github.sha }}
+
+      - name: Deploy Backend to Amazon ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def-backend.outputs.task-definition }}
+          service: chatvia-backend-service
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true

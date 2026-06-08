@@ -77,7 +77,6 @@ export const authOptions: AuthOptions = {
 
   callbacks: {
     async jwt({ token, user, session, trigger }) {
-      if (session?.user) console.log("session existssssssssssssssssssssssss");
       if (user) {
         token.user = user;
         try {

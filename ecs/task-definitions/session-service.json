@@ -1,0 +1,81 @@
+{
+  "family": "chatvia-session-service-td",
+  "containerDefinitions": [
+    {
+      "name": "chatvia-session-service",
+      "image": "483528439286.dkr.ecr.ap-south-1.amazonaws.com/chatvia-session-service:latest",
+      "cpu": 0,
+      "portMappings": [
+        {
+          "containerPort": 5000,
+          "hostPort": 5000,
+          "protocol": "tcp",
+          "name": "chatvia-session-service-5000-tcp",
+          "appProtocol": "http"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "REDIS_SERVICE_URI",
+          "value": "rediss://default:AVNS_D1LlsRwX88JbAGmseag@valkey-2a17d43d-viralapp.a.aivencloud.com:28908"
+        },
+        {
+          "name": "JWT_ACCESS_TOKEN_SECRET_KEY",
+          "value": "8fe4dd1a542ae836b9715e7bc3b8c2f950f886d63c61bbb1fa8cd28f1c020ab78327a7ee69b9d7db325e451e68f959ab779f5e35b1806cc7459749520e39a27f"
+        },
+        {
+          "name": "JWT_USER_TOKEN_SECRET_KEY",
+          "value": "c8de8aa33f43ce16cd67267acf47c6d253d13f78d27104f29e0e0a98f76d6c4216c0e452d6a071b616aeb4a6a64a1a3fd80f29e050ac568510ad8bc33ba60a30"
+        },
+        {
+          "name": "JWT_REFRESH_TOKEN_SECRET_KEY",
+          "value": "0abf3954309b54ed31273251ef0fe07e66edb75dc1febd7e4cb3d7a137583e2a3262cb5a517600af8014782bcbf0ed5f53c431cd38e35d787a133cdb7b90e0ca"
+        }
+      ],
+      "environmentFiles": [],
+      "mountPoints": [],
+      "volumesFrom": [],
+      "dockerLabels": {
+        "traefik.http.routers.session.rule": "PathPrefix(`/session`)",
+        "traefik.http.routers.session.service": "chatvia-session-service",
+        "traefik.http.routers.session.middlewares": "strip-session,cors-headers@file",
+        "traefik.enable": "true",
+        "traefik.http.routers.session.entrypoints": "web",
+        "traefik.http.services.chatvia-session-service.loadbalancer.server.port": "5000",
+        "traefik.http.middlewares.strip-session.stripprefix.prefixes": "/session"
+      },
+      "ulimits": [],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/chatvia-session-service-td",
+          "awslogs-create-group": "true",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs"
+        },
+        "secretOptions": []
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget -qO- http://127.0.0.1:5000/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3
+      },
+      "systemControls": []
+    }
+  ],
+  "taskRoleArn": "arn:aws:iam::483528439286:role/ecsTaskRole",
+  "executionRoleArn": "arn:aws:iam::483528439286:role/ecsTaskExecutionRole",
+  "networkMode": "awsvpc",
+  "volumes": [],
+  "placementConstraints": [],
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "runtimePlatform": {
+    "cpuArchitecture": "X86_64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "enableFaultInjection": false
+}

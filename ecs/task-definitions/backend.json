@@ -1,0 +1,128 @@
+{
+  "family": "chatvia-backend-td",
+  "containerDefinitions": [
+    {
+      "name": "chatvia-backend-container",
+      "image": "483528439286.dkr.ecr.ap-south-1.amazonaws.com/chatvia-backend-service:latest",
+      "cpu": 512,
+      "memory": 1024,
+      "memoryReservation": 512,
+      "portMappings": [
+        {
+          "containerPort": 4000,
+          "hostPort": 4000,
+          "protocol": "tcp",
+          "name": "chatvia-backend-container-4000-tcp",
+          "appProtocol": "http"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "REDIS_HOST",
+          "value": "valkey-2a17d43d-viralapp.a.aivencloud.com"
+        },
+        {
+          "name": "KAFKA_SSL_KEY_B64",
+          "value": "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUcvUUlCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQnVjd2dnYmpBZ0VBQW9JQmdRQ3gyMC9Ha0tkMXhrcTIKMVBqbHRudWNYMGJmRSthQWxNWFk4K2VCTDdYWmJqanowbW5QTzhIYTljckZLSGJnUkxtajd0bUw2SHZTWmpzUgprditBQ21FcnExRHhjM093OW5rUVp4c0JMNzVmYTZYNysxdWVZcG9ETDh4RUhKN0FkRFBaYXdSKzFMM3hLY3hlClY3MWh2bnlINFU1VEZ1NGNrZGpPWGN0OXNDT05rWEpqNDIvcm8zcXB4WUxQQ0tqcUd5d0FBcWVvT1lTaUtLU20KU1hxU1MyV2pObDloRmp6OC9VM2owa1RHZkR0Z3JHcTY0QVNlNjNOT3M0KzM5QWk4Q1o5WkVJZmRVRDNZMmJSaQp4dlE1d2xvbGhWRkVxalZuMlBXT0F1ZlhndDNuN29zUEEzWXBCS3Z0VXUzdk8rdW5PS2ErdEI3a0ZwamRjNXJOCkc0TGRMTnVoMlMzaDI4VEFSQ1RQNGgra3dxemVEWFJiUkVZT2NBUGEvbGVONTdJdEF6RUk0Uk5uS1dFV0pkODYKNG1PbnhtUy84cm4vWG10QWd4UHN5dE41TGN3T2VpVk1IOUNGOVpWanp1UTFzMk9HOS9WVFJIR25sa3J1RmszaAphVnFNVVZIcTRwaFRSNzRhZkQ1dlIwMnhrVUFrUnFnUkZSdTNmVFZTRkZsUm9tYnlzWGtDQXdFQUFRS0NBWDl6CnU0SHR5UWlFV3NQRFg2ZVdmV2djdzQxdnhrTk02Q3pWNm9zazc5RjZsWDZrZjF3d0VzZlNTSjZVTEtzdUdZcGQKdDNsWUpscHNUcG1oUUp1QmRlcEZGYUFBMHdvMU1pMFZGSzA5MkdqSWhBUG8zcngvYVNuNWFPRHRIQWZjQ1JhMApJNFNKV0x0QWNvZkozQ04xREdsOFZ6VTFzWFlWUzlKZHpDcmVDVlVaTkhaN0NVUTFlK3RyRGJCUTNXY003eUZ5Cml2SmpSUXBKZXFqK2k2Y2hZRzZDc0o3ZitOaU1ISjE5TnhZSnZQZm1XdllZZVlLSVBDM2hjeUVuVW1TeDl6cU8KQjVOZG5aR0RwVkhlVFRnTmtzNzllN3krMFRlZElLMzFXbC9tdndOZHJicXMxNFBKMWNjQWhaSlMvVkdBVVFqQQp0aEQ5cm5CNjV3Q3lzY2JEWUtOaFVRSEIzVTBZeGswT0pwdnVQVUR3SXJRWWhaR1VseTJOYWJiL3lpNElVaHNVCnFXdm5oUVFqQW1HRGNqOW1yZ29xZWVtRUFlSlZJd2lSbXpsQXcyN2RNZEJVSDhKNE50Tm5USklrYjhvbWFVNWsKWm1qMjJLNjBLZm5rblZvYTVkdUZMWFVCRGVDamhhVlVWYjYzVU9XcUg3M3ZTU0RHOUpVSGthQ3NQeWxPUVFLQgp3UURoV1VWZHpub2k0dEw0TVhWTXdKR3ErNk8rb0ljK1ZYZ1dob296TG52MXNIY2M1TjFoUkp1UnNVelU3Z2JBCnVKSGJSTnFPbmU3SVA5amo3VzVXNHl1a09Eam4wZmZCekczQW0xeW14b2t6cXU0V2laZ2JFakFsNDRTSnprQjIKdWQ2RVBGQVdJL0ppTWFqS3plWStMMlpCMXk1aGY1R0I4VEd0eE9BZlB4R1B3c3pYS1VnbHgvNUpwUWFSL1VOZQpjbkErMk5sVWgyWWs2OExUTkU1ZzVZMS9kOGlYQ01lcHh4ZmNhU3kyeWpwQ0sySGptdURSVlZUa3VtbExjK2pyCjg1a0NnY0VBeWd4WmxSeXg5M1hLZUp6S0VRNUtQTi9tU2VSWDB5NUN6eWplVnV2aXZBaG1wTW1ua0VYcTlScksKOWRjV2ViSFlGRnk0TFdRR2JNajZmU3pXdkJnbWNEQU16N2dCajFIV1VBWFdOR09XaGN6Ny9PeGZLWXlPdDZlSwpTRm0yb0tTTUs1eXhCNXBkYmg2ejU5UlFEbVErWUtEZU93QXNWZWpKKzNKYkN4Q2l2RDgwVHFPcTcrZjdVdFQvCnFwMkRoK0JpYTVJd3JFOFZvUS9pc1JmYlM3RjkycWFtL09hbkFBbWVxM3hOTmhyOHNVZ2N1UVpkSDZnSFliaTQKTTNRSG5WamhBb0hCQUsrS3h3cG9DYVNiWlJTS0VvSVRrR1hOV0tUcWorL3l6SFZmb05CMTZZSmVVS3RsYlQ2VQpIMHZDL2NMeEdMbVFEYTd0V0FPNDY0VjZsdzRXcXRsc1pWYXJwVWlRdTV0d0VCNzE1NXJURlpYMkZUbmhQV2Y1Ckp5Q2N0MlpTRU0xcnhQYmx0TTFLZTBvYXZRNGVqcmpxVzVIMmVkN2hiUXY0UTJiRjhvRGt0RjEwdGZUMTU0bm0KM1NPcE5oRUxaU3R4b2hhUy9kbG5FQjY2dVMybGxWak4rUWZPMjZjcjQ3MVJwampBaFdCdThDc1RlRkhCR0ZoNQpUSVJRNGkwd3djVHNJUUtCd1FDejRvTHZTdmozaEp1YS9weTR5cXcxdm5IZFg3c0JmYkpsbGRFK09nMUhzNE1QCk82by92TUFQTUtkNmNPREZ3QnpOSkMrbDJlUU9mbkRsZVVKRmZJcmNYeXRJMUY0dko0RlRCWjlNVFUzNkdpSlAKY0hMWkh4Y0JVOXk5eFlIZlRDQ3Z3M1dwZXptcmpSSkhXTE5kM01uY1pkejFVcFltZG5jOXN2Wnp4My9iY2JvMApPV3M2NUtMUmdHbVBrV1ZGVi9USUtRUEVwVFJ3alNBYTQwNk8rWnMvVEJob0dVS2R1ZkxXWW5pcnJ5TkRBeHp2CmJrY0NwQ3JPU2hOVlcveGJqb0VDZ2NBQ3VWSnAwSW5yVXJuTGRZbFFWdlYzU2xlVEZpa2ZDbGxBWFA4SDVJK3oKdUkrWmNJRzJISEo2NGN6bS92TGhUc09hQk8wMERRVGtBYXVmOWozdnp6ZWFkRWlMQ25QYWtseGFYenRIVy9ZQgp3VzRUbHBidjdlajdIMFhaTXBRYjdFRU1ncmJHcFVCdjVsYk1lOGhLR3JvMmFVZHN3R0x6OHF2bGxPQmNaMVFjCmF5QmhNbDMxdzh1ODNlWWwwR09LSmU3MThRNE5uZnhPL3FlcG15MGRtQWRodGhjdGREUGJOTGpCRGExVmprQkUKOXlkWGhyRTRpZEIwNDBiZFNnMGw3NjQ9Ci0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0K"
+        },
+        {
+          "name": "GEMINI_API_KEY",
+          "value": "AIzaSyD76hu5KsJCVgrY8gmi-MTgwjp2TDKwW1Q"
+        },
+        {
+          "name": "JWT_ACCESS_TOKEN_SECRET_KEY",
+          "value": "8fe4dd1a542ae836b9715e7bc3b8c2f950f886d63c61bbb1fa8cd28f1c020ab78327a7ee69b9d7db325e451e68f959ab779f5e35b1806cc7459749520e39a27f"
+        },
+        {
+          "name": "MONGODB_URL",
+          "value": "mongodb+srv://chatappdb:Q1eUqgPLE5pUzGzT@cluster0.fnmdz.mongodb.net/chatdb"
+        },
+        {
+          "name": "KAFKA_HOST",
+          "value": "kafka-f6c1f2-viralapp.h.aivencloud.com:28909"
+        },
+        {
+          "name": "KAFKA_SSL_CERT_B64",
+          "value": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVYekNDQXNlZ0F3SUJBZ0lVVzBDOEJLQXovV3dNMjhGRGQ3VTdRU2J4ZjY0d0RRWUpLb1pJaHZjTkFRRU0KQlFBd09qRTRNRFlHQTFVRUF3d3ZNREpsTkRsbU5XUXROamt6WkMwME1HRTFMVGczTkRrdFl6VmtPVGRqWm1ObQpOV1UxSUZCeWIycGxZM1FnUTBFd0hoY05Nall3TlRJd01qRTBNREV3V2hjTk1qZ3dPREUzTWpFME1ERXdXakE5Ck1SVXdFd1lEVlFRS0RBeHJZV1pyWVMxbU5tTXhaakl4RVRBUEJnTlZCQXNNQ0hVemJEaGlOM281TVJFd0R3WUQKVlFRRERBaGhkbTVoWkcxcGJqQ0NBYUl3RFFZSktvWklodmNOQVFFQkJRQURnZ0dQQURDQ0FZb0NnZ0dCQUxIYgpUOGFRcDNYR1NyYlUrT1cyZTV4ZlJ0OFQ1b0NVeGRqejU0RXZ0ZGx1T1BQU2FjODd3ZHIxeXNVb2R1QkV1YVB1CjJZdm9lOUptT3hHUy80QUtZU3VyVVBGemM3RDJlUkJuR3dFdnZsOXJwZnY3VzU1aW1nTXZ6RVFjbnNCME05bHIKQkg3VXZmRXB6RjVYdldHK2ZJZmhUbE1XN2h5UjJNNWR5MzJ3STQyUmNtUGpiK3VqZXFuRmdzOElxT29iTEFBQwpwNmc1aEtJb3BLWkplcEpMWmFNMlgyRVdQUHo5VGVQU1JNWjhPMkNzYXJyZ0JKN3JjMDZ6ajdmMENMd0puMWtRCmg5MVFQZGpadEdMRzlEbkNXaVdGVVVTcU5XZlk5WTRDNTllQzNlZnVpdzhEZGlrRXErMVM3ZTg3NjZjNHByNjAKSHVRV21OMXptczBiZ3QwczI2SFpMZUhieE1CRUpNL2lINlRDck40TmRGdEVSZzV3QTlyK1Y0M25zaTBETVFqaApFMmNwWVJZbDN6cmlZNmZHWkwveXVmOWVhMENERSt6SzAza3R6QTU2SlV3ZjBJWDFsV1BPNURXelk0YjM5Vk5FCmNhZVdTdTRXVGVGcFdveFJVZXJpbUZOSHZocDhQbTlIVGJHUlFDUkdxQkVWRzdkOU5WSVVXVkdpWnZLeGVRSUQKQVFBQm8xb3dXREFkQmdOVkhRNEVGZ1FVd3g0c01aV0RkYkR3UkgrVENRN3hnQkN2a1Ewd0NRWURWUjBUQkFJdwpBREFMQmdOVkhROEVCQU1DQmFBd0h3WURWUjBqQkJnd0ZvQVVRdWNpUUhDeGpDd054ZVF6WTdTT0pjaEdhMDR3CkRRWUpLb1pJaHZjTkFRRU1CUUFEZ2dHQkFFeWNmcS9aYUMwMDlMUTVpL0JMT3dxSU5CSi8xVGN2OVNmbjB6WXkKcUxXQ0MvSkFTQUh5MU5xbmc1Y1lnclNkcDVNajQyY1I1M1E1M3RjVnU0V2hRSjhDR25ZQm5OV2tqNk5Eby9UagozYlY1MHMrVk9HWTRLQ1JTMUlBQmVZSGJxdjRUa3o4TXhlbUEwMGRUNFREYWs4RGpjZmc4SkNYcUEybHozVnczCkZzeFZuWDE5TmxDaFR2aEtWZnUrUjlUdEVla1NkZWJVZTVoUWpUTTBXVERjeWwvbnVTL2U2cXlZUEREK3RucDIKNkhuRlQzMmQ4b0pOWDdYZk1rcmlyVGtqOU9Ra0dQOWYvNU1xckthaHRnS2JseDNQa0xxMFhDeHYrVkhDSVB3MQplK2FVZktOd2MzN0dzTGw4VnNrZHNHUEtNd2U5aGFRRzRoMHVDUGNxaTRNY0EvakI0S2pSWk9VOUh6K3ArUnZrCnlNZk5iSG55bVNvRHdqVGN0SEcwZnB4ZnlIVUYvM0pBMEVRVnN3OXJTQ0hVMVNHQ0cxZjVFdXk1dENzaHNORzUKQ0tmbWQ5eEF6OUw3YVJiK2V3MzZLSHk5Y3dOWDdOTHZoclFwZlltU0NjQkhYUWdLRDIxMXpzNWs3N0xmUHo5MwpmYU1TWG5kcWNTY0JJbCtnSXd2dWVUSFY0dz09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K"
+        },
+        {
+          "name": "REDIS_PORT",
+          "value": "28908"
+        },
+        {
+          "name": "TWILIO_SERVICE_SID",
+          "value": "VA319329072a5475032d5811b562d881dd"
+        },
+        {
+          "name": "REDIS_PASSWORD",
+          "value": "AVNS_D1LlsRwX88JbAGmseag"
+        },
+        {
+          "name": "KAFKA_SSL_CA_B64",
+          "value": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUVSRENDQXF5Z0F3SUJBZ0lVS0sra1VMVUxJQ0VBcCtxQWNkNFVROUdtcUZNd0RRWUpLb1pJaHZjTkFRRU0KQlFBd09qRTRNRFlHQTFVRUF3d3ZNREpsTkRsbU5XUXROamt6WkMwME1HRTFMVGczTkRrdFl6VmtPVGRqWm1ObQpOV1UxSUZCeWIycGxZM1FnUTBFd0hoY05Nall3TlRFNU1UUXhPVEk1V2hjTk16WXdOVEUyTVRReE9USTVXakE2Ck1UZ3dOZ1lEVlFRRERDOHdNbVUwT1dZMVpDMDJPVE5rTFRRd1lUVXRPRGMwT1Mxak5XUTVOMk5tWTJZMVpUVWcKVUhKdmFtVmpkQ0JEUVRDQ0FhSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnR1BBRENDQVlvQ2dnR0JBS1pBaXByRApLenA0MWJkWjFWTytZeHhIaFBacDliNlpRYk5xckJjUlp5M0VqN3NSSExqc2M1eTh6M2dLdmpPR0tlUkppQUU4ClYzVzIvOS9XVXZLTHBHSTcwYXBvd1l6L1ZjMXlRRVRtejhvVzJSL3d4QjhBSlh2R0pKNmpyYjZmb1grbXpsenUKNithR1dvRVJnVGQzUTk4VGMxWmdscFQ5MnVFbEUvSmhjcWFmc2ZTMzRLY25oVldqZnVyT2dRSG5vSzR6QkswTwpjQVRUWE4yLzBuN0g1bjBEVkh0TGZ0dVdUMEptc05kZFQxaVY5bHhGWWJKM1ovUHUxZk1OMklvQlhKYWZrcXJDCmFhaEpjTE1FRnI2YitXT29jdmtFanZyWmlFb1VWSzNSSmZlLzg5TjVXclJ0OTI1MTl3ZDYvdWxib1pNWDV2dzMKdk5iQmZZRXY4Zm5UWXFCWHZlQnk4aFJtOVNQT1hMUURmSmJkQVZiMVpRZnJTRE54VW1TTTkrTkpuMVdjNkFiSgp2UlhqbDlIRWYya2V1TnhRZUxJeVNvVC9UTW93ckVvRmRNdDJ0WmVmNUxEcWdxZmFLeXFTaXNqbmhxLzMvYk1GCjEwbEp2d003b2hrNVRLTWFlVlJuTFFYOHVxSUFqVUxBOHNZRXU3NGw3aFdUWXhWd1ljR2RrUFY1S3dJREFRQUIKbzBJd1FEQWRCZ05WSFE0RUZnUVVRdWNpUUhDeGpDd054ZVF6WTdTT0pjaEdhMDR3RWdZRFZSMFRBUUgvQkFndwpCZ0VCL3dJQkFEQUxCZ05WSFE4RUJBTUNBUVl3RFFZSktvWklodmNOQVFFTUJRQURnZ0dCQUNzTDM0eFkzMUVCCjdtVURab3VVSGx4WWJTZjVRWFI1M1VhZGNmNFRESkp5TkM3T21IUFI3Q3FiSHZmN1JsV24yVmZlQTNQZC9Eb0wKcVU0U2Z4K2ZqRkR2aXBtR0tmY3ZIeGdwVTFTUVMyQ0Y2Sk5PSnBIK2tmanJzeUF3ZmhPSENyNDNnbEdyVDMyawo4SlJpNkt4NUZvVG1pOEIyQVpMaXRDOVFLZ3doeFZ0bnIzYkU1cTNSamhOQXo4NWZzMWFyR1JQdWtvcWVmNUF0ClNFdXh4dWhxZFlFVURmQk5Ta0R5WTFKRGpRMW05cThiQzJkc1I3d0U1dlRYOXpmT080NjNTaCt3akI4bERMRG8KS1JxbWcxTlcrTHhyUzhPNWdTVUxrVXFrS3lBbnY1djVKZmExeFhralZxaEE5dlFXcVFPdG1UaUlKT25Hdm1WQwpJS0VGK0YrcHBGcjJtM3hSZmhpVHpCTERKMllZQ0FCbU92eWlJUG9zNUNEeFF5RlRSNDV3U2pTMHFzQjlYcmtICmc4K2FhWlZ0YmNUdmNudmhWVit5TWJ2eVZ0MkJBbWZYcVNQdFlJSDZVcndIREhjeU5vYlowNGdmOFdYUjdXeDYKb2xqTkRQTE14ckJWNmhUT1dMZE9Sc3JvK2FaZGVaeUxDekVsSzVRZklPZW9MYnVEZ3BSaW1BPT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUtLS0tLQo="
+        },
+        {
+          "name": "REDIS_USERNAME",
+          "value": "default"
+        },
+        {
+          "name": "TWILIO_AUTH_TOKEN",
+          "value": "b669e7270f0c889c2738b3cf159156a3"
+        },
+        {
+          "name": "JWT_USER_TOKEN_SECRET_KEY",
+          "value": "c8de8aa33f43ce16cd67267acf47c6d253d13f78d27104f29e0e0a98f76d6c4216c0e452d6a071b616aeb4a6a64a1a3fd80f29e050ac568510ad8bc33ba60a30"
+        },
+        {
+          "name": "TWILIO_ACCOUNT_SID",
+          "value": "AC833e28e47edccd4f1220ea5ba21ad57f"
+        }
+      ],
+      "environmentFiles": [],
+      "mountPoints": [],
+      "volumesFrom": [],
+      "dockerLabels": {
+        "traefik.enable": "true",
+        "traefik.http.routers.chatvia-backend.entrypoints": "web",
+        "traefik.http.routers.chatvia-backend.rule": "PathPrefix(`/db`)",
+        "traefik.http.routers.chatvia-backend.service": "chatvia-backend-service",
+        "traefik.http.middlewares.strip-db.stripprefix.prefixes": "/db",
+        "traefik.http.routers.chatvia-backend.middlewares": "strip-db,cors-headers@file",
+        "traefik.http.services.chatvia-backend-service.loadbalancer.server.port": "4000"
+      },
+      "ulimits": [],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/chatvia-backend-td",
+          "awslogs-create-group": "true",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs"
+        },
+        "secretOptions": []
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/health || exit 1"],
+        "interval": 10,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      },
+      "systemControls": []
+    }
+  ],
+  "taskRoleArn": "arn:aws:iam::483528439286:role/ecsTaskRole",
+  "executionRoleArn": "arn:aws:iam::483528439286:role/ecsTaskExecutionRole",
+  "networkMode": "awsvpc",
+  "volumes": [],
+  "placementConstraints": [],
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "runtimePlatform": {
+    "cpuArchitecture": "X86_64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "enableFaultInjection": false
+}

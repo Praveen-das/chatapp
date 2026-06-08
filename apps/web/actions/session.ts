@@ -28,12 +28,14 @@ export async function createTokens(user: IUser) {
       browser = "Unknown",
       device = "Unknown",
       city = "Unknown";
+
     try {
       ({ os, browser, device } = getDeviceDetails());
     } catch (error) {
       console.log("getDeviceDetails failed", error);
       // Device details unavailable (e.g. missing user-agent header)
     }
+
     try {
       ({ city } = await getGeoLocationDetails());
     } catch (error) {
@@ -60,6 +62,7 @@ export async function createTokens(user: IUser) {
 
     try {
       console.log("saving session to db");
+      console.log(sessionData);
       await axiosClient.post("/session", JSON.stringify(sessionData));
     } catch (error) {
       console.log("error in saving session to db:", (error as AxiosError).message);

@@ -1,133 +1,24 @@
-# =============================================================
-# Production Docker Compose — Build, Push & Run
-# =============================================================
-# Build & Push to ECR:
-#   docker compose -f docker-compose.prod.yml build
-#   docker compose -f docker-compose.prod.yml push
-#
-# Run on EC2:
-#   docker compose -f docker-compose.prod.yml up -d
-#
-# Required .env vars:
-#   ECR_REGISTRY=<account-id>.dkr.ecr.<region>.amazonaws.com
-#   IMAGE_TAG=latest  (or git sha, semver, etc.)
-# =============================================================
-
 services:
   sessionservice:
     image: ${ECR_REGISTRY}/chatvia-session-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: ./apps/session-service/Dockerfile
-    restart: always
-    depends_on:
-      traefik:
-        condition: service_healthy
-    environment:
-      - REDIS_SERVICE_URI=${REDIS_SERVICE_URI}
-      - JWT_USER_TOKEN_SECRET_KEY=${JWT_USER_TOKEN_SECRET_KEY}
-      - JWT_REFRESH_TOKEN_SECRET_KEY=${JWT_REFRESH_TOKEN_SECRET_KEY}
-      - JWT_ACCESS_TOKEN_SECRET_KEY=${JWT_ACCESS_TOKEN_SECRET_KEY}
-    networks:
-      - backend-net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.session.rule=PathPrefix(`/session`)"
-      - "traefik.http.routers.session.entrypoints=web"
-      - "traefik.http.routers.session.middlewares=strip-session@file,cors-headers@file"
-      - "traefik.http.services.session.loadbalancer.server.port=5000"
 
   backend:
     image: ${ECR_REGISTRY}/chatvia-backend-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: ./apps/backend/Dockerfile
-    restart: always
-    depends_on:
-      traefik:
-        condition: service_healthy
-    environment:
-      - MONGODB_URL=${MONGODB_URL}
-      - JWT_USER_TOKEN_SECRET_KEY=${JWT_USER_TOKEN_SECRET_KEY}
-      - JWT_ACCESS_TOKEN_SECRET_KEY=${JWT_ACCESS_TOKEN_SECRET_KEY}
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
-      - TWILIO_SERVICE_SID=${TWILIO_SERVICE_SID}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - REDIS_USERNAME=${REDIS_USERNAME}
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - KAFKA_HOST=${KAFKA_HOST}
-      - KAFKA_SSL_CA_B64=${KAFKA_SSL_CA_B64}
-      - KAFKA_SSL_CERT_B64=${KAFKA_SSL_CERT_B64}
-      - KAFKA_SSL_KEY_B64=${KAFKA_SSL_KEY_B64}
-    networks:
-      - backend-net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=PathPrefix(`/db`)"
-      - "traefik.http.routers.backend.entrypoints=web"
-      - "traefik.http.routers.backend.middlewares=strip-db@file,cors-headers@file"
-      - "traefik.http.services.backend.loadbalancer.server.port=4000"
 
   socket-service:
     image: ${ECR_REGISTRY}/chatvia-socket-service:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: ./apps/socket-service/Dockerfile
-    restart: always
-    depends_on:
-      traefik:
-        condition: service_healthy
-    environment:
-      - REDIS_SERVICE_URI=${REDIS_SERVICE_URI}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-      - REDIS_USERNAME=${REDIS_USERNAME}
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - KAFKA_HOST=${KAFKA_HOST}
-      - KAFKA_SSL_CA_B64=${KAFKA_SSL_CA_B64}
-      - KAFKA_SSL_CERT_B64=${KAFKA_SSL_CERT_B64}
-      - KAFKA_SSL_KEY_B64=${KAFKA_SSL_KEY_B64}
-      - HEALTH_PORT=3003
-    networks:
-      - backend-net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.socket.rule=PathPrefix(`/socket.io`)"
-      - "traefik.http.routers.socket.entrypoints=web"
-      - "traefik.http.routers.socket.middlewares=cors-headers@file"
-      - "traefik.http.services.socket.loadbalancer.server.port=3002"
-      - "traefik.http.services.socket.loadbalancer.passHostHeader=true"
 
   traefik:
-    image: chatapp-gateway
+    image: ${ECR_REGISTRY}/chatvia-gateway:${IMAGE_TAG:-latest}
     build:
       context: ./traefik
       dockerfile: Dockerfile
-    restart: always
-    ports:
-      - "80:80"
-      # - "8080:8080"
-    networks:
-      - backend-net
-    healthcheck:
-      test: ["CMD", "traefik", "healthcheck"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 256M
-        reservations:
-          cpus: "0.25"
-          memory: 128M
-
-networks:
-  backend-net:
-    name: chatvia_backend-net
-    driver: bridge
