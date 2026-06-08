@@ -114,5 +114,4 @@
     "cpuArchitecture": "X86_64",
     "operatingSystemFamily": "LINUX"
   },
-  "enableFaultInjection": false
 }
