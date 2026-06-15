@@ -8,6 +8,7 @@ import {
   activityLookup,
   conversationLookup,
   conversationMessagesLookup,
+  currentUserReadReceiptLookup,
   groupLookup,
   membersLookup,
   messagesLookup,
@@ -15,6 +16,7 @@ import {
   starredMessagesLookup,
   userLookup,
 } from "../db/stages/stages.js";
+import PublicKeyHistory from "../models/PublicKeyHistoryModel.js";
 import { IGroupConversation, IUserConversation } from "../interfaces/conversationInterface.js";
 import Conversations from "../models/ConversationModel.js";
 import Dummy from "../models/Dummy.js";
@@ -28,7 +30,10 @@ import MessageReadReceipt from "../models/MessageReadReceipt.js";
 import { syncRegistry } from "../lib/SyncRegistry.js";
 import { fetchGroupsByUserId } from "./groupServices.js";
 import userServices from "./userServices.js";
-import { SaveConversationSyncState, SaveConversationSyncStateFieldValues } from "@repo/interfaces/syncRegistryInterface.js";
+import {
+  SaveConversationSyncState,
+  SaveConversationSyncStateFieldValues,
+} from "@repo/interfaces/syncRegistryInterface.js";
 
 async function saveConversations({
   conversationBody,
@@ -132,10 +137,15 @@ async function fetchAllConversations() {
 
 async function getUserConversation(userId: Types.ObjectId) {
   try {
+    const activeKeyDoc = await PublicKeyHistory.findOne({ userId, status: "active" });
+    const activatedAt = activeKeyDoc ? activeKeyDoc.activatedAt : 0;
+
     const pipeline = [
       {
         $match: { userId },
       },
+
+      ...currentUserReadReceiptLookup(userId),
 
       ...readReceiptLookup(),
 
@@ -143,14 +153,12 @@ async function getUserConversation(userId: Types.ObjectId) {
 
       ...membersLookup(),
 
-      conversationMessagesLookup(userId),
+      conversationMessagesLookup(userId, undefined, activatedAt),
 
       starredMessagesLookup(),
     ];
 
     const res = await UserConversation.aggregate(pipeline);
-
-    console.log("tUserConversation------>", res?.length);
 
     return res as IUserConversation[];
   } catch (error) {
@@ -296,6 +304,7 @@ const createPipeline = (
   host: "user" | "group" | "ai",
   req: any,
   readReceiptEntries?: Types.ObjectId[],
+  activatedAt: number = 0,
 ) => {
   const matchStage = { $match: { userId, conversationId: new Types.ObjectId(conversationId) } };
 
@@ -303,10 +312,11 @@ const createPipeline = (
     if (host === "user")
       return [
         matchStage,
+        ...currentUserReadReceiptLookup(userId),
         ...readReceiptLookup(readReceiptEntries),
         ...conversationLookup(),
         ...membersLookup(),
-        conversationMessagesLookup(userId),
+        conversationMessagesLookup(userId, undefined, activatedAt),
         starredMessagesLookup(),
       ];
 
@@ -337,7 +347,10 @@ const createPipeline = (
   if (req.lastKnownMessageTimestamp) {
     if (host === "group")
       pipeline.push(messagesLookup({ userId, lastKnownMessageTimestamp: req.lastKnownMessageTimestamp }));
-    if (host === "user") pipeline.push(conversationMessagesLookup(userId, req.lastKnownMessageTimestamp));
+    if (host === "user") {
+      pipeline.push(...currentUserReadReceiptLookup(userId));
+      pipeline.push(conversationMessagesLookup(userId, req.lastKnownMessageTimestamp, activatedAt));
+    }
     if (host === "ai") pipeline.push(conversationMessagesLookup(userId, req.lastKnownMessageTimestamp));
   }
 
@@ -363,6 +376,9 @@ async function fetchConversations(userId: Types.ObjectId, conversationEntries: C
   if (!conversationEntries.length) return [];
 
   try {
+    const activeKeyDoc = await PublicKeyHistory.findOne({ userId, status: "active" });
+    const activatedAt = activeKeyDoc ? activeKeyDoc.activatedAt : 0;
+
     const res: Record<string, PipelineStage[]> = {};
     const resultKeys: Set<string> = new Set();
 
@@ -370,7 +386,7 @@ async function fetchConversations(userId: Types.ObjectId, conversationEntries: C
       const pipeline = {
         $unionWith: {
           coll: req.host === "group" ? "groupconversations" : "userconversations",
-          pipeline: createPipeline(req.conversationId!, userId, req?.host!, req),
+          pipeline: createPipeline(req.conversationId!, userId, req?.host!, req, undefined, activatedAt),
         },
       };
 
@@ -431,10 +447,9 @@ async function saveMessageReadReceipt(readReceipts: z.infer<typeof readReceiptsS
     }));
 
     const res = await MessageReadReceipt.bulkWrite(ops);
-    console.log(res);
+
     if (res.ok) {
       const asd = await syncRegistry.saveReadReceiptEntries(readReceipts);
-      console.log(asd);
     }
     return res;
   } catch (error) {
@@ -507,7 +522,10 @@ async function doFullSync(userIdParsed: Types.ObjectId, userId: string) {
         stack: error.stack,
       });
     } else {
-      console.error(`[doFullSync] Unexpected error performing database baseline synchronization for user ${userId}:`, error);
+      console.error(
+        `[doFullSync] Unexpected error performing database baseline synchronization for user ${userId}:`,
+        error,
+      );
     }
     throw error;
   }

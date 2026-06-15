@@ -3,10 +3,12 @@ import { useLoading } from "@features/ui/InitialLoader";
 import InitializationError from "@features/ui/InitializationError";
 import useAuth from "@hooks/useAuth";
 import useAxios from "@hooks/useAxios";
-import { IConversation } from "@interfaces/conversationInterface";
+import { IConversation, IUserConversation } from "@interfaces/conversationInterface";
 import { IMessage } from "@interfaces/messageInterface";
-import { getReceiver, handleSettingGroupAdmin } from "@lib/conversation";
-import { processMessagesForUser, registerMessages } from "@lib/messages";
+import { getReceiver, handleSettingGroupAdmin, getConversationByConversationId } from "@lib/conversation";
+import { processMessagesForUser, registerMessages, findPlaintextMessage } from "@lib/messages";
+import { encryptMessage, decryptMessage, E2E_WAITING_MESSAGE, resolvePublicKeyForTimestamp } from "@lib/e2e";
+import { useE2eeStore } from "store/e2eStore";
 import socket from "@lib/ws";
 import { MessageReadReceipt } from "@repo/interfaces/messageInterface";
 import { ISession } from "@repo/interfaces/sessionInterface";
@@ -39,7 +41,8 @@ type AppPostReq = {
 
 export const AppContext = ({ children }: PropsWithChildren) => {
   const { session, updateSession } = useAuth();
-  const { sendReadReceiptChangeRequest, sendPresence, sendConversationActivationRequest } = useSocket();
+  const { sendReadReceiptChangeRequest, sendPresence, sendConversationActivationRequest, requestReencrypt } =
+    useSocket();
   const setIsLoaded = useConversationStore((s) => s.conversationActions.setIsLoaded);
   const axios = useAxios();
   const setModal = useStore((s) => s.setModal);
@@ -122,10 +125,32 @@ export const AppContext = ({ children }: PropsWithChildren) => {
       for (const conversation of conversations) {
         let conversationId = conversation.id;
 
-        const { unreadMessages, aiMessages, messages, imageAttachments, urlAttachments } = await processMessagesForUser(
-          conversation.messages,
-          conversation,
-        );
+        const { unreadMessages, aiMessages, messages, imageAttachments, urlAttachments, failedDecryptionMessageIds } =
+          await processMessagesForUser(conversation.messages, conversation);
+
+        if (failedDecryptionMessageIds && failedDecryptionMessageIds.length > 0) {
+          useMessageStore.getState().addWaitingDecryptionIds(failedDecryptionMessageIds);
+        }
+
+        if (failedDecryptionMessageIds && failedDecryptionMessageIds.length > 0 && conversation.host === "user") {
+          const otherMember = conversation.members.find((m) => m.userId !== conversation.userId);
+          const myPublicKey = useE2eeStore.getState().myPublicKeyJwk;
+
+          if (otherMember && myPublicKey) {
+            const { pendingReencryptRequests, addPendingReencrypt } = useE2eeStore.getState();
+            const newFailedIds = failedDecryptionMessageIds.filter((id) => !pendingReencryptRequests.has(id));
+            if (newFailedIds.length > 0) {
+              addPendingReencrypt(newFailedIds);
+              requestReencrypt({
+                messageIds: newFailedIds,
+                conversationId: conversation.conversationId!,
+                requesterPublicKey: myPublicKey,
+                requesterId: user?.id!,
+                targetUserId: otherMember.userId,
+              });
+            }
+          }
+        }
 
         const mediaStore = { images: imageAttachments, link: urlAttachments };
         const recentMessage = messages?.at(-1);
@@ -141,7 +166,7 @@ export const AppContext = ({ children }: PropsWithChildren) => {
         if (recentMessage) {
           if (
             !!unreadMessages.length &&
-            conversation.readReceipt?.[user?.id!]?.lastDeliveredMessageTimestamp! < recentMessage.timestamp &&
+            (conversation.readReceipt?.[user?.id!]?.lastDeliveredMessageTimestamp || 0) < recentMessage.timestamp &&
             recentMessage?.from !== user?.id &&
             (conversation.host === "user" || conversation.host === "group")
           ) {
@@ -173,7 +198,13 @@ export const AppContext = ({ children }: PropsWithChildren) => {
 
       readReceiptUpdates.length > 0 && sendReadReceiptChangeRequest(readReceiptUpdates);
       setMessageHistory(messageStore);
-      setConversations(conversationsCollection);
+
+      const existingConversations = useConversationStore.getState().conversations;
+      if (existingConversations.length === 0) {
+        setConversations(conversationsCollection);
+      } else {
+        upsertConversation(conversationsCollection);
+      }
     }
 
     async function updateMessagesForConversation(messagesCollection: IConversation[]) {
@@ -182,12 +213,34 @@ export const AppContext = ({ children }: PropsWithChildren) => {
       for (const c of messagesCollection) {
         let conversationId = c.conversationId;
         let userConversationId = c.id;
-
         const res = await registerMessages({ messages: c.messages!, conversationId });
 
         if (!res) continue;
 
-        const { recentMessage } = res;
+        const { recentMessage, failedDecryptionMessageIds } = res;
+
+        if (failedDecryptionMessageIds && failedDecryptionMessageIds.length > 0) {
+          useMessageStore.getState().addWaitingDecryptionIds(failedDecryptionMessageIds);
+        }
+
+        if (failedDecryptionMessageIds && failedDecryptionMessageIds.length > 0 && res.conversation.host === "user") {
+          const otherMember = res.conversation.members.find((m) => m.userId !== res.conversation.userId);
+          const myPublicKey = useE2eeStore.getState().myPublicKeyJwk;
+          if (otherMember && myPublicKey) {
+            const { pendingReencryptRequests, addPendingReencrypt } = useE2eeStore.getState();
+            const newFailedIds = failedDecryptionMessageIds.filter((id) => !pendingReencryptRequests.has(id));
+            if (newFailedIds.length > 0) {
+              addPendingReencrypt(newFailedIds);
+              requestReencrypt({
+                messageIds: newFailedIds,
+                conversationId: res.conversation.conversationId!,
+                requesterPublicKey: myPublicKey,
+                requesterId: user?.id!,
+                targetUserId: otherMember.userId,
+              });
+            }
+          }
+        }
 
         if (recentMessage) {
           readReceiptUpdates.push({
@@ -278,6 +331,90 @@ export const AppContext = ({ children }: PropsWithChildren) => {
       }
     }
 
+    async function processPendingReencrypts(targetUserId: string) {
+      try {
+        const res = await axios.get<any[]>(`/db/messages/pending-reencrypts?userId=${targetUserId}`);
+        const requests = res.data;
+        if (!requests || requests.length === 0) return;
+
+        const myPrivateKey = useE2eeStore.getState().myPrivateKeyJwk;
+        if (!myPrivateKey) return;
+
+        for (const req of requests) {
+          const reencryptedMessages: { id: string; message: string; publicKeyTimestamp?: number }[] = [];
+          const now = Date.now();
+          for (const msgId of req.messageIds) {
+            const plaintext = findPlaintextMessage(msgId, req.conversationId);
+            if (plaintext) {
+              const newCiphertext = await encryptMessage(plaintext, req.requesterPublicKey, myPrivateKey);
+              reencryptedMessages.push({ id: msgId, message: newCiphertext, publicKeyTimestamp: now });
+            }
+          }
+
+          if (reencryptedMessages.length > 0) {
+            socket.emit("REENCRYPT_RESPONSE", {
+              messages: reencryptedMessages,
+              conversationId: req.conversationId,
+              targetUserId: req.requesterId,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Failed to process pending re-encrypt requests:", err);
+      }
+    }
+
+    async function checkWaitingMessagesDecryption() {
+      try {
+        const { waitingDecryptionIds, removeWaitingDecryptionIds } = useMessageStore.getState();
+        if (waitingDecryptionIds.size === 0) return;
+
+        const waitingIds = Array.from(waitingDecryptionIds);
+
+        const res = await axios.post<IMessage[]>("/db/messages/by-ids", { messageIds: waitingIds });
+        const fetchedMessages = res.data;
+        if (!fetchedMessages || fetchedMessages.length === 0) return;
+
+        const myPrivateKey = useE2eeStore.getState().myPrivateKeyJwk || undefined;
+        const updates: { [convId: string]: IMessage[] } = {};
+
+        for (const m of fetchedMessages) {
+          const conversation = getConversationByConversationId(m.conversationId!);
+          if (!conversation) continue;
+
+          const otherMember = (conversation as IUserConversation).members.find(
+            (mb) => mb.userId !== conversation.userId,
+          );
+          const otherUser = otherMember ? useStore.getState().users.get(otherMember.userId) : null;
+          const otherPublicKey = resolvePublicKeyForTimestamp(
+            otherUser?.publicKeyHistory,
+            otherUser?.publicKey,
+            m.publicKeyTimestamp ?? m.timestamp,
+          );
+
+          const decryptedText = await decryptMessage(m.message, otherPublicKey, myPrivateKey);
+          if (decryptedText !== E2E_WAITING_MESSAGE) {
+            const userConvId = conversation.id;
+            if (!updates[userConvId]) {
+              updates[userConvId] = [];
+            }
+            updates[userConvId].push({
+              ...m,
+              message: decryptedText,
+            });
+            useE2eeStore.getState().removePendingReencrypt([m.id]);
+            removeWaitingDecryptionIds([m.id]);
+          }
+        }
+
+        Object.entries(updates).forEach(([convId, msgs]) => {
+          useMessageStore.getState().updateUserMessages(convId, msgs);
+        });
+      } catch (err) {
+        console.error("Failed to check waiting messages decryption:", err);
+      }
+    }
+
     async function init() {
       try {
         const userId = user?.id;
@@ -292,8 +429,6 @@ export const AppContext = ({ children }: PropsWithChildren) => {
             }),
         ]);
 
-        console.log({ sessions });
-
         const validSessions = Array.isArray(sessions) ? sessions : [];
 
         if (validSessions.length > 0) {
@@ -305,7 +440,6 @@ export const AppContext = ({ children }: PropsWithChildren) => {
           }
           setActiveSessions(activeSessions);
 
-          console.log("connecting websock");
           const { channels, connections } = getSocketMetadata(storedConversations);
 
           const userRules = user?.rules || [];
@@ -320,6 +454,9 @@ export const AppContext = ({ children }: PropsWithChildren) => {
 
           socket.auth = { token, channels, session: currentSession };
           if (!socket.connected) socket.connect();
+
+          await processPendingReencrypts(userId!);
+          await checkWaitingMessagesDecryption();
         }
         setSyncError(null);
       } catch (error) {

@@ -12,7 +12,7 @@ export const userRules = z.array(
     "hide_readreceipts",
     "disable_chat_assist",
     "disable_content_awareness",
-  ])
+  ]),
 );
 
 export const userSchema = z.object({
@@ -22,7 +22,6 @@ export const userSchema = z.object({
   profilePicture: z.string(),
   bio: z.string().optional(),
   tags: z.array(z.string()).optional(),
-  publicKey: z.string().optional(),
   encryptedPrivateKey: z.string().optional(),
 });
 

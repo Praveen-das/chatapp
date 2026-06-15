@@ -62,6 +62,7 @@ export const messageSchema = new Schema<IMessage>({
   to: Schema.Types.Mixed,
   message: String,
   timestamp: { type: Number, default: () => Date.now() },
+  publicKeyTimestamp: Number,
   type: {
     type: String,
     enum: ["message", "placeholder", "service_message", "notification"],

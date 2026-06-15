@@ -13,6 +13,7 @@ import { APP_NAME } from "config/constants";
 import NotificationToggle from "./SharedComponents/NotificationToggle";
 import useAuth from "@hooks/useAuth";
 import { SparkSolid } from "iconoir-react";
+import { ProfileHeader, ProfileCard } from "./SharedComponents/ProfileLayouts";
 
 function AiProfile() {
   const { user } = useAuth();
@@ -47,37 +48,32 @@ function AiProfile() {
   return (
     <div className="w-full h-full flex flex-col">
       {/* Header */}
-      <div className="min-h-16 w-full flex items-center max-sm:gap-2 gap-4 max-sm:px-2 px-4">
-        <button onClick={closeProfile} className={`btn btn-sm btn-ghost btn-circle`}>
-          <ChevronRightIcon className="size-5" />
-        </button>
-        <label htmlFor="contact info">AI info</label>
-      </div>
+      <ProfileHeader title="AI info" onBack={closeProfile} />
 
       {/* Profile details */}
-      <div className="flex h-full gap-8 max-sm:pt-2 pt-4 text-sm flex-col overflow-y-scroll max-sm:pb-3 pb-10 no-scrollbar">
-        {/* profile */}
-        <div className="flex gap-8 items-center max-sm:px-4 px-8">
-          <div className="avatar">
-            <SparkSolid className="size-14" />
+      <div className="flex-1 flex relative gap-6 pt-4 text-sm flex-col overflow-y-auto pb-10 no-scrollbar">
+        {/* Profile Card */}
+        <div className="flex gap-6 items-center px-4 py-4 border-b border-base-content/5">
+          <div className="flex items-center justify-center w-[80px] h-[80px] bg-primary/10 text-primary rounded-full shrink-0">
+            <SparkSolid className="size-9" />
           </div>
-          <div className="flex flex-col gap-2">
-            <label className="text-base text-base-content" htmlFor="">
-              {"AI Assistant"}
-            </label>
-            <div className="-ml-1">Powered by Google Gemini</div>
+          <div className="flex flex-col gap-1 flex-1 min-w-0">
+            <span className="text-lg font-bold text-base-content truncate">AI Assistant</span>
+            <span className="text-xs text-base-content/50">Powered by Google Gemini</span>
           </div>
         </div>
 
-        {/* about */}
-        <div className="w-full flex flex-col max-sm:px-4 px-8">
-          <p className="leading-7">I am your AI assistant, here to help you with your queries and tasks.</p>
-        </div>
+        {/* AI Details Card */}
+        <ProfileCard title="Description">
+          <p className="text-sm text-base-content/80 leading-relaxed">
+            I am your AI assistant, here to help you with your queries, brainstorming, coding, and general tasks.
+          </p>
+        </ProfileCard>
 
-        <div className="space-y-1 divide-y-[1.75px] divide-[--base-300-400] max-sm:mt-2 sm:mt-4 max-sm:px-4 px-8 [&>div]:h-16">
+        {/* Preferences Card */}
+        <ProfileCard title="Preferences" variant="list">
           <StarredMessages />
-          {/* <MediaSelection conversationId={conversation?.id!} /> */}
-        </div>
+        </ProfileCard>
       </div>
     </div>
   );

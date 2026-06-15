@@ -3,6 +3,7 @@ import { IMessageReply } from "@repo/interfaces/messageInterface";
 import useAuth from "@hooks/useAuth";
 import { PhotoIcon } from "@heroicons/react/16/solid";
 import {  getUserById } from "@lib/conversation";
+import { E2E_WAITING_MESSAGE } from "@lib/e2e";
 
 export function ReplyMessage({ reply, onClick }: { reply: IMessageReply; onClick: () => void }) {
   if (!reply) return null;
@@ -11,7 +12,8 @@ export function ReplyMessage({ reply, onClick }: { reply: IMessageReply; onClick
   const replyAttachment = reply.attachment;
   const sender = getUserById(reply.userId);
   const self = user?.id === sender?.id;
-  const messageString = reply.message;
+  
+  const messageString = reply.message === E2E_WAITING_MESSAGE ? "⏳ Waiting for this message..." : reply.message;
 
   return (
     <div

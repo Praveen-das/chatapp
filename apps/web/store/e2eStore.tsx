@@ -7,6 +7,7 @@ interface IE2eeState {
   showBackupModal: boolean;
   myPrivateKeyJwk: string | null;
   myPublicKeyJwk: string | null;
+  pendingReencryptRequests: Set<string>;
 }
 
 interface IE2eeActions {
@@ -15,6 +16,8 @@ interface IE2eeActions {
   setHasCloudBackup: (value: boolean) => void;
   setShowBackupModal: (show: boolean) => void;
   clearKeys: () => void;
+  addPendingReencrypt: (ids: string[]) => void;
+  removePendingReencrypt: (ids: string[]) => void;
 }
 
 type IE2eeStore = IE2eeState & IE2eeActions;
@@ -26,6 +29,7 @@ export const useE2eeStore = create<IE2eeStore>((set) => ({
   showBackupModal: false,
   myPrivateKeyJwk: null,
   myPublicKeyJwk: null,
+  pendingReencryptRequests: new Set<string>(),
 
   setKeys: (publicKey, privateKey) =>
     set({
@@ -39,6 +43,20 @@ export const useE2eeStore = create<IE2eeStore>((set) => ({
   setHasCloudBackup: (value) => set({ hasCloudBackup: value }),
   setShowBackupModal: (show) => set({ showBackupModal: show }),
 
+  addPendingReencrypt: (ids) =>
+    set((state) => {
+      const next = new Set(state.pendingReencryptRequests);
+      ids.forEach((id) => next.add(id));
+      return { pendingReencryptRequests: next };
+    }),
+
+  removePendingReencrypt: (ids) =>
+    set((state) => {
+      const next = new Set(state.pendingReencryptRequests);
+      ids.forEach((id) => next.delete(id));
+      return { pendingReencryptRequests: next };
+    }),
+
   clearKeys: () =>
     set({
       isInitialized: false,
@@ -47,5 +65,6 @@ export const useE2eeStore = create<IE2eeStore>((set) => ({
       showBackupModal: false,
       myPrivateKeyJwk: null,
       myPublicKeyJwk: null,
+      pendingReencryptRequests: new Set<string>(),
     }),
 }));

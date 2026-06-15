@@ -1,19 +1,16 @@
 "use client";
 
-import TagInput from "@features/ui/TagInput";
-import { ChevronRightIcon } from "@heroicons/react/24/solid";
-import { PropsWithChildren, memo, useCallback } from "react";
+import { memo } from "react";
 import useSocket from "../../../context/SocketProvider";
-import { IConversation, IGroupConversation, IUserConversation } from "@repo/interfaces/conversationInterface";
-import { IUser } from "@repo/interfaces/userInterface";
+import { IGroupConversation } from "@repo/interfaces/conversationInterface";
 import { useConversationStore } from "../../../store/conversationStore";
 import { useStore } from "../../../store/global";
 import { useMessageStore } from "../../../store/messageStore";
 import Avatar from "../../ui/Avatar";
 import MediaSelection from "./SharedComponents/MediaSelection";
 import StarredMessages from "./SharedComponents/StarredMessages";
-import useConversation from "@hooks/useConversation";
 import { APP_NAME } from "config/constants";
+import { ProfileHeader, ProfileCard } from "./SharedComponents/ProfileLayouts";
 
 function SystemProfile() {
   const { sendConversationDeleteRequest } = useSocket();
@@ -21,7 +18,7 @@ function SystemProfile() {
   const setModal = useStore((s) => s.setModal);
   const setSelectedUser = useStore((s) => s.setSelectedUser);
   const { updateConversation, setSelectedConversation } = useConversationStore((s) => s.conversationActions);
-  const conversation = useConversationStore(s=>s.selectedConversation)
+  const conversation = useConversationStore((s) => s.selectedConversation);
   const toggleProfile = useStore((s) => s.toggleProfile);
   const profileTab = useStore((s) => s.profileTab);
   const setDeviceTab = useStore((s) => s.setDeviceTab);
@@ -58,67 +55,36 @@ function SystemProfile() {
   return (
     <div className="w-full h-full flex flex-col">
       {/* Header */}
-      <div className="min-h-16 w-full flex items-center max-sm:gap-2 gap-4 max-sm:px-2 px-4">
-        <button onClick={closeProfile} className={`btn btn-sm btn-ghost btn-circle`}>
-          <ChevronRightIcon className="size-5" />
-        </button>
-        <label htmlFor="contact info">Chat info</label>
-      </div>
+      <ProfileHeader title="Chat info" onBack={closeProfile} />
 
       {/* Profile details */}
-      <div className="flex h-full gap-8 max-sm:pt-2 pt-4 text-sm flex-col overflow-y-scroll max-sm:pb-3 pb-10 no-scrollbar">
-        {/* profile */}
-        <div className="flex gap-8 items-center max-sm:px-4 px-8">
-          <Avatar url={"/favicon.svg"} size="70px" onlineIndication={false} onClick={openViewProfilePictureModal} />
-          <div className="flex flex-col gap-2">
-            <label className="text-base text-base-content" htmlFor="">
-              {APP_NAME}
-            </label>
-            <div className="-ml-1">System notification</div>
+      <div className="flex-1 flex relative gap-6 pt-4 text-sm flex-col overflow-y-auto pb-10 no-scrollbar">
+        {/* Profile Card */}
+        <div className="flex gap-6 items-center px-4 py-4 border-b border-base-content/5">
+          <Avatar url={"/favicon.svg"} size="80px" onlineIndication={false} onClick={openViewProfilePictureModal} />
+          <div className="flex flex-col gap-1 flex-1 min-w-0">
+            <span className="text-lg font-bold text-base-content truncate">{APP_NAME}</span>
+            <span className="text-xs text-base-content/50">System notification</span>
           </div>
         </div>
 
-        <div className="space-y-1 divide-y-[1.75px] divide-[--base-300-400] max-sm:mt-2 sm:mt-4 max-sm:px-4 px-8 [&>div]:h-16">
+        {/* Preferences & Shared Media Card */}
+        <ProfileCard title="Preferences & Media" variant="list">
           <StarredMessages />
           <MediaSelection conversationId={conversation?.id!} />
-        </div>
+        </ProfileCard>
 
-        {/* Actions */}
-        <div className="flex flex-col gap-2 mt-auto max-sm:px-4 px-8">
+        {/* Actions Footer */}
+        <div className="flex flex-col gap-2.5 px-4 mt-auto pt-6">
           {conversation?.host !== "group" && conversation?.active && (
-            <div
+            <button
               onClick={handleDeletingConversation}
-              tabIndex={0}
-              className="btn btn-block btn-error !text-[--black-white]"
+              className="btn btn-block btn-error !text-[--black-white] rounded-2xl font-bold py-3.5 shadow-sm pressable"
             >
               Delete chat
-            </div>
+            </button>
           )}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function Group({ group }: { group: IGroupConversation }) {
-  const profileTab = useStore((s) => s.profileTab);
-  const { setSelectedConversation } = useConversationStore((s) => s.conversationActions);
-
-  function handleSelectedGroup() {
-    const setSelectedUser = useStore.getState().setSelectedUser;
-    setSelectedConversation(group.id);
-    setSelectedUser(null);
-    profileTab.back();
-  }
-
-  return (
-    <div
-      onClick={handleSelectedGroup}
-      className="hover:bg-[--hover-secondary] w-full flex items-center gap-4 max-sm:px-4 px-8 py-3 cursor-pointer"
-    >
-      <Avatar url={group.profilePicture} onlineIndication={false} size="40px" />
-      <div className="flex flex-col justify-center pointer-events-none">
-        <label htmlFor="">{group.displayName}</label>
       </div>
     </div>
   );

@@ -249,7 +249,6 @@ const _saveMessageReadReceipt = async (req: string, reset: () => void) => {
   try {
     const parsed = JSON.parse(req);
     const readReceipts = readReceiptsSchema.parse(parsed.readReceipts);
-    console.log(readReceipts);
 
     const response = await conversationServices.saveMessageReadReceipt(readReceipts);
   } catch (error) {
@@ -262,7 +261,10 @@ const _syncConversations = async (req: Request, res: Response) => {
   try {
     // Check if database is connected before executing any query
     if (mongoose.connection.readyState !== 1) {
-      console.error("[_syncConversations] Database connection outage detected: readyState =", mongoose.connection.readyState);
+      console.error(
+        "[_syncConversations] Database connection outage detected: readyState =",
+        mongoose.connection.readyState,
+      );
       return res.status(503).json({
         error: { message: "Database connection failed. Please ensure MongoDB is running and connected." },
       });

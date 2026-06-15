@@ -5,7 +5,19 @@ import { parseUrl } from "@lib/utils";
 import Link from "next/link";
 import { MemoizedMarkdown } from "./MemoizedMarkdown";
 
-export function RenderMessage({ text, id, isEmoji,mode }: { text: string; id: string; isEmoji: boolean,mode?:'static'|'streaming' }) {
+import { E2E_WAITING_MESSAGE } from "@lib/e2e";
+
+export function RenderMessage({
+  text,
+  id,
+  isEmoji,
+  mode,
+}: {
+  text: string;
+  id: string;
+  isEmoji: boolean;
+  mode?: "static" | "streaming";
+}) {
   const parsedUrl = parseUrl(text);
   const isUrl = Boolean(parsedUrl);
   const samesite = isUrl && parsedUrl?.host === window.location.host;
@@ -27,7 +39,9 @@ export function RenderMessage({ text, id, isEmoji,mode }: { text: string; id: st
 
   return (
     <>
-      {isUrl ? (
+      {text === E2E_WAITING_MESSAGE ? (
+        "Waiting for this message. This might take a while."
+      ) : isUrl ? (
         <Link
           onClick={handleOpeningModal}
           href={text}

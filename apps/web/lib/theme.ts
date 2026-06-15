@@ -4,8 +4,19 @@ export function getSystemTheme() {
   return getComputedStyle(document.documentElement).getPropertyValue("--theme");
 }
 
-export function generateTheme(mode: string, base: any) {
-  return Object.values(COLORS).map(key=>({[`${mode}-${key.replace('#','')}`]: {...base, primary: key}}));
+export function generateTheme(mode: string, base: any, darkenFactor = 1) {
+  return Object.values(COLORS).map((key) => {
+    const primary = darkenFactor !== 1 ? darkenHex(key, darkenFactor) : key;
+    return { [`${mode}-${key.replace("#", "")}`]: { ...base, primary } };
+  });
+}
+
+function darkenHex(hex: string, factor: number): string {
+  const bigint = parseInt(hex.replace("#", ""), 16);
+  const r = Math.max(0, Math.floor(((bigint >> 16) & 255) * factor));
+  const g = Math.max(0, Math.floor(((bigint >> 8) & 255) * factor));
+  const b = Math.max(0, Math.floor((bigint & 255) * factor));
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
 export   function generateRelatedColors(inputColor:string, count = 5) {

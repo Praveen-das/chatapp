@@ -6,6 +6,8 @@ import { IGroupConversation, IMember } from "@repo/interfaces/conversationInterf
 import { IUser } from "@repo/interfaces/userInterface";
 import { MessageReadReceipt } from "@repo/interfaces/messageInterface";
 import { IMessage } from "@interfaces/messageInterface";
+import { useMessageStore } from "store/messageStore";
+import { usePersistentStore } from "store/persistentStore";
 
 export function findUserConversation(userId: string) {
   const conversations = useConversationStore.getState().conversations;
@@ -155,4 +157,10 @@ export function handleSettingGroupAdmin(conversation: IConversation) {
 
 export function getGroupMember(conversation: IGroupConversation, userId: string) {
   return conversation.members.find((m) => m.userId === userId);
+}
+
+export function clearAllConversations(): void {
+  useConversationStore.getState().reset();
+  useMessageStore.getState().reset();
+  usePersistentStore.getState().setSyncToken(0);
 }

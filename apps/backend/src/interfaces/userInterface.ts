@@ -3,3 +3,4 @@ import { IUser as _IUser } from "@repo/interfaces/userInterface";
 import { Types } from "mongoose";
 
 export type IUser = Override<_IUser, { id: Types.ObjectId }>;
+export { type IPublicKeyVersion } from "@repo/interfaces/userInterface";

@@ -61,8 +61,6 @@ export async function createTokens(user: IUser) {
     };
 
     try {
-      console.log("saving session to db");
-      console.log(sessionData);
       await axiosClient.post("/session", JSON.stringify(sessionData));
     } catch (error) {
       console.log("error in saving session to db:", (error as AxiosError).message);
@@ -86,7 +84,6 @@ export async function refreshToken(): Promise<RefreshResult> {
       res = await validateRefreshToken();
 
       if (!res) {
-        console.log("no response");
         return { error: "auth_failed" };
       }
     } catch (error) {
@@ -94,13 +91,8 @@ export async function refreshToken(): Promise<RefreshResult> {
       throw error;
     }
 
-    try {
-      const access_token = await createAccessToken({ userId: res.userId });
-      return { token: access_token };
-    } catch (error) {
-      console.log("error in createAccessToken");
-      throw error;
-    }
+    const access_token = await createAccessToken({ userId: res.userId });
+    return { token: access_token };
   } catch (error) {
     if (error instanceof AxiosError) {
       const status = error.response?.status;
@@ -114,7 +106,7 @@ export async function refreshToken(): Promise<RefreshResult> {
         url: error.config?.url,
       });
     } else {
-      console.error("refreshToken unexpected error:", error);
+      console.error("refreshToken unexpected error:", (error as any).message);
     }
 
     return { error: "server_unavailable" };

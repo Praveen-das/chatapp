@@ -99,6 +99,25 @@ export default async function registerUserHandlers(io: Server, socket: ISocket) 
     );
   });
 
+  socket.on(
+    "UPDATE_USER_PUBLIC_KEY",
+    ({
+      userId,
+      publicKey,
+      publicKeyHistory,
+      targetUserIds,
+    }: {
+      userId: string;
+      publicKey: string;
+      publicKeyHistory?: any[];
+      targetUserIds: string[];
+    }) => {
+      targetUserIds.forEach((id) => {
+        io.to(id).emit("UPDATE_USER_PUBLIC_KEY", { userId, publicKey, publicKeyHistory });
+      });
+    },
+  );
+
   socket.on("GET_USER_STATUS", async ({ userId }: { userId: string }, callback: (data: any) => void) => {
     const requesterId = socket.userId;
     const targetId = userId;

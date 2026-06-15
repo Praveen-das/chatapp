@@ -86,7 +86,7 @@ export function ChatBox({
       position: messages.length - unreadMessages.length,
       value: unreadMessages.length,
     },
-    mode
+    mode,
   );
 
   const onScroll = useScrollHandler({
@@ -136,7 +136,7 @@ export function ChatBox({
       isScrolledToBottom.current = true;
       isFocused.current = true;
     },
-    [virtualizerId]
+    [virtualizerId],
   );
 
   return (
@@ -201,7 +201,7 @@ function MenuContext() {
           host: selectedConversation?.host!,
         });
     },
-    [selectedConversation]
+    [selectedConversation],
   );
 
   const handleRemoveStarred = useCallback(
@@ -213,7 +213,7 @@ function MenuContext() {
           host: selectedConversation?.host!,
         });
     },
-    [selectedConversation]
+    [selectedConversation],
   );
 
   const handleOpenInfo = useCallback((readReceipt: Record<string, number> | null) => {

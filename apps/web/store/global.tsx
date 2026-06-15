@@ -29,6 +29,7 @@ interface Actions {
   setDashboardTab: (value: string) => void;
   setUploadProgress: (fileId: string, progress: number) => void;
   updateUserRule: (userId: string, rule: IUserRules) => void;
+  updateUserFields: (userId: string, updates: Partial<IUser>) => void;
   toggleProfile: (value: boolean) => void;
   profileTab: {
     push: (value: string) => void;
@@ -109,6 +110,19 @@ export const useStore = createIndexDBStore<IGlobalStore>({
           user.version = user.version! + 1;
 
           return set({ users: new Map(users).set(userId, user) });
+        }
+      },
+      updateUserFields: (userId, updates) => {
+        const users = get().users;
+        const user = users.get(userId);
+
+        if (user) {
+          set({
+            users: new Map(users).set(userId, {
+              ...user,
+              ...updates,
+            }),
+          });
         }
       },
       setSelectedUser: (selectedUser) => set({ selectedUser }),

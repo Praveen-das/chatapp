@@ -108,6 +108,15 @@ const _getUserById = async (req: Request, res: Response) => {
   res.json(user);
 };
 
+const _getKeyHistoryByUserId = async (req: Request, res: Response) => {
+  if (!req.params.id) return res.json({ error: "User ID is required" });
+
+  let userId = new Types.ObjectId(req.params.id);
+  const history = await userServices.getKeyHistoryByUserId(userId);
+
+  res.json(history);
+};
+
 const _updateUser = async (req: Request, res: Response) => {
   try {
     let updates = updateUserSchema.parse(req.body);
@@ -122,6 +131,20 @@ const _updateUser = async (req: Request, res: Response) => {
       console.log("error _updateUser", error);
       res.json({ error: error });
     }
+  }
+};
+
+const _updatePublicKey = async (req: Request, res: Response) => {
+  try {
+    const { userId, publicKey } = req.body;
+    if (!userId || !publicKey) {
+      return res.status(400).json({ error: { message: "userId and publicKey are required" } });
+    }
+    const user = await userServices.updateUserPublicKey(new Types.ObjectId(userId as string), publicKey);
+    res.json(user);
+  } catch (error) {
+    console.error("Error in _updatePublicKey:", error);
+    res.status(500).json({ error: { message: "Failed to update public key" } });
   }
 };
 
@@ -178,7 +201,9 @@ export default {
   _queryUser,
   _getAllUsers,
   _getUserById,
+  _getKeyHistoryByUserId,
   _updateUser,
+  _updatePublicKey,
   _deleteUser,
   _updateUserFromKafka,
   _updateUserRule,

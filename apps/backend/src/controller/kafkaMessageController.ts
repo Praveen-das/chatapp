@@ -1,6 +1,5 @@
 import { EachMessagePayload, Consumer } from "kafkajs";
 import { KafkaEnvelope } from "@repo/kafka";
-import messageController from "./messageController";
 import conversationController from "./conversationController";
 import userController from "./userController";
 import groupController from "./groupController";
@@ -105,13 +104,7 @@ const createKafkaMessageController =
           await userController._updateUserRule(message, callback);
           break;
 
-        // ── Message actions (routed from chat.messages for per-message processing) ──
-        case "UPDATE_MESSAGES":
-          await messageController._updateUserMessages(message, callback);
-          break;
-        case "DELETE_MESSAGE_FOR_USER":
-          await messageController._deleteMessagesForUser(message, callback);
-          break;
+
 
         default:
           console.warn(`Unknown Kafka action: ${action} on topic: ${topic}`);

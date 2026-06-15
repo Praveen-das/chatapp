@@ -15,7 +15,7 @@ export function useChats(
     position: number;
     value: number;
   },
-  mode?: "static" | "streaming"
+  mode?: "static" | "streaming",
 ) {
   const { user } = useAuth();
   const setSelectedChats = useMessageStore((s) => s.setSelectedChats);
@@ -73,6 +73,9 @@ export function useChats(
       } else if (read.lastReadMessageTimestamp && chat.timestamp <= read.lastReadMessageTimestamp) {
         chat.readReceiptStatus = "seen";
       } else if (read.lastDeliveredMessageTimestamp && chat.timestamp <= read.lastDeliveredMessageTimestamp) {
+        console.log(
+          `${chat.timestamp}-${read.lastDeliveredMessageTimestamp}-${chat.timestamp <= read.lastDeliveredMessageTimestamp}`,
+        );
         chat.readReceiptStatus = "received";
       } else {
         chat.readReceiptStatus = "sent";

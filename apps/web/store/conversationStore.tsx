@@ -100,23 +100,28 @@ const store = createIndexDBStore<IConversationStore>({
           set({ conversations });
         },
         upsertConversation: (newConversations) => {
-          let conversations = get().conversations;
+          let conversations = [...get().conversations];
 
           newConversations.forEach((conv) => {
-            conversations = conversations.map((c) => {
-              if ((c.host === "user" || c.host === "group") && c.id === conv.id) {
-                let updates: Record<string, any> = {};
-                let diffs = updatedDiff(c, conv);
+            const index = conversations.findIndex(
+              (c) => (c.host === "user" || c.host === "group") && c.id === conv.id
+            );
 
-                Object.keys(diffs).forEach((k) => {
-                  let key = k as keyof IConversation;
-                  updates[key] = conv[key];
-                });
+            if (index > -1) {
+              const existing = conversations[index];
+              if (!existing) return;
+              const updates: Record<string, any> = {};
+              const diffs = updatedDiff(existing, conv);
 
-                return { ...c, ...updates };
-              }
-              return c;
-            });
+              Object.keys(diffs).forEach((k) => {
+                const key = k as keyof IConversation;
+                updates[key] = conv[key];
+              });
+
+              conversations[index] = { ...existing, ...updates };
+            } else {
+              conversations.push(conv);
+            }
           });
 
           set({ conversations });

@@ -40,7 +40,7 @@ function ActiveSessions() {
           <>
             <div
               onClick={terminateAllSessions}
-              className="btn btn-error btn-outline text-white overflow-hidden max-sm:px-0 mx-4"
+              className="btn btn-error btn-outline overflow-hidden max-sm:px-0 mx-4"
             >
               <HandRaisedIcon className="size-5" />
               Terminate other sessions
@@ -74,17 +74,15 @@ function Session({ session }: { session: ISession }) {
   return (
     <div
       onClick={onClick}
-      className={`flex items-center gap-4 w-full px-4 py-4 hover:bg-base-200 rounded-2xl cursor-pointer`}
+      className={`group flex items-center gap-4 w-full px-4 py-3 min-h-[75px] rounded-2xl cursor-pointer transition-all duration-150 hover:bg-base-content/[0.03] active:scale-[0.98] outline-none`}
       key={session.sessionId}
     >
-      <BrowserAvatar browser={device.browser as any} className="min-w-10 min-h-10 size-10" />
-      <div className="flex flex-col">
-        <span className="whitespace-nowrap text-base">{`${device.browser} (${device.os})`}</span>
-        <div className="grid">
-          <label className="whitespace-nowrap text-sm text-white/50 truncate">
-            {`${lastActive} ${device.city ? "-" + " " + device.city : ""}`}
-          </label>
-        </div>
+      <BrowserAvatar browser={device.browser as any} className="min-w-10 min-h-10 size-10 shrink-0" />
+      <div className="flex flex-col min-w-0 flex-1">
+        <span className="text-[14px] font-semibold text-base-content/90 truncate">{`${device.browser} (${device.os})`}</span>
+        <span className="text-xs text-base-content/50 truncate">
+          {`${lastActive} ${device.city ? "• " + device.city : ""}`}
+        </span>
       </div>
     </div>
   );

@@ -20,6 +20,8 @@ export function Member({
   const setSelectedUser = useStore((s) => s.setSelectedUser);
   const profileTab = useStore((s) => s.profileTab);
   const setMenu = useMenu((s) => s.setMenu);
+  const menu = useMenu((s) => s.menu);
+  const isOpen = menu?.id === "groupProfile" && menu?.data?.userId === _member.userId;
   const member = useMemo(() => getUserFromMetadata(_member)!, [_member]);
 
   function handleSelectedUser() {
@@ -39,7 +41,7 @@ export function Member({
   return (
     <div
       key={member.id}
-      className="group hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-5 max-sm:py-2 py-3 rounded-2xl cursor-pointer"
+      className="group hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-5 max-sm:py-2 py-3 cursor-pointer"
       onClick={handleSelectedUser}
     >
       <Avatar
@@ -67,9 +69,9 @@ export function Member({
             <span
               onClick={handleDropdown}
               tabIndex={0}
-              className="group-hover:opacity-100 btn btn-circle btn-xs btn-ghost outline-none duration-300 rounded-full opacity-0 "
+              className={`group-hover:opacity-100 btn btn-circle btn-xs btn-ghost outline-none duration-300 rounded-full text-current ${isOpen ? "opacity-100 scale-100" : "opacity-0 scale-90"}`}
             >
-              <ChevronDownIcon className="size-5 pointer-events-none" />
+              <ChevronDownIcon className="size-5 pointer-events-none text-current opacity-60" />
             </span>
           )}
         </div>

@@ -145,20 +145,20 @@ function AiWelcomeScreen() {
 }
 
 function WelcomeScreen() {
-  const converstions = useConversationStore((s) => s.conversations);
   return (
     <div className="w-full h-full flex bg-[--base-200-300]">
-      <div className="h-2/3 relative aspect-square flex flex-col items-center justify-center gap-8 m-auto rounded-full">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+        className="h-2/3 relative aspect-square flex flex-col items-center justify-center gap-8 m-auto rounded-full"
+      >
         <WelcomeIllustration />
         <BrandPattern />
-        <p className="bg-base-300 px-4 py-1 rounded-2xl relative z-20">Select a conversation to start chatting.</p>
-      </div>
-      {/* {!!converstions.length ? (
-      ) : (
-        <div className="w-full h-full flex items-center justify-center">
-          <p className="text-lg text-gray-500">No conversations found. Start a new conversation!</p>
-        </div>
-      )} */}
+        <p className="bg-base-300/80 backdrop-blur-sm border border-base-content/5 px-4 py-1.5 rounded-2xl relative z-20 text-sm font-medium text-base-content/70 shadow-xs">
+          Select a conversation to start chatting.
+        </p>
+      </motion.div>
     </div>
   );
 }

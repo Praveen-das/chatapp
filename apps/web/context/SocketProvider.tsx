@@ -13,10 +13,14 @@ import {
   IReadReceiptUpdatesCollection,
   ISystemMessage,
   MessageReadReceipt,
+  IReencryptRequest,
+  IReencryptResponse,
 } from "@repo/interfaces/messageInterface";
 import { IUser, IUserRuleChangeRequest } from "@repo/interfaces/userInterface";
-import { registerMessages } from "@lib/messages";
-import { getReceiverMetadata, getUserFromMetadata } from "@lib/conversation";
+import { registerMessages, findPlaintextMessage } from "@lib/messages";
+import { decryptMessage, encryptMessage, E2E_WAITING_MESSAGE, resolvePublicKeyForTimestamp } from "@lib/e2e";
+import { useE2eeStore } from "store/e2eStore";
+import { getReceiverMetadata, getUserFromMetadata, getConversationByConversationId } from "@lib/conversation";
 import useIndexedDb from "@lib/idb";
 import { useSessionStore } from "store/sessionStore";
 import { usePersistentStore } from "store/persistentStore";
@@ -27,6 +31,7 @@ import { initConversationEmiters } from "@lib/emiters/conversationEmiters";
 import { messageEmitters } from "@lib/emiters/messageEmitters";
 import { userEmitters } from "@lib/emiters/userEmitters";
 import { useSession } from "next-auth/react";
+import axiosClient from "@lib/axiosClient";
 
 declare global {
   interface Map<K, V> {
@@ -114,7 +119,32 @@ const useContextData = () => {
 
       if (!res) return;
 
-      const { recentMessage, conversation } = res;
+      const { recentMessage, conversation, failedDecryptionMessageIds } = res;
+
+      if (failedDecryptionMessageIds && failedDecryptionMessageIds.length > 0) {
+        useMessageStore.getState().addWaitingDecryptionIds(failedDecryptionMessageIds);
+      }
+
+      if (failedDecryptionMessageIds && failedDecryptionMessageIds.length > 0 && conversation.host === "user") {
+        const otherMember = conversation.members.find((m) => m.userId !== conversation.userId);
+        const myPublicKey = useE2eeStore.getState().myPublicKeyJwk;
+
+        if (otherMember && myPublicKey) {
+          const { pendingReencryptRequests, addPendingReencrypt } = useE2eeStore.getState();
+          const newFailedIds = failedDecryptionMessageIds.filter((id) => !pendingReencryptRequests.has(id));
+
+          if (newFailedIds.length > 0) {
+            addPendingReencrypt(newFailedIds);
+            emitters.requestReencrypt({
+              messageIds: newFailedIds,
+              conversationId: conversation.conversationId!,
+              requesterPublicKey: myPublicKey,
+              requesterId: userRef.current?.id!,
+              targetUserId: otherMember.userId,
+            });
+          }
+        }
+      }
 
       const conversationId = conversation.id;
       const conversationUpdates = { recentMessage, updatedAt: recentMessage?.timestamp };
@@ -291,8 +321,16 @@ const useContextData = () => {
       }
     }
 
-    function handleCreatingUserConversation(conversation: IUserConversation, user: IUser, select: boolean) {
+    async function handleCreatingUserConversation(conversation: IUserConversation, user: IUser, select: boolean) {
       addNewUser(user);
+
+      try {
+        const res = await axiosClient.get(`/db/user/key-history/${user.id}`);
+        useStore.getState().updateUserFields(user.id, { publicKeyHistory: res.data });
+      } catch (err) {
+        console.error("Failed to fetch public key history for new contact:", err);
+      }
+
       setConversation({
         ...conversation,
         readReceipt: {
@@ -414,6 +452,21 @@ const useContextData = () => {
       updateUserRule(userId, rule);
     }
 
+    function onUserPublicKeyUpdate({
+      userId,
+      publicKey,
+      publicKeyHistory,
+    }: {
+      userId: string;
+      publicKey: string;
+      publicKeyHistory?: any[];
+    }) {
+      useStore.getState().updateUserFields(userId, {
+        publicKey,
+        ...(publicKeyHistory ? { publicKeyHistory } : {}),
+      });
+    }
+
     function handleDeletingGroupConversation(conversationId: string) {
       clearConversationData(conversationId);
     }
@@ -452,8 +505,136 @@ const useContextData = () => {
       useStore.getState().setDeviceTab("chatarea");
     }
 
+    async function onRequestReencrypt(request: IReencryptRequest) {
+      const myPrivateKey = useE2eeStore.getState().myPrivateKeyJwk;
+      if (!myPrivateKey) return;
+
+      const reencryptedMessages: { id: string; message: string; publicKeyTimestamp?: number }[] = [];
+      const now = Date.now();
+      for (const msgId of request.messageIds) {
+        const plaintext = findPlaintextMessage(msgId, request.conversationId);
+
+        if (plaintext) {
+          const newCiphertext = await encryptMessage(plaintext, request.requesterPublicKey, myPrivateKey);
+          reencryptedMessages.push({ id: msgId, message: newCiphertext, publicKeyTimestamp: now });
+        }
+      }
+
+      if (reencryptedMessages.length > 0) {
+        let publicKeyHistory;
+        try {
+          const res = await axiosClient.get(`/db/user/key-history/${userRef.current?.id}`);
+          publicKeyHistory = res.data;
+        } catch (err) {
+          console.error("Failed to fetch own publicKeyHistory for reencrypt response:", err);
+        }
+
+        socket.emit("REENCRYPT_RESPONSE", {
+          messages: reencryptedMessages,
+          conversationId: request.conversationId,
+          targetUserId: request.requesterId,
+          publicKeyHistory,
+        });
+      } else {
+        console.log("No plaintext messages found for reencryption");
+      }
+    }
+
+    async function onReencryptResponse(response: IReencryptResponse) {
+      console.log("reencrypt response");
+      const conversation = getConversationByConversationId(response.conversationId);
+      if (!conversation) return;
+
+      const otherMember = (conversation as IUserConversation).members.find((m) => m.userId !== conversation.userId);
+      const otherUser = otherMember ? useStore.getState().users.get(otherMember.userId) : null;
+      const myPrivateKey = useE2eeStore.getState().myPrivateKeyJwk || undefined;
+      const decryptedUpdates: IMessage[] = [];
+      const failedDecryptions: {
+        messageId: string;
+        conversationId: string;
+        requesterId: string;
+        otherPublicKey?: string;
+        encryptedContent: string;
+        reason: string;
+      }[] = [];
+
+      if (otherMember && response.publicKeyHistory?.length) {
+        useStore.getState().updateUserFields(otherMember.userId, {
+          publicKeyHistory: response.publicKeyHistory,
+        });
+      }
+
+      for (const m of response.messages) {
+        let otherPublicKey: string | undefined = undefined;
+
+        try {
+          otherPublicKey = resolvePublicKeyForTimestamp(
+            response.publicKeyHistory,
+            otherUser?.publicKey,
+            m.publicKeyTimestamp!,
+          );
+
+          const decryptedText = await decryptMessage(m.message, otherPublicKey, myPrivateKey);
+
+          if (decryptedText !== E2E_WAITING_MESSAGE) {
+            decryptedUpdates.push({
+              id: m.id,
+              message: decryptedText,
+              publicKeyTimestamp: m.publicKeyTimestamp,
+            } as IMessage);
+
+            useE2eeStore.getState().removePendingReencrypt([m.id]);
+            useMessageStore.getState().removeWaitingDecryptionIds([m.id]);
+          } else {
+            failedDecryptions.push({
+              messageId: m.id,
+              conversationId: response.conversationId,
+              requesterId: userRef.current?.id ?? "",
+              otherPublicKey,
+              encryptedContent: m.message,
+              reason: "decryption_returned_waiting_message",
+            });
+          }
+        } catch (err) {
+          console.error(`Reencrypt decryption error for message ${m.id}:`, err);
+          failedDecryptions.push({
+            messageId: m.id,
+            conversationId: response.conversationId,
+            requesterId: userRef.current?.id ?? "",
+            otherPublicKey,
+            encryptedContent: m.message,
+            reason: err instanceof Error ? err.message : "unknown_decryption_error",
+          });
+        }
+      }
+
+      if (decryptedUpdates.length > 0) {
+        useMessageStore.getState().updateUserMessages(conversation.id, decryptedUpdates);
+
+        if (conversation.recentMessage) {
+          const matchingUpdate = decryptedUpdates.find((u) => u.id === conversation.recentMessage?.id);
+          if (matchingUpdate) {
+            updateConversation(conversation.id, {
+              recentMessage: {
+                ...conversation.recentMessage,
+                message: matchingUpdate.message,
+              },
+            });
+          }
+        }
+      }
+
+      if (failedDecryptions.length > 0) {
+        console.warn("Reencryption failures detected, persisting for debugging:", failedDecryptions);
+        socket.emit("SAVE_FAILED_REENCRYPTIONS", { failures: failedDecryptions });
+      }
+    }
+
+    socket.on("REQUEST_REENCRYPT", onRequestReencrypt);
+    socket.on("REENCRYPT_RESPONSE", onReencryptResponse);
     socket.on("USER_CONNECTED", onUserConnected);
     socket.on("user disconnected", onUserDisconnected);
+    socket.on("UPDATE_USER_PUBLIC_KEY", onUserPublicKeyUpdate);
 
     socket.on("new user created", onNewUserCreated);
     socket.on("message receive", onMessageReceive);
@@ -483,9 +664,12 @@ const useContextData = () => {
     socket.on("USER_STATUS", onUserStatus);
 
     return () => {
+      socket.off("REQUEST_REENCRYPT", onRequestReencrypt);
+      socket.off("REENCRYPT_RESPONSE", onReencryptResponse);
       socket.off("USER_CONNECTED", onUserConnected);
       socket.off("new user created", onNewUserCreated);
       socket.off("user disconnected", onUserDisconnected);
+      socket.off("UPDATE_USER_PUBLIC_KEY", onUserPublicKeyUpdate);
       socket.off("message receive", onMessageReceive);
       socket.off("change readReceipt", onReadReceiptChangeRequest);
       socket.off("request:delete_message");

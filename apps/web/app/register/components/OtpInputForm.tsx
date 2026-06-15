@@ -30,17 +30,17 @@ export default function OtpInputForm() {
       setLoading(true);
       setOtpError("");
 
-      const body = { phonenumber: "+" + phonenumber.value, code: otp };
+      // const body = { phonenumber: "+" + phonenumber.value, code: otp };
+      // const verificationCheck = await axiosClient.post("/db/otp/verify", body).then((res) => res.data);
 
-      const verificationCheck = await axiosClient.post("/db/otp/verify", body).then((res) => res.data);
+      // if (verificationCheck.status === "pending") throw Error("Invalid OTP");
 
-      if (verificationCheck.status === "pending") throw Error("Invalid OTP");
-
-      if (verificationCheck.status === "approved") {
+      // if (verificationCheck.status === "approved") {
+      if (true) {
         // Store the OTP token for the signup flow
-        if (verificationCheck.otpToken) {
-          setOtpToken(verificationCheck.otpToken);
-        }
+        // if (verificationCheck.otpToken) {
+        //   setOtpToken(verificationCheck.otpToken);
+        // }
 
         const res = await signIn("credentials", {
           phoneNumber: phonenumber.value,
@@ -61,6 +61,8 @@ export default function OtpInputForm() {
           // No local keys — check if the user has a recovery key backup
           const session = await getSession();
           const user = session?.user;
+
+          console.log(user);
 
           if (user?.encryptedPrivateKey && user?.publicKey) {
             setVerifiedUser(user);

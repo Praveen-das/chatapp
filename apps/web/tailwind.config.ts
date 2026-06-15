@@ -38,8 +38,9 @@ const darkmode = {
 const lightmode = {
   ...themes["light"],
   secondary: "#000",
-  // "base-200": "oklch(0.95 0 0 / 1)",
-  // "base-300": "oklch(0.85 0 0 / 1)",
+  "base-100": "#ffffff",
+  "base-200": "#f8fafc",
+  "base-300": "#f1f5f9",
   "--100-primary": "oklch(var(--p))",
   "--200-primary": "oklch(var(--p))",
   "--300-primary": "oklch(var(--p))",
@@ -47,7 +48,7 @@ const lightmode = {
   "--white-grey": "oklch(0.5 0 0 / 1)",
   "--hover-primary": "oklch(var(--p))",
   "--hover-secondary": "hsl(0 0 0% / 0.05)",
-  "--avatarBg": "oklch(0.75 0 0 / 1)",
+  "--avatarBg": "oklch(var(--p)/0.8)",
   "--bg-white": "#fff",
   "--modal": "var(--fallback-b1,oklch(var(--b2)/0.7))",
   "--white-base-100": "#fff",
@@ -55,8 +56,8 @@ const lightmode = {
   "--l-base-100": "oklch(var(--b1))",
   "--l-base-200": "oklch(var(--b2))",
   "--l-base-300": "oklch(var(--b3))",
-  "--base-100-300": "oklch(var(--b3))",
-  "--base-200-300": "oklch(var(--b3))",
+  "--base-100-300": "oklch(0.9 0 0 / 1)",
+  "--base-200-300": "oklch(0 0 0 / 0.1)",
   "--base-300-100": "oklch(var(--b1))",
   "--base-300-400": "oklch(0.85 0 0 / 1)",
   "--black-white": "oklch(var(--b1))",
@@ -66,16 +67,18 @@ const lightmode = {
 };
 
 const DARK_THEME = `dark-${COLORS.default?.replace("#", "")}`;
+const LIGHT_DARKEN = 0.75;
 
 const customThemes = [
-  ...generateTheme("light", lightmode),
+  ...generateTheme("light", lightmode, LIGHT_DARKEN),
   ...generateTheme("dark", darkmode),
 
-  ...generateTheme("LIGHT", lightmode),
+  ...generateTheme("LIGHT", lightmode, LIGHT_DARKEN),
   ...generateTheme("DARK", darkmode),
 ];
 
 export default {
+  darkMode: ["variant", '&:is([data-theme^="DARK"] *, [data-theme^="dark"] *)'],
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",

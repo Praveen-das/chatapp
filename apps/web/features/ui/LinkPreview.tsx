@@ -24,7 +24,7 @@ export default function LinkPreview({
         <p className="mb-auto text-sm px-2 line-clamp-2">
           {metadata.description}
         </p>
-        <p className="mb-auto text-sm text-white/30 truncate px-2 pb-2">
+        <p className="mb-auto text-xs opacity-55 truncate px-2 pb-2">
           {parsedUrl?.host}
         </p>
       </div>

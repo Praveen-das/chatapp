@@ -27,7 +27,7 @@ const UrlAttachment = ({ attachment }: { attachment: IUrlAttachment }) => {
           <p className="truncate font-extralight">
             {attachment.metadata?.description}
           </p>
-          <p className="truncate pb-2 text-white/30">
+          <p className="truncate pb-2 opacity-50">
             {attachment.host}
           </p>
         </div>

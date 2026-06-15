@@ -23,6 +23,7 @@ interface State {
   messageStore: IMessages;
   unreadMessages: IMessages;
   replyRequest: IMessageReply | null;
+  waitingDecryptionIds: Set<string>;
 }
 
 interface Actions {
@@ -44,6 +45,8 @@ interface Actions {
   setReplyRequest: (reply: IMessageReply | null) => void;
   clearChat: (conversationId: string) => void;
   deleteChat: (conversationId: string) => void;
+  addWaitingDecryptionIds: (ids: string[]) => void;
+  removeWaitingDecryptionIds: (ids: string[]) => void;
   reset: () => void;
 }
 
@@ -55,6 +58,7 @@ const getInitialState = (): State => ({
   unreadMessages: new Map(),
   messageStore: new Map(),
   replyRequest: null,
+  waitingDecryptionIds: new Set(),
 });
 
 export const useMessageStore = createIndexDBStore<IMessageStore>({
@@ -63,6 +67,7 @@ export const useMessageStore = createIndexDBStore<IMessageStore>({
     messageHistory: state.messageHistory,
     messageStore: state.messageStore,
     unreadMessages: state.unreadMessages,
+    waitingDecryptionIds: state.waitingDecryptionIds,
   }),
   handler: (set, get) => {
     return {
@@ -108,10 +113,12 @@ export const useMessageStore = createIndexDBStore<IMessageStore>({
       },
       deleteUserMessageHistory: (conversationId) => {
         const messageStore = get().messageStore;
-
+        const msgs = messageStore.get(conversationId) || [];
+        const nextWaiting = new Set(get().waitingDecryptionIds);
+        msgs.forEach((m) => nextWaiting.delete(m.id));
         messageStore.delete(conversationId);
 
-        set({ messageStore: new Map(messageStore) });
+        set({ messageStore: new Map(messageStore), waitingDecryptionIds: nextWaiting });
       },
 
       getUnreadMessages: (userId) => {
@@ -163,16 +170,26 @@ export const useMessageStore = createIndexDBStore<IMessageStore>({
       },
 
       clearChat: (conversationId) =>
-        set((s) => ({
-          messageStore: new Map(s.messageStore).set(conversationId, []),
-          messageHistory: new Map(s.messageHistory).set(conversationId, []),
-        })),
+        set((s) => {
+          const msgs = s.messageStore.get(conversationId) || [];
+          const hist = s.messageHistory.get(conversationId) || [];
+          const nextWaiting = new Set(s.waitingDecryptionIds);
+          msgs.forEach((m) => nextWaiting.delete(m.id));
+          hist.forEach((m) => nextWaiting.delete(m.id));
+          return {
+            messageStore: new Map(s.messageStore).set(conversationId, []),
+            messageHistory: new Map(s.messageHistory).set(conversationId, []),
+            waitingDecryptionIds: nextWaiting,
+          };
+        }),
       deleteChat: (userId) => {
         const messageStore = get().messageStore;
-
+        const msgs = messageStore.get(userId) || [];
+        const nextWaiting = new Set(get().waitingDecryptionIds);
+        msgs.forEach((m) => nextWaiting.delete(m.id));
         messageStore.delete(userId);
 
-        set({ messageStore: new Map(messageStore) });
+        set({ messageStore: new Map(messageStore), waitingDecryptionIds: nextWaiting });
       },
 
       // updateReadReceipt: (conversationId, updatesCollection) => {
@@ -229,15 +246,18 @@ export const useMessageStore = createIndexDBStore<IMessageStore>({
         if (!modified) {
           const updatedHistory = history.map((message) => {
             for (let { id, ...updates } of updatesCollection)
-              return message.id === id ? { ...message, ...updates } : message;
+              if (message.id === id) {
+                return { ...message, ...updates };
+              }
+            return message;
           });
 
           return set({
-            messageHistory: new Map().set(conversationId, updatedHistory),
+            messageHistory: new Map(messageHistory).set(conversationId, updatedHistory),
           });
         }
 
-        set({ messageStore: new Map().set(conversationId, updatedMessages) });
+        set({ messageStore: new Map(messageStore).set(conversationId, updatedMessages) });
       },
       deleteUserMessages: (conversationId, updatesCollection) => {
         const { updateConversation } = useConversationStore.getState().conversationActions;
@@ -248,6 +268,10 @@ export const useMessageStore = createIndexDBStore<IMessageStore>({
 
         const updatedMessages = messages?.filter(({ id }) => !updatesCollection.some((c) => c.messageId === id)) || [];
 
+        const deletedIds = updatesCollection.map((c) => c.messageId);
+        const nextWaiting = new Set(get().waitingDecryptionIds);
+        deletedIds.forEach((id) => nextWaiting.delete(id));
+
         if (messages && messages?.length !== updatedMessages.length) {
           messageStore.set(conversationId, updatedMessages);
           const recentMessage = updatedMessages.at(-1);
@@ -255,7 +279,7 @@ export const useMessageStore = createIndexDBStore<IMessageStore>({
             recentMessage,
             updatedAt: recentMessage?.timestamp,
           });
-          set({ messageStore: new Map(messageStore) });
+          set({ messageStore: new Map(messageStore), waitingDecryptionIds: nextWaiting });
         } else {
           const history =
             messageHistory
@@ -266,7 +290,7 @@ export const useMessageStore = createIndexDBStore<IMessageStore>({
             recentMessage: history.at(-1),
           });
           messageHistory.set(conversationId, history);
-          set({ messageHistory: new Map(messageHistory) });
+          set({ messageHistory: new Map(messageHistory), waitingDecryptionIds: nextWaiting });
         }
       },
       upsertMessage: ({ conversation, messageId, message, status }) => {
@@ -295,6 +319,18 @@ export const useMessageStore = createIndexDBStore<IMessageStore>({
       },
 
       setReplyRequest: (reply) => set({ replyRequest: reply }),
+      addWaitingDecryptionIds: (ids) =>
+        set((state) => {
+          const next = new Set(state.waitingDecryptionIds);
+          ids.forEach((id) => next.add(id));
+          return { waitingDecryptionIds: next };
+        }),
+      removeWaitingDecryptionIds: (ids) =>
+        set((state) => {
+          const next = new Set(state.waitingDecryptionIds);
+          ids.forEach((id) => next.delete(id));
+          return { waitingDecryptionIds: next };
+        }),
     };
   },
 });

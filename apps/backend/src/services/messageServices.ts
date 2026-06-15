@@ -4,6 +4,8 @@ import { activityLookup, messagedeleteflagsLookup, messagesLookup } from "../db/
 import { IMessage } from "../interfaces/messageInterface";
 import GroupConversation from "../models/GroupConversation";
 import { MessageDeleteFlag, Messages } from "../models/MessageModel";
+import PendingReencryptRequest from "../models/PendingReencryptRequest";
+import FailedReencryption from "../models/FailedReencryption";
 import client from "../redis/client";
 import { systemMessagesSchema } from "../schemas/systemMessageSchema";
 import { messagesSchema } from "../schemas/userMessageSchema";
@@ -207,7 +209,7 @@ const deleteMessagesForUser = async (collections: { userId: string; messageId: s
 };
 
 const getReadReceipts = async (
-  readReceiptEntries: Awaited<ReturnType<typeof syncRegistry.getSyncReadReceiptEntries>>
+  readReceiptEntries: Awaited<ReturnType<typeof syncRegistry.getSyncReadReceiptEntries>>,
 ) => {
   if (readReceiptEntries.length === 0) return [];
 
@@ -238,6 +240,101 @@ const getReadReceipts = async (
   return [];
 };
 
+const savePendingReencryptRequest = async (req: {
+  requesterId: string;
+  targetUserId: string;
+  conversationId: string;
+  requesterPublicKey: string;
+  messageIds: string[];
+}) => {
+  try {
+    await PendingReencryptRequest.updateOne(
+      {
+        requesterId: new Types.ObjectId(req.requesterId),
+        targetUserId: new Types.ObjectId(req.targetUserId),
+        conversationId: new Types.ObjectId(req.conversationId),
+      },
+      {
+        $set: {
+          requesterPublicKey: req.requesterPublicKey,
+          timestamp: Date.now(),
+        },
+        $addToSet: {
+          messageIds: { $each: req.messageIds.map((id) => new Types.ObjectId(id)) },
+        },
+      },
+      { upsert: true },
+    );
+  } catch (error) {
+    console.log("savePendingReencryptRequest error---->", error);
+  }
+};
+
+const getPendingReencryptRequests = async (targetUserId: string) => {
+  try {
+    return await PendingReencryptRequest.find({
+      targetUserId: new Types.ObjectId(targetUserId),
+    });
+  } catch (error) {
+    console.log("getPendingReencryptRequests error---->", error);
+    return [];
+  }
+};
+
+const resolvePendingReencryptRequest = async (req: {
+  requesterId: string;
+  targetUserId: string;
+  conversationId: string;
+}) => {
+  try {
+    await PendingReencryptRequest.deleteOne({
+      requesterId: new Types.ObjectId(req.requesterId),
+      targetUserId: new Types.ObjectId(req.targetUserId),
+      conversationId: new Types.ObjectId(req.conversationId),
+    });
+  } catch (error) {
+    console.log("resolvePendingReencryptRequest error---->", error);
+  }
+};
+
+const getMessagesByIds = async (messageIds: string[]) => {
+  try {
+    return await Messages.find({
+      id: { $in: messageIds.map((id) => new Types.ObjectId(id)) },
+    });
+  } catch (error) {
+    console.log("getMessagesByIds error---->", error);
+    return [];
+  }
+};
+
+const saveFailedReencryptions = async (
+  failures: {
+    messageId: string;
+    conversationId: string;
+    requesterId: string;
+    otherPublicKey?: string;
+    encryptedContent: string;
+    reason: string;
+  }[],
+) => {
+  try {
+    const docs = failures.map((f) => ({
+      messageId: new Types.ObjectId(f.messageId),
+      conversationId: new Types.ObjectId(f.conversationId),
+      requesterId: new Types.ObjectId(f.requesterId),
+      otherPublicKey: f.otherPublicKey,
+      encryptedContent: f.encryptedContent,
+      reason: f.reason,
+      timestamp: Date.now(),
+    }));
+
+    await FailedReencryption.insertMany(docs);
+  } catch (error) {
+    console.log("saveFailedReencryptions error---->", error);
+  }
+};
+
 export default {
   generateMockMessages,
   getMessages,
@@ -249,4 +346,9 @@ export default {
   deleteUserMessages,
   deleteMessagesForUser,
   getReadReceipts,
+  savePendingReencryptRequest,
+  getPendingReencryptRequests,
+  resolvePendingReencryptRequest,
+  getMessagesByIds,
+  saveFailedReencryptions,
 };

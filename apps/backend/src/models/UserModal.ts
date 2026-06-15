@@ -2,7 +2,7 @@ import { Schema, model } from "mongoose";
 import id from "zod/v4/locales/id.js";
 import { syncRegistry } from "../lib/SyncRegistry";
 
-const schemaOptions = { toJSON: { virtuals: true } };
+const schemaOptions = { toJSON: { virtuals: true }, toObject: { virtuals: true } };
 
 export const userSchema = new Schema(
   {
@@ -48,10 +48,10 @@ export const userSchema = new Schema(
     createdAt: { type: Number, default: () => Date.now() },
     updatedAt: { type: Number, default: () => Date.now() },
     version: { type: Number, default: 0 },
-    publicKey: { type: String, default: "" },
     encryptedPrivateKey: { type: String, default: "" },
+    publicKey: { type: String, default: "" },
   },
-  schemaOptions
+  schemaOptions,
 );
 
 userSchema.index({ id: 1, username: 1, phoneNumber: 1 });
@@ -59,6 +59,12 @@ userSchema.index({ id: 1, username: 1, phoneNumber: 1 });
 userSchema.post("findOneAndUpdate", function (doc) {
   console.log(doc.id);
   syncRegistry.saveUserVersion(doc.id, doc.version);
+});
+
+userSchema.virtual("publicKeyHistory", {
+  ref: "publicKeyHistory",
+  localField: "id",
+  foreignField: "userId",
 });
 
 const User = model("user", userSchema);

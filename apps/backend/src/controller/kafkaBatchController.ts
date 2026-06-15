@@ -50,6 +50,15 @@ const createKafkaBatchController =
             // Per-message delete within batch
             const payload = JSON.stringify(envelope.payload);
             await messageController._deleteMessagesForUser(payload, resetConsumer);
+          } else if (envelope.action === "SAVE_REENCRYPT_REQUEST") {
+            const payload = JSON.stringify(envelope.payload);
+            await messageController._savePendingReencryptRequest(payload, resetConsumer);
+          } else if (envelope.action === "RESOLVE_REENCRYPT_REQUEST") {
+            const payload = JSON.stringify(envelope.payload);
+            await messageController._resolvePendingReencryptRequest(payload, resetConsumer);
+          } else if (envelope.action === "SAVE_FAILED_REENCRYPTIONS") {
+            const payload = JSON.stringify(envelope.payload);
+            await messageController._saveFailedReencryptions(payload, resetConsumer);
           }
         } catch (e) {
           console.error("Error parsing message in batch", e);

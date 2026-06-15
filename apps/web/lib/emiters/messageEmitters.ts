@@ -8,7 +8,7 @@ import { useMessageStore } from "store/messageStore";
 import { useStore } from "store/global";
 import { useE2eeStore } from "store/e2eStore";
 import { encryptMessage } from "@lib/e2e";
-import { IUpdates, MessageReadReceipt } from "@repo/interfaces/messageInterface";
+import { IUpdates, MessageReadReceipt, IReencryptRequest, IReencryptResponse } from "@repo/interfaces/messageInterface";
 
 const deleteUserMessages = useMessageStore.getState().deleteUserMessages;
 
@@ -95,6 +95,14 @@ export function messageEmitters(socket: ISocket) {
     sendReadReceiptChangeRequest: (readReceipts: MessageReadReceipt[]) => {
       socket.emit("change readReceipt", readReceipts);
       readReceipts.forEach(useConversationStore.getState().conversationActions.updateReadReceipt);
+    },
+
+    requestReencrypt: (request: IReencryptRequest) => {
+      socket.emit("REQUEST_REENCRYPT", request);
+    },
+
+    respondReencrypt: (response: IReencryptResponse) => {
+      socket.emit("REENCRYPT_RESPONSE", response);
     },
   };
 }

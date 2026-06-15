@@ -58,6 +58,7 @@ export const userMessageSchema = z.object({
   message: z.string(),
   readReceipt: z.array(readReceiptSchema).optional(),
   timestamp: z.number(),
+  publicKeyTimestamp: z.number().optional(),
   attachment: attachmentSchema.optional(),
   reply: messageReplySchema.optional(),
   deleted: z.boolean().optional(),

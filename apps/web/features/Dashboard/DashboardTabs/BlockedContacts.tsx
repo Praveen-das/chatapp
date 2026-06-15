@@ -34,24 +34,27 @@ function BlockedContacts() {
           {blockedConversations.map((conversation) => {
             const receiver = getUserFromMetadata(getReceiverMetadata(conversation)!);
             return (
-              <div key={conversation.id} className="flex items-center justify-between gap-4 w-full p-3 rounded-2xl">
+              <div
+                key={conversation.id}
+                className="group flex items-center justify-between gap-4 w-full px-4 py-3 min-h-[75px] rounded-2xl hover:bg-base-content/[0.03] active:scale-[0.99] transition-all duration-150 outline-none"
+              >
                 <Avatar
                   url={receiver?.profilePicture}
                   profileHidden={receiver?.rules?.includes("hide_profilepicture")!}
                   onlineIndication={false}
                 />
-                <div className="flex flex-col w-full flex-1">
-                  <label className="text-sm" htmlFor="username">
+                <div className="flex flex-col min-w-0 flex-1">
+                  <h2 className="text-[14px] font-semibold text-base-content/90 truncate">
                     {conversation.displayName}
-                  </label>
-                  <label className="text-xs" htmlFor="username">
+                  </h2>
+                  <span className="text-xs text-base-content/50 truncate">
                     {conversation.id}
-                  </label>
+                  </span>
                 </div>
                 <div
                   onClick={() => handleUnblockingUser(conversation)}
                   tabIndex={0}
-                  className="btn btn-circle btn-ghost btn-sm"
+                  className="btn btn-circle btn-ghost btn-sm bg-base-100/40 border border-base-content/5 backdrop-blur-md hover:bg-base-content/10 transition-all duration-150 flex justify-center items-center"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"

@@ -76,7 +76,7 @@ function generateMockConversation({
 
 const _generateMockMessages = async (
   req: Request<any, any, { from: string; to: string; conversationId: string; count: number }>,
-  res: Response
+  res: Response,
 ) => {
   try {
     if (!req.body) return res.json("data not found");
@@ -188,6 +188,67 @@ const _deleteUserMessage = async (req: Request, res: Response) => {
   }
 };
 
+const _savePendingReencryptRequest = async (req: string, reset: () => void) => {
+  try {
+    const payload = JSON.parse(req);
+    await messageServices.savePendingReencryptRequest(payload);
+  } catch (error) {
+    console.log("SAVE_REENCRYPT_REQUEST error--->", error);
+    reset();
+  }
+};
+
+const _resolvePendingReencryptRequest = async (req: string, reset: () => void) => {
+  try {
+    const payload = JSON.parse(req);
+    await messageServices.resolvePendingReencryptRequest(payload);
+  } catch (error) {
+    console.log("RESOLVE_REENCRYPT_REQUEST error--->", error);
+    reset();
+  }
+};
+
+const _getPendingReencryptRequests = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ error: "userId is required" });
+
+    const authUserId = (req as any).authUserId;
+    if (!authUserId || authUserId !== userId) {
+      return res.status(403).json({ error: "Forbidden: cannot access another user's pending requests" });
+    }
+
+    const requests = await messageServices.getPendingReencryptRequests(userId as string);
+    return res.json(requests);
+  } catch (error) {
+    return res.status(500).json({ error });
+  }
+};
+
+const _getMessagesByIds = async (req: Request, res: Response) => {
+  try {
+    const { messageIds } = req.body;
+    if (!messageIds || !Array.isArray(messageIds)) {
+      return res.status(400).json({ error: "messageIds array is required" });
+    }
+
+    const messages = await messageServices.getMessagesByIds(messageIds);
+    return res.json(messages);
+  } catch (error) {
+    return res.status(500).json({ error });
+  }
+};
+
+const _saveFailedReencryptions = async (req: string, reset: () => void) => {
+  try {
+    const { failures } = JSON.parse(req);
+    await messageServices.saveFailedReencryptions(failures);
+  } catch (error) {
+    console.log("SAVE_FAILED_REENCRYPTIONS error--->", error);
+    reset();
+  }
+};
+
 export default {
   _generateMockMessages,
   _saveMessages,
@@ -196,4 +257,9 @@ export default {
   _deleteMessagesForUser,
   _getUserMessages,
   _deleteUserMessage,
+  _savePendingReencryptRequest,
+  _resolvePendingReencryptRequest,
+  _getPendingReencryptRequests,
+  _getMessagesByIds,
+  _saveFailedReencryptions,
 };

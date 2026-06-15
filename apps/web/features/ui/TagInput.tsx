@@ -42,7 +42,7 @@ function TagInput({ tags, onSubmit, onDelete, showLabel = true, canEdit = false 
           (editTags ? (
             <div className="flex gap-2 items-center">
               <div
-                className={`duration-200 ${!tag ? "before:pointer-events-none before:content-['Type_here..'] text-white/25 text-sm" : "focus:before:content-none"} outline-none px-2 py-1 rounded-lg bg-base-200`}
+                className={`duration-200 ${!tag ? "before:pointer-events-none before:content-['Type_here..'] opacity-40 text-sm" : "focus:before:content-none"} outline-none px-2 py-1 rounded-lg bg-base-200`}
                 onInput={(e) => setTag(e.currentTarget.textContent!)}
                 contentEditable
                 suppressContentEditableWarning

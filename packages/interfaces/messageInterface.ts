@@ -1,4 +1,4 @@
-import { IUser } from "./userInterface";
+import { IUser, IPublicKeyVersion } from "./userInterface";
 
 export interface IMessage {
   id: string;
@@ -11,8 +11,24 @@ export interface IMessage {
   attachment?: IAttachment | null;
   reply?: IMessageReply;
   timestamp: number;
+  publicKeyTimestamp?: number;
   deleted: boolean;
   hasAttachment?: boolean;
+}
+
+export interface IReencryptRequest {
+  messageIds: string[];
+  conversationId: string;
+  requesterPublicKey: string; // The receiver's NEW public key
+  requesterId: string;
+  targetUserId: string;       // The sender of original messages
+}
+
+export interface IReencryptResponse {
+  messages: { id: string; message: string; publicKeyTimestamp?: number }[]; // Re-encrypted message contents
+  conversationId: string;
+  targetUserId: string; // The receiver's user ID (who requested re-encryption)
+  publicKeyHistory?: IPublicKeyVersion[];
 }
 
 export type ISystemMessage = Omit<IMessage, "readReceipt" | "deleted" | "user" | "reply">;

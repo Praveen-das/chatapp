@@ -339,85 +339,119 @@ export const userLookupPipeline = () => [
   },
 ];
 
-export const conversationMessagesLookup = (userId: Types.ObjectId, lastKnownMessageTimestamp?: number): any => ({
-  $lookup: {
-    from: "messages",
-    let: {
-      deletedAt: "$deletedAt",
-      conversationId: "$conversationId",
-      lastKnownMessageTimestamp,
-    },
-    pipeline: [
-      {
-        $match: {
-          $expr: {
-            $and: [
-              {
-                $eq: ["$conversationId", "$$conversationId"],
-              },
-              {
-                $cond: [
-                  {
-                    $ifNull: ["$$lastKnownMessageTimestamp", false],
-                  },
-                  {
-                    $gt: ["$timestamp", "$$lastKnownMessageTimestamp"],
-                  },
-                  {
-                    $gt: ["$timestamp", "$$deletedAt"],
-                  },
-                ],
-              },
-              {
-                $or: [
-                  {
-                    $ne: [
-                      {
-                        $ifNull: ["$to", null],
-                      },
-                      null,
-                    ],
-                  },
-                  {
-                    $eq: ["$from", userId],
-                  },
-                ],
-              },
-            ],
+export const conversationMessagesLookup = (
+  userId: Types.ObjectId,
+  lastKnownMessageTimestamp?: number,
+  activatedAt: number = 0,
+): any => {
+  return {
+    $lookup: {
+      from: "messages",
+      let: {
+        deletedAt: "$deletedAt",
+        conversationId: "$conversationId",
+        userId: "$userId",
+        lastKnownMessageTimestamp,
+        activatedAt,
+        lastDeliveredMessageTimestamp: "$currentUserLastDeliveredMessageTimestamp",
+      },
+      pipeline: [
+        {
+          $match: {
+            $expr: {
+              $and: [
+                {
+                  $eq: ["$conversationId", "$$conversationId"],
+                },
+                {
+                  $cond: [
+                    {
+                      $ifNull: ["$$lastKnownMessageTimestamp", false],
+                    },
+                    {
+                      $gt: ["$timestamp", "$$lastKnownMessageTimestamp"],
+                    },
+                    {
+                      $gt: ["$timestamp", "$$deletedAt"],
+                    },
+                  ],
+                },
+                {
+                  $or: [
+                    {
+                      $gt: ["$timestamp", "$$activatedAt"],
+                    },
+                    {
+                      $cond: [
+                        {
+                          $expr: {
+                            $and: [
+                              {
+                                $gt: ["$$lastDeliveredMessageTimestamp", 0],
+                              },
+                              {
+                                $ne: ["$from", "$$userId"],
+                              },
+                            ],
+                          },
+                        },
+                        { $gt: ["$timestamp", "$$lastDeliveredMessageTimestamp"] },
+                        false,
+                      ],
+                    },
+                  ],
+                },
+                {
+                  $or: [
+                    {
+                      $ne: [
+                        {
+                          $ifNull: ["$to", null],
+                        },
+                        null,
+                      ],
+                    },
+                    {
+                      $eq: ["$from", userId],
+                    },
+                  ],
+                },
+              ],
+            },
           },
         },
-      },
 
-      {
-        $sort: {
-          timestamp: -1,
+        {
+          $sort: {
+            timestamp: -1,
+          },
         },
-      },
-      {
-        $limit: LIMIT + 1,
-      },
-
-      // userLookup({ localField: "from", as: "user" }),
-
-      {
-        $unwind: {
-          path: "$user",
-          preserveNullAndEmptyArrays: true,
+        {
+          $limit: LIMIT + 1,
         },
-      },
 
-      // Perform the messageDeleted lookup for only the matched messages
-      ...messagedeleteflagsLookup(userId),
+        // userLookup({ localField: "from", as: "user" }),
 
-      {
-        $sort: {
-          timestamp: 1,
+        {
+          $unwind: {
+            path: "$user",
+            preserveNullAndEmptyArrays: true,
+          },
         },
-      },
-    ],
-    as: "messages",
-  },
-});
+
+        // Perform the messageDeleted lookup for only the matched messages
+        ...messagedeleteflagsLookup(userId),
+
+        {
+          $sort: {
+            timestamp: 1,
+          },
+        },
+      ],
+      as: "messages",
+    },
+  };
+};
 
 export const userLookup = ({ as, localField }: { as: string; localField: string }) => ({
   $lookup: {
@@ -577,3 +611,43 @@ export function transformReadReceiptsArray() {
     },
   ];
 }
+
+export const currentUserReadReceiptLookup = (userId: Types.ObjectId): any[] => [
+  {
+    $lookup: {
+      from: "messagereadreceipts",
+      let: { convoId: "$conversationId" },
+      pipeline: [
+        {
+          $match: {
+            $expr: {
+              $and: [{ $eq: ["$conversationId", "$$convoId"] }, { $eq: ["$userId", userId] }],
+            },
+          },
+        },
+        {
+          $sort: {
+            lastDeliveredMessageTimestamp: -1,
+          },
+        },
+        {
+          $limit: 1,
+        },
+        {
+          $project: { lastDeliveredMessageTimestamp: 1 },
+        },
+      ],
+      as: "currentUserReceipt",
+    },
+  },
+  {
+    $addFields: {
+      currentUserLastDeliveredMessageTimestamp: {
+        $ifNull: [{ $arrayElemAt: ["$currentUserReceipt.lastDeliveredMessageTimestamp", 0] }, 0],
+      },
+    },
+  },
+  {
+    $project: { currentUserReceipt: 0 },
+  },
+];

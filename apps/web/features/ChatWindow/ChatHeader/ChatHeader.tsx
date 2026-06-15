@@ -50,6 +50,7 @@ function ChatHeader({ showMenu = true, onClose }: { showMenu: boolean; onClose?:
 
   function handleClose(e: MouseEvent<HTMLSpanElement>) {
     e.stopPropagation();
+    useConversationStore.getState().conversationActions.setSelectedConversation(null);
     !!images.length ? clearImages() : setDeviceTab("");
   }
 
@@ -105,10 +106,10 @@ function SystemInfo() {
     <>
       <Avatar url="/favicon.svg" size="40px" onlineIndication={false} />
       <div className="grid gap-1">
-        <label className="text-sm truncate" htmlFor="username">
+        <label className="text-sm font-medium truncate" htmlFor="username">
           {APP_NAME}
         </label>
-        <label htmlFor="lastseen">System notifications</label>
+        <span className="text-xs opacity-60">System notifications</span>
       </div>
     </>
   );
@@ -118,13 +119,13 @@ function AiInfo() {
   return (
     <>
       <div className="avatar">
-        <SparkSolid className="size-10" />
+        <SparkSolid className="size-10 text-primary" />
       </div>
       <div className="grid gap-1">
-        <label className="text-sm truncate" htmlFor="username">
+        <label className="text-sm font-medium truncate" htmlFor="username">
           AI Assistant
         </label>
-        <label htmlFor="lastseen">Powered by Google Gemini</label>
+        <span className="text-xs opacity-60">Powered by Google Gemini</span>
       </div>
     </>
   );
@@ -163,16 +164,19 @@ function UserInfo({ userId, blocked, blockedByUser }: { userId: string; blocked:
 
   const isOnline = user.status === "online";
   const isHidden = Boolean(rules?.includes("hide_profilepicture"));
-  const canShowLastSeen = isOnline || (user.lastSeen !== null && user.lastSeen !== undefined && !isNaN(Number(user.lastSeen)));
+  const canShowLastSeen =
+    isOnline || (user.lastSeen !== null && user.lastSeen !== undefined && !isNaN(Number(user.lastSeen)));
 
   return (
     <>
       <Avatar url={profilePicture} profileHidden={isHidden} size="40px" onlineIndication={false} />
       <div className="grid gap-1">
-        <label className="text-sm truncate" htmlFor="username">
+        <label className="text-sm font-medium truncate" htmlFor="username">
           {username}
         </label>
-        {canShowLastSeen && <label htmlFor="lastseen">{isOnline ? "online" : moment(user.lastSeen).fromNow()}</label>}
+        {canShowLastSeen && (
+          <span className="text-xs opacity-60">{isOnline ? "online" : moment(user.lastSeen).fromNow()}</span>
+        )}
       </div>
     </>
   );
@@ -187,15 +191,18 @@ function GroupInfo() {
     <>
       <Avatar url={selectedConversation.profilePicture} size="40px" onlineIndication={false} />
       <div className="grid gap-1">
-        <label className="text-sm truncate" htmlFor="username">
+        <label className="text-sm font-medium truncate" htmlFor="username">
           {selectedConversation.displayName}
         </label>
-        <label className="pointer-events-none whitespace-nowrap truncate" htmlFor="members">
+        <span
+          className="text-xs opacity-60 pointer-events-none whitespace-nowrap truncate max-w-[200px]"
+          title={selectedConversation?.members.map((m) => getUserById(m.userId)?.username || "").join(", ")}
+        >
           {selectedConversation?.members.map((m, i, a) => {
             let displayName = getUserById(m.userId)?.username || "";
             return i !== a.length - 1 ? `${displayName}, ` : displayName;
           })}
-        </label>
+        </span>
       </div>
     </>
   );
@@ -241,7 +248,7 @@ function HeaderMenuContext() {
       { currentUser, participant: selectedUser! },
       {
         blocked: [currentUser?.id!],
-      }
+      },
     );
   };
 

@@ -18,6 +18,7 @@ import { useConversationStore } from "store/conversationStore";
 import { useMessageStore } from "store/messageStore";
 import { useE2eeStore } from "store/e2eStore";
 import { generateE2EKeyPair } from "@lib/e2e";
+import { clearAllConversations, getActiveUsers } from "@lib/conversation";
 
 const useContextData = () => {
   const axios = useAxios();
@@ -27,7 +28,6 @@ const useContextData = () => {
     required: true,
   });
   const { setAccessToken } = useAccessToken();
-  const { finishLoading } = useLoading();
 
   const [isMounted, setMounted] = useState(false);
   const isSigningOut = useRef(false);
@@ -47,15 +47,28 @@ const useContextData = () => {
 
   useEffect(() => {
     async function initE2eeKeys() {
-      if (!user?.id) {
-        useE2eeStore.getState().clearKeys();
+      if (!user?.id || !isMounted) {
+        if (!user?.id) {
+          useE2eeStore.getState().clearKeys();
+        }
         return;
       }
 
-      const localPrivateKey = localStorage.getItem("e2e_private_key");
-      const localPublicKey = localStorage.getItem("e2e_public_key");
+      let localPrivateKey = localStorage.getItem("e2e_private_key");
+      let localPublicKey = localStorage.getItem("e2e_public_key");
+
+      // Verify local keys against the server's public key (if user.publicKey exists)
+      // If the server has a public key but local key mismatches, or if the server has no public key, local keys are invalid/stale
+      if (localPublicKey && (!user.publicKey || localPublicKey !== user.publicKey)) {
+        localStorage.removeItem("e2e_private_key");
+        localStorage.removeItem("e2e_public_key");
+        useE2eeStore.getState().clearKeys();
+        localPrivateKey = null;
+        localPublicKey = null;
+      }
 
       if (localPrivateKey && localPublicKey) {
+        console.log("e2ee keys exist");
         // Case 1: Local keys exist — load them
         useE2eeStore.getState().setKeys(localPublicKey, localPrivateKey);
 
@@ -63,6 +76,7 @@ const useContextData = () => {
           useE2eeStore.getState().setHasCloudBackup(true);
         }
       } else if (user.encryptedPrivateKey && user.publicKey) {
+        console.log("needs backup");
         // Case 2: Server has wrapped key but local is missing — redirect to recovery
         useE2eeStore.getState().setNeedsRestore(true);
         useE2eeStore.getState().setHasCloudBackup(true);
@@ -74,10 +88,14 @@ const useContextData = () => {
       } else {
         // Case 3: Fresh user — silently generate keys
         try {
+          console.log("fresh user");
           const keypair = await generateE2EKeyPair();
           localStorage.setItem("e2e_public_key", keypair.publicKey);
           localStorage.setItem("e2e_private_key", keypair.privateKey);
-          await updateUser("publicKey", keypair.publicKey);
+
+          clearAllConversations();
+
+          await updatePublicKey(keypair.publicKey);
           useE2eeStore.getState().setKeys(keypair.publicKey, keypair.privateKey);
         } catch (error) {
           console.error("Silent E2EE key generation failed:", error);
@@ -86,7 +104,7 @@ const useContextData = () => {
     }
 
     initE2eeKeys();
-  }, [user]);
+  }, [user, isMounted]);
 
   useEffect(() => {
     async function init() {
@@ -99,7 +117,6 @@ const useContextData = () => {
         let result: RefreshResult = { error: "server_unavailable" };
 
         for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-          console.log("refreshToken attempt: ", attempt);
           result = await refreshToken();
 
           // Success or definitive auth failure — stop retrying
@@ -110,7 +127,7 @@ const useContextData = () => {
             await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
           }
         }
-        console.log({ result });
+
         if (result.token) {
           setAccessToken(result.token);
         } else if (result.error === "auth_failed") {
@@ -152,11 +169,21 @@ const useContextData = () => {
   };
 
   const updateUser = useCallback(
-    async (key: string, value: any) => {
+    async (keyOrUpdates: string | Record<string, any>, value?: any) => {
+      const updates = typeof keyOrUpdates === "string" ? { [keyOrUpdates]: value } : keyOrUpdates;
+      const label = typeof keyOrUpdates === "string" ? keyOrUpdates : Object.keys(keyOrUpdates).join(", ");
+
       try {
         const updatedUser = await axios
-          .put(`/db/user`, { id: user?.id, updates: { [key]: value } })
-          .then((res) => res.data);
+          .put(`/db/user`, { id: user?.id, updates })
+          .then((res) => {
+            console.log("updateUser response:", res);
+            return res.data;
+          })
+          .catch((err) => {
+            console.log("updateUser error:", err);
+            throw err;
+          });
 
         if (updatedUser.error) {
           if (updatedUser.error.code === 11000) {
@@ -175,7 +202,57 @@ const useContextData = () => {
         }
 
         await updateSession(updatedUser);
-        toast.success(`${key} updated successfully`);
+        toast.success(`${label} updated successfully`);
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    [axios, user],
+  );
+
+  const updatePublicKey = useCallback(
+    async (publicKey: string) => {
+      try {
+        const updatedUser = await axios
+          .put(`/db/user/public-key`, { userId: user?.id, publicKey })
+          .then((res) => {
+            console.log("updatePublicKey response:", res);
+            return res.data;
+          })
+          .catch((err) => {
+            console.log("updatePublicKey error:", err);
+            throw err;
+          });
+
+        if (updatedUser.error) {
+          toast.error(updatedUser.error.message);
+          return;
+        }
+
+        await updateSession(updatedUser);
+
+        // Broadcast public key update to active chat participants
+        try {
+          const activeUsers = getActiveUsers().map((u) => u.id);
+          const groupMembers = useConversationStore.getState().conversations.reduce<Set<string>>((i, c) => {
+            if (c?.host === "user" || c?.host === "group") c.members.forEach((m) => i.add(m.userId));
+            return i;
+          }, new Set());
+          const targetUserIds = [...new Set([...activeUsers, ...groupMembers])].filter((id) => id !== user?.id);
+
+          if (targetUserIds.length > 0) {
+            const publicKeyHistory = updatedUser.publicKeyHistory;
+
+            socket.emit("UPDATE_USER_PUBLIC_KEY", {
+              userId: user?.id,
+              publicKey,
+              publicKeyHistory,
+              targetUserIds,
+            });
+          }
+        } catch (e) {
+          console.error("Failed to broadcast E2EE public key:", e);
+        }
       } catch (error) {
         console.log(error);
       }
@@ -203,6 +280,7 @@ const useContextData = () => {
     setMounted,
     user,
     updateUser,
+    updatePublicKey,
     updateSession,
     signOut,
     session,

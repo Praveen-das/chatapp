@@ -106,7 +106,7 @@ function Menu<T>({ children, placement = "bottom-start", clientPoint = false, id
       {clientPoint && <div ref={wrapper} className="fixed z-[1000]" />}
       {isMounted && (
         <ul
-          className={`menu bg-base-100/70 backdrop-blur-lg p-1 rounded-lg text-xs shadow z-[1000] overflow-hidden`}
+          className={`menu bg-base-100/80 backdrop-blur-lg backdrop-saturate-150 border border-base-content/10 rounded-xl p-1 text-xs shadow-2xl z-[1000] overflow-hidden`}
           ref={refs.setFloating}
           {...getFloatingProps()}
           style={{ ...floatingStyles, ...styles }}

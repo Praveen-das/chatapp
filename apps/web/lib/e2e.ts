@@ -1,8 +1,28 @@
 // True End-to-End Encryption (E2EE) cryptographic layer using native Web Crypto API
 
+import { IPublicKeyVersion } from "@repo/interfaces/userInterface";
+
 export interface E2EKeyPair {
   publicKey: string; // JWK formatted public key string
   privateKey: string; // JWK formatted private key string
+}
+
+/**
+ * Select the correct public key for a given message timestamp.
+ * Finds the latest key version whose activatedAt <= messageTimestamp.
+ * Falls back to currentPublicKey if no history exists.
+ */
+export function resolvePublicKeyForTimestamp(
+  keyHistory: IPublicKeyVersion[] | undefined,
+  currentPublicKey: string | undefined,
+  messageTimestamp: number,
+): string | undefined {
+  if (!keyHistory?.length) return currentPublicKey;
+
+  const sorted = [...keyHistory].sort((a, b) => b.activatedAt - a.activatedAt);
+  const match = sorted.find((k) => k.activatedAt <= messageTimestamp);
+
+  return match?.publicKey ?? currentPublicKey;
 }
 
 // Check if we are running in the browser (Next.js SSR safety)
@@ -20,7 +40,7 @@ export async function generateE2EKeyPair(): Promise<E2EKeyPair> {
       namedCurve: "P-256",
     },
     true, // extractable
-    ["deriveKey", "deriveBits"]
+    ["deriveKey", "deriveBits"],
   );
 
   const publicKeyJwk = await window.crypto.subtle.exportKey("jwk", keyPair.publicKey);
@@ -39,13 +59,9 @@ async function deriveWrappingKey(pin: string, saltStr: string): Promise<CryptoKe
   if (!isBrowser) throw new Error("Cryptography is client-only");
 
   const encoder = new TextEncoder();
-  const pinKeyMaterial = await window.crypto.subtle.importKey(
-    "raw",
-    encoder.encode(pin),
-    "PBKDF2",
-    false,
-    ["deriveKey"]
-  );
+  const pinKeyMaterial = await window.crypto.subtle.importKey("raw", encoder.encode(pin), "PBKDF2", false, [
+    "deriveKey",
+  ]);
 
   const salt = encoder.encode(saltStr);
 
@@ -59,7 +75,7 @@ async function deriveWrappingKey(pin: string, saltStr: string): Promise<CryptoKe
     pinKeyMaterial,
     { name: "AES-GCM", length: 256 },
     true,
-    ["encrypt", "decrypt"]
+    ["encrypt", "decrypt"],
   );
 }
 
@@ -81,7 +97,7 @@ export async function wrapPrivateKey(privateKeyJwkStr: string, pin: string, salt
       iv,
     },
     wrappingKey,
-    data
+    data,
   );
 
   const ivBase64 = btoa(String.fromCharCode(...iv));
@@ -103,8 +119,16 @@ export async function unwrapPrivateKey(wrappedKeyStr: string, pin: string, saltS
 
   const wrappingKey = await deriveWrappingKey(pin, saltStr);
 
-  const iv = new Uint8Array(atob(ivBase64).split("").map((c) => c.charCodeAt(0)));
-  const ciphertext = new Uint8Array(atob(ciphertextBase64).split("").map((c) => c.charCodeAt(0)));
+  const iv = new Uint8Array(
+    atob(ivBase64)
+      .split("")
+      .map((c) => c.charCodeAt(0)),
+  );
+  const ciphertext = new Uint8Array(
+    atob(ciphertextBase64)
+      .split("")
+      .map((c) => c.charCodeAt(0)),
+  );
 
   const decrypted = await window.crypto.subtle.decrypt(
     {
@@ -112,7 +136,7 @@ export async function unwrapPrivateKey(wrappedKeyStr: string, pin: string, saltS
       iv,
     },
     wrappingKey,
-    ciphertext
+    ciphertext,
   );
 
   const decoder = new TextDecoder();
@@ -130,7 +154,7 @@ async function deriveSharedKey(myPrivateKeyJwkStr: string, otherPublicKeyJwkStr:
     JSON.parse(myPrivateKeyJwkStr),
     { name: "ECDH", namedCurve: "P-256" },
     true,
-    ["deriveKey"]
+    ["deriveKey"],
   );
 
   const otherPublicKey = await window.crypto.subtle.importKey(
@@ -138,7 +162,7 @@ async function deriveSharedKey(myPrivateKeyJwkStr: string, otherPublicKeyJwkStr:
     JSON.parse(otherPublicKeyJwkStr),
     { name: "ECDH", namedCurve: "P-256" },
     true,
-    []
+    [],
   );
 
   return window.crypto.subtle.deriveKey(
@@ -152,7 +176,7 @@ async function deriveSharedKey(myPrivateKeyJwkStr: string, otherPublicKeyJwkStr:
       length: 256,
     },
     true,
-    ["encrypt", "decrypt"]
+    ["encrypt", "decrypt"],
   );
 }
 
@@ -162,7 +186,7 @@ async function deriveSharedKey(myPrivateKeyJwkStr: string, otherPublicKeyJwkStr:
 export async function encryptMessage(
   message: string,
   otherPublicKeyJwkStr: string,
-  myPrivateKeyJwkStr: string
+  myPrivateKeyJwkStr: string,
 ): Promise<string> {
   if (!isBrowser) return message;
   if (!otherPublicKeyJwkStr || !myPrivateKeyJwkStr) {
@@ -182,7 +206,7 @@ export async function encryptMessage(
         iv,
       },
       sharedKey,
-      data
+      data,
     );
 
     const ivBase64 = btoa(String.fromCharCode(...iv));
@@ -195,13 +219,15 @@ export async function encryptMessage(
   }
 }
 
+export const E2E_WAITING_MESSAGE = "⏳__E2E_WAITING__";
+
 /**
  * Decrypt a ciphertext message using ECDH + AES-GCM
  */
 export async function decryptMessage(
   encryptedMessage: string,
   otherPublicKeyJwkStr?: string,
-  myPrivateKeyJwkStr?: string
+  myPrivateKeyJwkStr?: string,
 ): Promise<string> {
   if (!isBrowser) return encryptedMessage;
   if (!encryptedMessage || !encryptedMessage.startsWith("v2:")) {
@@ -211,7 +237,7 @@ export async function decryptMessage(
   }
 
   if (!otherPublicKeyJwkStr || !myPrivateKeyJwkStr) {
-    return "[Secure E2EE message - decrypt key missing]";
+    return E2E_WAITING_MESSAGE;
   }
 
   try {
@@ -222,8 +248,16 @@ export async function decryptMessage(
 
     const sharedKey = await deriveSharedKey(myPrivateKeyJwkStr, otherPublicKeyJwkStr);
 
-    const iv = new Uint8Array(atob(ivBase64).split("").map((c) => c.charCodeAt(0)));
-    const ciphertext = new Uint8Array(atob(ciphertextBase64).split("").map((c) => c.charCodeAt(0)));
+    const iv = new Uint8Array(
+      atob(ivBase64)
+        .split("")
+        .map((c) => c.charCodeAt(0)),
+    );
+    const ciphertext = new Uint8Array(
+      atob(ciphertextBase64)
+        .split("")
+        .map((c) => c.charCodeAt(0)),
+    );
 
     const decrypted = await window.crypto.subtle.decrypt(
       {
@@ -231,13 +265,13 @@ export async function decryptMessage(
         iv,
       },
       sharedKey,
-      ciphertext
+      ciphertext,
     );
 
     const decoder = new TextDecoder();
     return decoder.decode(decrypted);
   } catch (error) {
     console.error("Decryption failed:", error);
-    return "[Secure message - decryption failed]";
+    return E2E_WAITING_MESSAGE;
   }
 }

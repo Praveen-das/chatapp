@@ -18,6 +18,7 @@ import NotificationToggle from "../SharedComponents/NotificationToggle";
 import StarredMessages from "../SharedComponents/StarredMessages";
 import { AvatarWrapper } from "./components/AvatarWrapper";
 import { Member } from "./components/Member";
+import { ProfileHeader, ProfileCard } from "../SharedComponents/ProfileLayouts";
 
 function GroupProfile({ groupId }: { groupId: string }) {
   const conversation = useGroupConversation(groupId);
@@ -118,42 +119,37 @@ function GroupProfile({ groupId }: { groupId: string }) {
   }
 
   return (
-    <div className="w-full h-full grid">
+    <div className="w-full h-full flex flex-col">
       {/* Header */}
-      <div className="min-h-16 w-full flex items-center max-sm:gap-2 gap-4 max-sm:px-2 px-4">
-        <button onClick={closeProfile} className={`btn btn-sm btn-ghost btn-circle`}>
-          <ChevronRightIcon className="size-5" />
-        </button>
-        <label htmlFor="contact info">Group info</label>
-      </div>
+      <ProfileHeader title="Group info" onBack={closeProfile} />
 
       {/* Profile details */}
-      <div className="flex relative h-full gap-8 max-sm:pt-2 pt-4 text-sm flex-col overflow-y-scroll max-sm:pb-3 pb-10 no-scrollbar">
-        {/* profile */}
-        <div className="flex gap-8 items-center max-sm:px-4 px-8">
+      <div className="flex-1 flex relative gap-6 pt-4 text-sm flex-col overflow-y-auto pb-10 no-scrollbar">
+        {/* Profile Card */}
+        <div className="flex gap-6 items-center px-4 py-4 border-b border-base-content/5">
           <AvatarWrapper conversation={conversation} userIsAdmin={userCanEdit} />
 
-          <div className="grid gap-1">
+          <div className="grid gap-1.5 flex-1 min-w-0">
             <TextInput
               text={conversation?.displayName!}
-              className="text-base"
-              placeholderText="Add group description"
+              className="text-lg font-bold text-base-content"
+              placeholderText="Add group name"
               onSubmit={handleEditGroupName}
               canEdit={userCanEdit}
             />
-            <label className="text-xs text-base-content/50" htmlFor="">
-              {"Created By " + conversation.createdBy}
-            </label>
+            <span className="text-xs text-base-content/40">Created by {conversation.createdBy}</span>
           </div>
         </div>
 
-        {(conversation.desc || !!conversation.tags?.length) && (
-          <div className="flex flex-col gap-4">
+        {/* Group Details Card */}
+        {(conversation.desc || !!conversation.tags?.length || userCanEdit) && (
+          <ProfileCard title="Group Details">
             {(conversation.desc || userCanEdit) && (
-              <div className="max-sm:px-4 px-8">
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-base-content/40 font-medium pl-0.5">Description</span>
                 <TextInput
                   autoRaw
-                  placeholderText="Add group description"
+                  placeholderText="Add group description..."
                   text={conversation?.desc!}
                   onSubmit={handleEditGroupDescription}
                   canEdit={userCanEdit}
@@ -162,7 +158,8 @@ function GroupProfile({ groupId }: { groupId: string }) {
             )}
 
             {(!!conversation.tags?.length || userCanEdit) && (
-              <div className="max-sm:px-4 px-8">
+              <div className="flex flex-col gap-1.5 mt-1">
+                <span className="text-xs text-base-content/40 font-medium pl-0.5">Tags</span>
                 <TagInput
                   tags={conversation.tags || []}
                   showLabel={false}
@@ -172,18 +169,18 @@ function GroupProfile({ groupId }: { groupId: string }) {
                 />
               </div>
             )}
-          </div>
+          </ProfileCard>
         )}
 
-        {/* Media */}
-        <div className="space-y-1 divide-y-[1.75px] divide-[--base-300-400] max-sm:mt-2 sm:mt-4 max-sm:px-4 px-8 [&>div]:h-16">
+        {/* Preferences & Shared Media Card */}
+        <ProfileCard title="Preferences & Media" variant="list">
           <NotificationToggle id={conversation.id} />
           <StarredMessages />
           <MediaSelection conversationId={conversation?.id!} />
-        </div>
+        </ProfileCard>
 
-        {/* conversation members */}
-        <div className="w-full flex flex-col ">
+        {/* Group Members Section */}
+        <div className="flex flex-col gap-2 px-4">
           <Menu<IGroupMember> id="groupProfile">
             {(member) => (
               <>
@@ -195,43 +192,51 @@ function GroupProfile({ groupId }: { groupId: string }) {
             )}
           </Menu>
 
-          <div className="flex gap-4 max-sm:px-4 px-8">
-            <label className="text-sm text-primary mb-2 " htmlFor="">
-              Group members
-            </label>
-            {totalMembers}
+          <div className="flex items-center justify-between pl-1">
+            <span className="text-xs font-semibold text-base-content/50 uppercase tracking-wider">Group Members</span>
+            <span className="badge badge-sm bg-base-300 border-none text-base-content/70 font-semibold px-2 py-2 rounded-full">
+              {totalMembers}
+            </span>
           </div>
 
-          <div className="flex gap-1 flex-col w-full px-3">
+          <div className="bg-base-100/20 backdrop-blur-md rounded-2xl py-4 flex flex-col gap-2 shadow-xs">
             {userCanEdit && (
               <>
-                <div
+                <button
                   tabIndex={0}
                   onClick={() => toggleModal("addGroupMembersModal")}
-                  className="hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-5 py-3 rounded-2xl cursor-pointer"
+                  className="hover:bg-[--hover-secondary] transition-colors duration-150 w-full flex items-center gap-4 px-4 py-3 text-left pressable"
                 >
-                  <div className="flex items-center justify-center w-[40px] h-[40px] bg-[--100-primary] text-white rounded-full">
+                  <div className="flex items-center justify-center w-[36px] h-[36px] bg-base-300 text-base-content/70 rounded-full shrink-0">
                     <UserPlusIcon className="size-5" />
                   </div>
-                  Add Member
-                </div>
-                <div
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-sm text-base-content">Add Member</span>
+                    <span className="text-xs text-base-content/50">Add someone directly to this group</span>
+                  </div>
+                </button>
+
+                <button
                   onClick={() => profileTab.push("inviteLink")}
                   tabIndex={0}
-                  className="hover:bg-[--hover-secondary] duration-200  w-full flex items-center gap-4 max-sm:px-4 px-5 py-3 rounded-2xl cursor-pointer"
+                  className="hover:bg-[--hover-secondary] transition-colors duration-150 w-full flex items-center gap-4 px-4 py-3 text-left pressable"
                 >
-                  <div className="flex items-center justify-center w-[40px] h-[40px] bg-[--100-primary] text-white rounded-full">
+                  <div className="flex items-center justify-center w-[36px] h-[36px] bg-base-300 text-base-content/70 rounded-full shrink-0">
                     <LinkIcon className="size-5" />
                   </div>
-                  Invite via link
-                </div>
-                <div className="max-sm:px-4 px-5 py-2">
-                  <div className="w-full h-[1.25px] bg-[--base-300-400]"></div>
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-sm text-base-content">Invite via link</span>
+                    <span className="text-xs text-base-content/50">Share a link to let people join</span>
+                  </div>
+                </button>
+
+                <div className="px-4 py-1.5">
+                  <div className="w-full h-px bg-base-content/5"></div>
                 </div>
               </>
             )}
 
-            <div>
+            <div className="flex flex-col gap-0.5">
               {members.map(
                 (member, i) =>
                   i < 5 && (
@@ -241,28 +246,29 @@ function GroupProfile({ groupId }: { groupId: string }) {
                       key={member.userId}
                       member={member}
                     />
-                  )
+                  ),
               )}
             </div>
-            <div
-              onClick={() => toggleModal("allMembers")}
-              tabIndex={0}
-              className="hover:bg-[--hover-secondary] duration-200 p-4 flex justify-center items-center rounded-2xl cursor-pointer"
-            >
-              View all members
+
+            <div className="px-4">
+              <button
+                onClick={() => toggleModal("allMembers")}
+                className="hover:bg-[--hover-secondary] text-primary font-semibold transition-all duration-150 py-2.5 w-full flex justify-center items-center rounded-xl pressable mt-1"
+              >
+                View all members
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex flex-col gap-2 max-sm:px-4 px-8 mt-auto">
-          <div
+        {/* Actions Footer */}
+        <div className="flex flex-col gap-2 px-4 mt-auto pt-6">
+          <button
             onClick={userIsMember ? handleExitingGroup : handleDeletingGroup}
-            tabIndex={0}
-            className="btn btn-block btn-error !text-[--black-white]"
+            className="btn btn-block btn-error !text-[--black-white] rounded-2xl shadow-sm font-bold py-3.5 pressable"
           >
             {userIsMember ? "Exit Group" : "Delete chat"}
-          </div>
+          </button>
         </div>
       </div>
     </div>

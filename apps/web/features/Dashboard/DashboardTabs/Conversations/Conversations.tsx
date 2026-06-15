@@ -23,7 +23,7 @@ export default function Conversations() {
   );
 }
 
-const Skeleton = () => Array(4).fill(<ConversationSkeleton />);
+const Skeleton = () => Array.from({ length: 4 }).map((_, index) => <ConversationSkeleton key={index} />);
 
 function DisplayConversations() {
   const queryResult = useSearch((s) => s.queryResult);
@@ -74,7 +74,7 @@ function DisplayConversations() {
         let y = b.recentMessage?.timestamp || b.updatedAt;
         return y - x;
       }),
-    [conversations]
+    [conversations],
   );
 
   return (
@@ -120,7 +120,7 @@ function DisplayConversations() {
                         isSelected={selectedConversation?.id === conversation.id}
                       />
                     </MotionWrapper>
-                  )
+                  ),
               )}
             </AnimatePresence>
           )}

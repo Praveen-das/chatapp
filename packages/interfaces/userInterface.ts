@@ -8,6 +8,12 @@ export type IUserRules =
   | "disable_chat_assist"
   | "disable_content_awareness";
 
+export interface IPublicKeyVersion {
+  publicKey: string; // JWK public key string
+  activatedAt: number; // Epoch ms when this key became active
+  status?: "active" | "archived" | "revoked";
+}
+
 export interface IUser {
   id: string;
   username: string;
@@ -23,6 +29,7 @@ export interface IUser {
   self?: boolean;
   version?: number;
   publicKey?: string;
+  publicKeyHistory?: IPublicKeyVersion[];
   encryptedPrivateKey?: string;
 }
 

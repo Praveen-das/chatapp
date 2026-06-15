@@ -22,7 +22,7 @@ interface IConve {
 }
 
 function Conversation({ conversation, isSelected }: IConve): React.JSX.Element {
-  const { isDarkMode, isLightMode } = useTheme();
+  const { isLightMode } = useTheme();
   const { setSelectedConversation } = useConversationStore((s) => s.conversationActions);
   const setSelectedUser = useStore((s) => s.setSelectedUser);
   const toggleProfile = useStore((s) => s.toggleProfile);
@@ -42,23 +42,26 @@ function Conversation({ conversation, isSelected }: IConve): React.JSX.Element {
   const isUserConversation = conversation.host === "user";
   const receiver = isUserConversation ? getReceiverMetadata(conversation)! : null;
   const displayName = getDisplayName(conversation);
-  
-  const class_selected = classNames({
-    "sm:bg-base-200": isDarkMode && isSelected,
-    "sm:bg-primary text-white [--avatarBg:oklch(1_0_0/0.20)]": isLightMode && isSelected,
-  });
-  
+
   return (
     <div
       onClick={handleSelectedConversation}
-      className={`group flex gap-4 items-center w-full max-sm:py-2 max-sm:pr-2 sm:px-4 sm:min-h-[75px] rounded-2xl cursor-pointer bg-[--l-base-300] z-10 ${class_selected}`}
+      role="button"
+      tabIndex={0}
+      className={`group relative flex gap-4 items-center w-full max-sm:py-2 max-sm:pr-2 sm:px-4 sm:min-h-[75px] rounded-2xl cursor-pointer z-10 transition-all duration-150 outline-none ${
+        isSelected
+          ? isLightMode
+            ? "bg-transparent hover:bg-base-content/[0.03] sm:bg-primary/85 sm:text-white sm:[--avatarBg:oklch(1_0_0/0.20)] sm:shadow-[0_4px_12px_rgba(var(--p),0.2)] sm:hover:bg-primary/85"
+            : "bg-transparent hover:bg-base-content/[0.03] sm:bg-base-content/[0.06] sm:shadow-[inset_0_0_0_1px_oklch(var(--bc)/0.05)] sm:hover:bg-base-content/[0.06]"
+          : "bg-transparent hover:bg-base-content/[0.03]"
+      }`}
     >
       <RenderAvatar conversation={conversation} receiver={getUserFromMetadata(receiver!)} />
       <div className="min-w-0 w-full space-y-1">
         <div className="flex gap-4 justify-between items-center">
-          <h1 className="text-sm truncate" title={displayName}>
+          <h2 className="text-[14px] font-medium opacity-90 truncate text-current" title={displayName}>
             {displayName}
-          </h1>
+          </h2>
           {recentMessage && <RecentMessageTimestamp timestamp={recentMessage.timestamp} />}
         </div>
         <div className="flex justify-between items-center h-5 ">
@@ -75,9 +78,9 @@ function Conversation({ conversation, isSelected }: IConve): React.JSX.Element {
 
 function RecentMessageTimestamp({ timestamp }: { timestamp: number }): React.ReactNode {
   return (
-    <label className="text-xs whitespace-nowrap" htmlFor="">
+    <span className="text-[11px] font-medium opacity-50 whitespace-nowrap text-current">
       {moment(new Date(timestamp)).format("LT")}
-    </label>
+    </span>
   );
 }
 
@@ -94,14 +97,16 @@ function UnreadMessageCount({
   if (!unreadMessages) return null;
 
   return (
-    <h1 className="absolute right-0 flex justify-center items-center text-xs bg-primary text-white w-5 h-5 rounded-full duration-100 opacity-100 translate-x-0 group-hover:opacity-0 group-hover:-translate-x-4">
+    <span className="absolute right-0 flex justify-center items-center text-xs font-semibold bg-primary text-primary-content w-5 h-5 rounded-full transition-all duration-200 ease-out opacity-100 translate-x-0 group-hover:opacity-0 group-hover:scale-90">
       {unreadMessages}
-    </h1>
+    </span>
   );
 }
 
 function DropdownMenu({ conversation }: { conversation: IConversation }) {
   const setMenu = useMenu((s) => s.setMenu);
+  const menu = useMenu((s) => s.menu);
+  const isOpen = menu?.id === "conversation" && menu?.data?.id === conversation.id;
 
   const handleOpeningMenu = (e: MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
@@ -112,9 +117,12 @@ function DropdownMenu({ conversation }: { conversation: IConversation }) {
     <div
       onClick={handleOpeningMenu}
       tabIndex={0}
-      className="absolute right-0 btn btn-circle btn-ghost w-6 h-6 min-h-6 -mr-1 duration-100 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0"
+      role="button"
+      className={`absolute right-0 btn btn-circle btn-ghost backdrop-blur-md border border-base-content/5 w-6 h-6 min-h-6 -mr-1 flex justify-center items-center transition-all duration-200 ease-out outline-none text-current ${
+        isOpen ? "opacity-100 scale-100 translate-x-0" : "opacity-0 scale-90 translate-x-2"
+      } group-hover:opacity-100 group-hover:scale-100 group-hover:translate-x-0`}
     >
-      <ChevronDownIcon className="size-5" />
+      <ChevronDownIcon className="size-4 text-current opacity-60" />
     </div>
   );
 }

@@ -46,7 +46,6 @@ export function LoadingPage({ children }: { children: React.ReactNode }) {
   }, []);
 
   const finishLoading = () => {
-    console.log("finishloading called");
     setIsLoaded(true);
   };
 
@@ -61,18 +60,18 @@ export function LoadingPage({ children }: { children: React.ReactNode }) {
     <LoadingContext.Provider value={{ finishLoading }}>
       {children}
       {(!isLoaded || !isMounted) && (
-        <div className="fixed inset-0 z-[9999999] w-full h-screen flex justify-center items-center bg-[--base-300-100] text-white">
+        <div className="fixed inset-0 z-[9999999] w-full h-screen flex justify-center items-center bg-[--base-300-100] text-base-content">
           <div className="grid place-items-center gap-2 text-center">
-            <Logo width={70} height={70} />
+            <Logo width={70} height={70} className="text-primary" />
             <div className="text-xl font-semibold tracking-wide">{APP_NAME}</div>
-            <div className="text-sm mt-2 text-slate-400">
+            <div className="text-sm mt-2 opacity-60">
               Loading your chats {value !== 0 && `${isLoaded ? 100 : value}%`}
             </div>
-            <div className="w-56 h-1 bg-slate-800 rounded-full mt-2 overflow-hidden">
+            <div className="w-56 h-1 bg-base-content/10 rounded-full mt-2 overflow-hidden">
               <div
                 onTransitionEnd={() => isLoaded && setIsMounted(true)}
                 style={{ width: `${isLoaded ? 100 : value}%` }}
-                className="h-full bg-white duration-500 ease-out transition-all"
+                className="h-full bg-primary duration-500 ease-out transition-all"
               />
             </div>
           </div>
