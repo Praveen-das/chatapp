@@ -6,7 +6,7 @@
     header @api_routes {
         Access-Control-Allow-Origin "https://chatapp-web-alpha.vercel.app"
         Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-        Access-Control-Allow-Headers "Content-Type, Authorization"
+        Access-Control-Allow-Headers "Content-Type, Authorization, Cache-Control"
         Access-Control-Allow-Credentials "true"
     }
 
@@ -19,7 +19,7 @@
         header {
             Access-Control-Allow-Origin "https://chatapp-web-alpha.vercel.app"
             Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-            Access-Control-Allow-Headers "Content-Type, Authorization"
+            Access-Control-Allow-Headers "Content-Type, Authorization, Cache-Control"
             Access-Control-Allow-Credentials "true"
             Access-Control-Max-Age "86400"
         }
