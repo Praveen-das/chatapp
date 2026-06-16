@@ -99,11 +99,11 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
     labels:
       - 'traefik.enable=true'
-      - 'traefik.http.routers.my-router.rule=Host(`localhost`) || Host(`chatvia.fn-cloud.space`)'
-      - 'traefik.http.routers.my-router.entrypoints=websecure'
-      - 'traefik.http.routers.my-router.tls=true'
-      - 'traefik.http.routers.my-router.tls.certresolver=cert-resolver'
-      - 'traefik.http.services.my-router.loadbalancer.server.port=80'
+      - 'traefik.http.routers.chatvia.rule=Host(`chatvia.fn-cloud.space`)'
+      - 'traefik.http.routers.chatvia.entrypoints=websecure'
+      - 'traefik.http.routers.chatvia.tls=true'
+      - 'traefik.http.routers.chatvia.tls.certresolver=cert-resolver'
+      - 'traefik.http.services.chatvia.loadbalancer.server.port=80'
       - 'traefik.docker.network=chatvia-network'
     networks:
       - chatvia-network
