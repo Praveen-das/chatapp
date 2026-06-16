@@ -4,8 +4,8 @@ services:
   traefik:
     image: traefik:latest
     command:
-      - '--api=true'
-      - '--api.dashboard=true'
+      # - '--api=true'
+      # - '--api.dashboard=true'
       - '--log.level=DEBUG'
       - '--providers.docker=true'
       - '--providers.docker.exposedbydefault=false'
@@ -22,16 +22,8 @@ services:
     volumes:
       - '/var/run/docker.sock:/var/run/docker.sock:ro'
       - './certificates/letsencrypt:/letsencrypt'
-    labels:
-      traefik.enable: true
-      traefik.port: 8080
-      traefik.http.routers.api.entrypoints: 'websecure'
-      traefik.http.routers.api.service: 'api@internal'
-      traefik.http.routers.api.tls: 'true'
-      traefik.http.routers.api.tls.certresolver: 'cert-resolver'
     ports:
       - '80:80'
-      - '8080:8080'
       - '443:443'
     extra_hosts:
       - "host.docker.internal:host-gateway"
