@@ -1,0 +1,31 @@
+:80 {
+    # Route for backend service (database endpoints)
+    handle_path /db* {
+        reverse_proxy backend:4000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # Route for session service
+    handle_path /session* {
+        reverse_proxy sessionservice:5000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # Route for socket.io connection / socket-service
+    handle /socket.io* {
+        reverse_proxy socket-service:3002 {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+}

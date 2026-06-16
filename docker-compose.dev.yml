@@ -5,8 +5,8 @@ services:
     build:
       context: .
       dockerfile: ./apps/session-service/Dockerfile
-    depends_on:
-      - traefik
+    # depends_on:
+    #   - traefik
     environment:
       - REDIS_SERVICE_URI=${REDIS_SERVICE_URI}
       - JWT_USER_TOKEN_SECRET_KEY=${JWT_USER_TOKEN_SECRET_KEY}
@@ -15,14 +15,14 @@ services:
     ports:
       - "5000:5000"
     networks:
-      - backend-net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.session.rule=PathPrefix(`/session`)"
-      - "traefik.http.routers.session.entrypoints=web"
-      - "traefik.http.middlewares.strip-session.stripprefix.prefixes=/session"
-      - "traefik.http.routers.session.middlewares=strip-session,cors-headers@file"
-      - "traefik.http.services.session.loadbalancer.server.port=5000"
+      - internal
+    # labels:
+    #   - "traefik.enable=true"
+    #   - "traefik.http.routers.session.rule=PathPrefix(`/session`)"
+    #   - "traefik.http.routers.session.entrypoints=web"
+    #   - "traefik.http.middlewares.strip-session.stripprefix.prefixes=/session"
+    #   - "traefik.http.routers.session.middlewares=strip-session,cors-headers@file"
+    #   - "traefik.http.services.session.loadbalancer.server.port=5000"
 
   backend:
     image: backend
@@ -52,14 +52,14 @@ services:
       - "4000:4000"
       - "27017:27017"
     networks:
-      - backend-net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=PathPrefix(`/db`)"
-      - "traefik.http.routers.backend.entrypoints=web"
-      - "traefik.http.middlewares.strip-db.stripprefix.prefixes=/db"
-      - "traefik.http.routers.backend.middlewares=strip-db,cors-headers@file"
-      - "traefik.http.services.backend.loadbalancer.server.port=4000"
+      - internal
+    # labels:
+    #   - "traefik.enable=true"
+    #   - "traefik.http.routers.backend.rule=PathPrefix(`/db`)"
+    #   - "traefik.http.routers.backend.entrypoints=web"
+    #   - "traefik.http.middlewares.strip-db.stripprefix.prefixes=/db"
+    #   - "traefik.http.routers.backend.middlewares=strip-db,cors-headers@file"
+    #   - "traefik.http.services.backend.loadbalancer.server.port=4000"
 
   socket-service:
     image: socket-service
@@ -84,49 +84,33 @@ services:
       - "3002:3002"
       - "3003:3003"
     networks:
-      - backend-net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.socket.rule=PathPrefix(`/socket.io`)"
-      - "traefik.http.routers.socket.entrypoints=web"
-      - "traefik.http.routers.socket.middlewares=cors-headers@file"
-      - "traefik.http.services.socket.loadbalancer.server.port=3002"
-      - "traefik.http.services.socket.loadbalancer.passHostHeader=true"
+      - internal
+    # labels:
+    #   - "traefik.enable=true"
+    #   - "traefik.http.routers.socket.rule=PathPrefix(`/socket.io`)"
+    #   - "traefik.http.routers.socket.entrypoints=web"
+    #   - "traefik.http.routers.socket.middlewares=cors-headers@file"
+    #   - "traefik.http.services.socket.loadbalancer.server.port=3002"
+    #   - "traefik.http.services.socket.loadbalancer.passHostHeader=true"
 
-  traefik:
-    image: chatapp-gateway
-    build:
-      context: ./traefik
-      dockerfile: Dockerfile
-    restart: always
-    ports:
-      - "3001:80"       # Clients still hit :3001
+  caddy:
+    image: caddy:latest
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik.yml:/etc/traefik/traefik.yml:ro
-      - ./dynamic:/etc/traefik/dynamic:ro
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.my-router.rule=Host(`localhost`) || Host(`chatvia.fn-cloud.space`)'
+      - 'traefik.http.routers.my-router.entrypoints=websecure'
+      - 'traefik.http.routers.my-router.tls=true'
+      - 'traefik.http.routers.my-router.tls.certresolver=cert-resolver'
+      - 'traefik.http.services.my-router.loadbalancer.server.port=80'
+      - 'traefik.docker.network=chatvia-network'
     networks:
-      - frontend
-      - backend-net
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    healthcheck:
-      test: ["CMD", "traefik", "healthcheck"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 256M
-        reservations:
-          cpus: "0.25"
-          memory: 128M
+      - chatvia-network
+      - internal
 
 networks:
-  frontend:
+  internal:
     driver: bridge
-  backend-net:
-    driver: bridge
+  chatvia-network:
+    external: true
