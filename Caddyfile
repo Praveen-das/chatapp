@@ -1,6 +1,33 @@
 :80 {
+    # CORS headers for API routes (not socket.io — handled by Socket.IO itself)
+    @api_routes {
+        not path /socket.io*
+    }
+    header @api_routes {
+        Access-Control-Allow-Origin "https://chatapp-web-alpha.vercel.app"
+        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Authorization"
+        Access-Control-Allow-Credentials "true"
+    }
+
+    # Handle preflight OPTIONS requests
+    @options {
+        method OPTIONS
+        not path /socket.io*
+    }
+    handle @options {
+        header {
+            Access-Control-Allow-Origin "https://chatapp-web-alpha.vercel.app"
+            Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+            Access-Control-Allow-Headers "Content-Type, Authorization"
+            Access-Control-Allow-Credentials "true"
+            Access-Control-Max-Age "86400"
+        }
+        respond 204
+    }
+
     # Route for backend service (database endpoints)
-    handle_path /db* {
+    handle_path /db/* {
         reverse_proxy backend:4000 {
             header_up Host {host}
             header_up X-Real-IP {remote}
@@ -10,7 +37,7 @@
     }
 
     # Route for session service
-    handle_path /session* {
+    handle_path /session/* {
         reverse_proxy sessionservice:5000 {
             header_up Host {host}
             header_up X-Real-IP {remote}
@@ -20,7 +47,8 @@
     }
 
     # Route for socket.io connection / socket-service
-    handle /socket.io* {
+    # CORS is handled by Socket.IO's built-in cors option
+    handle /socket.io/* {
         reverse_proxy socket-service:3002 {
             header_up Host {host}
             header_up X-Real-IP {remote}

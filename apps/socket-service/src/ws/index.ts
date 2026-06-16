@@ -15,7 +15,13 @@ class SocketService implements ISocketService {
   constructor(server: IHttpServer) {
     console.log("Socket Service runnning...");
     this.server = server;
-    this.io = new Server(this.server);
+    this.io = new Server(this.server, {
+      cors: {
+        origin: "https://chatapp-web-alpha.vercel.app",
+        methods: ["GET", "POST"],
+        credentials: true,
+      },
+    });
   }
 
   initAdapter() {
