@@ -17,7 +17,7 @@ class SocketService implements ISocketService {
     this.server = server;
     this.io = new Server(this.server, {
       cors: {
-        origin: "https://chatapp-web-alpha.vercel.app",
+        origin: ["https://chatapp-web-alpha.vercel.app", "http://localhost:3000"],
         methods: ["GET", "POST"],
         credentials: true,
       },

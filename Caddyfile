@@ -4,10 +4,19 @@
         not path /socket.io*
     }
     header @api_routes {
-        Access-Control-Allow-Origin "https://chatapp-web-alpha.vercel.app"
         Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS"
         Access-Control-Allow-Headers "Content-Type, Authorization, Cache-Control"
+    }
+
+    # Match allowed origins for CORS
+    @cors_api_routes {
+        not path /socket.io*
+        header Origin https://chatapp-web-alpha.vercel.app http://localhost:3000
+    }
+    header @cors_api_routes {
+        Access-Control-Allow-Origin "{header.Origin}"
         Access-Control-Allow-Credentials "true"
+        Vary "Origin"
     }
 
     # Handle preflight OPTIONS requests
@@ -17,11 +26,15 @@
     }
     handle @options {
         header {
-            Access-Control-Allow-Origin "https://chatapp-web-alpha.vercel.app"
             Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS"
             Access-Control-Allow-Headers "Content-Type, Authorization, Cache-Control"
-            Access-Control-Allow-Credentials "true"
             Access-Control-Max-Age "86400"
+        }
+        @options_cors header Origin https://chatapp-web-alpha.vercel.app http://localhost:3000
+        header @options_cors {
+            Access-Control-Allow-Origin "{header.Origin}"
+            Access-Control-Allow-Credentials "true"
+            Vary "Origin"
         }
         respond 204
     }
