@@ -62,7 +62,11 @@
         }
 
         # 4. Socket.IO — CORS handled by Socket.IO's built-in cors option
-        handle /socket.io/* {
+        #    Match /socket.io and /socket.io/* (no prefix strip — socket service expects the path)
+        @socket_routes {
+            path /socket.io /socket.io/*
+        }
+        handle @socket_routes {
             reverse_proxy socket-service:3002 {
                 header_up Host {host}
                 header_up X-Real-IP {remote}
