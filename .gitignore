@@ -41,3 +41,4 @@ yarn-error.log*
 .DS_Store
 *.pem
 apps/web/lib/imageKit.ts
+debug/
