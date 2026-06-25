@@ -89,7 +89,7 @@ function GroupConversation({ conversation, isSelectedGroup }: IGroupProps): Reac
           )}
         </div>
         <div className="flex justify-between items-center h-5 ">
-          <DisplayRecentMessage recentMessage={conversation.recentMessage!} sender={sender} />
+          <DisplayRecentMessage recentMessage={conversation.recentMessage!} sender={sender} host={conversation.host} />
           <div className="flex items-center relative">
             {unreadMessages > 0 && (
               <span className="absolute right-0 flex justify-center items-center text-xs font-semibold bg-primary text-primary-content w-5 h-5 rounded-full transition-all duration-200 ease-out opacity-100 translate-x-0 group-hover:opacity-0 group-hover:scale-90">

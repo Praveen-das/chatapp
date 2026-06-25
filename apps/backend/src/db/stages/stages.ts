@@ -651,3 +651,10 @@ export const currentUserReadReceiptLookup = (userId: Types.ObjectId): any[] => [
     $project: { currentUserReceipt: 0 },
   },
 ];
+
+export const cleanConversation = {
+  $project: {
+    conversation: 0,
+    activityLog: 0,
+  },
+};

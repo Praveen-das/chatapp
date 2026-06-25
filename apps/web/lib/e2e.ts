@@ -221,6 +221,11 @@ export async function encryptMessage(
 
 export const E2E_WAITING_MESSAGE = "⏳__E2E_WAITING__";
 
+/** User-facing display strings for E2E message states */
+export const E2E_WAITING_DISPLAY = "Waiting for this message. This might take a while.";
+export const E2E_ENCRYPTED_PLACEHOLDER = "This conversation is end to end encrypted";
+export const MESSAGE_DELETED_DISPLAY = "This message was deleted";
+
 /**
  * Decrypt a ciphertext message using ECDH + AES-GCM
  */

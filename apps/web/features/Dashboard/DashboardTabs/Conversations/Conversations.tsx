@@ -37,7 +37,7 @@ function DisplayConversations() {
 
   useEffect(() => {
     let res: IQueryResult = { chats: [], groups: [], contacts: [] };
-
+    console.log(conversations);
     conversations.forEach((c) => {
       if (c.host === "system") return;
       if (c.host === "ai") return;

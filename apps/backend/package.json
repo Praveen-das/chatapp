@@ -7,7 +7,8 @@
     "dev": "dotenv -- tsc-watch --onSuccess \"node dist/index.js\"",
     "start": "node dist/index.js",
     "another": "set PORT=8000 && node dist/index.js",
-    "build": "tsc -p ."
+    "build": "tsc -p .",
+    "script:create-conversations": "tsc -p . && dotenv -- node dist/src/scripts/createConversations.js"
   },
   "author": "",
   "license": "ISC",

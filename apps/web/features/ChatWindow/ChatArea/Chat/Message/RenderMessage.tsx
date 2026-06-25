@@ -5,7 +5,7 @@ import { parseUrl } from "@lib/utils";
 import Link from "next/link";
 import { MemoizedMarkdown } from "./MemoizedMarkdown";
 
-import { E2E_WAITING_MESSAGE } from "@lib/e2e";
+import { E2E_WAITING_MESSAGE, E2E_WAITING_DISPLAY } from "@lib/e2e";
 
 export function RenderMessage({
   text,
@@ -40,7 +40,7 @@ export function RenderMessage({
   return (
     <>
       {text === E2E_WAITING_MESSAGE ? (
-        "Waiting for this message. This might take a while."
+        E2E_WAITING_DISPLAY
       ) : isUrl ? (
         <Link
           onClick={handleOpeningModal}

@@ -3,14 +3,16 @@ import { CameraIcon } from "@heroicons/react/16/solid";
 import { IMessage } from "@repo/interfaces/messageInterface";
 import { LinkIcon } from "@heroicons/react/24/solid";
 
-import { E2E_WAITING_MESSAGE } from "@lib/e2e";
+import { E2E_WAITING_MESSAGE, E2E_WAITING_DISPLAY, E2E_ENCRYPTED_PLACEHOLDER, MESSAGE_DELETED_DISPLAY } from "@lib/e2e";
 
 export function DisplayRecentMessage({
   recentMessage,
   sender,
+  host,
 }: {
   recentMessage: IMessage;
   sender?: string;
+  host: string;
 }) {
   const rawMessage = recentMessage?.message || "";
 
@@ -18,12 +20,12 @@ export function DisplayRecentMessage({
     recentMessage?.attachment?.type === "images" ? "Image" : recentMessage?.attachment?.type === "link" ? "Link" : "";
 
   const content = rawMessage === E2E_WAITING_MESSAGE
-    ? "Waiting for this message. This might take a while."
-    : rawMessage || messageType || "This conversation is end to end encrypted";
+    ? E2E_WAITING_DISPLAY
+    : rawMessage || messageType || (host === "user" ? E2E_ENCRYPTED_PLACEHOLDER : "");
   const message = sender ? `${sender}: ${content}` : content;
 
   if (recentMessage?.type === "message" && recentMessage?.deleted)
-    return <div className="text-[13px] text-base-content/40 italic">This message was deleted</div>;
+    return <div className="text-[13px] text-base-content/40 italic">{MESSAGE_DELETED_DISPLAY}</div>;
 
   return (
     <div className="flex items-center gap-1.5 text-[13px] opacity-70 font-normal max-w-[95%] w-max text-left text-current">

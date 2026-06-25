@@ -6,6 +6,7 @@ import mongoose from "mongoose";
 import { z } from "zod";
 import {
   activityLookup,
+  cleanConversation,
   conversationLookup,
   conversationMessagesLookup,
   currentUserReadReceiptLookup,
@@ -156,6 +157,8 @@ async function getUserConversation(userId: Types.ObjectId) {
       conversationMessagesLookup(userId, undefined, activatedAt),
 
       starredMessagesLookup(),
+
+      cleanConversation,
     ];
 
     const res = await UserConversation.aggregate(pipeline);
@@ -318,6 +321,7 @@ const createPipeline = (
         ...membersLookup(),
         conversationMessagesLookup(userId, undefined, activatedAt),
         starredMessagesLookup(),
+        cleanConversation,
       ];
 
     if (host === "group")
@@ -329,7 +333,19 @@ const createPipeline = (
         activityLookup(),
         messagesLookup({ userId }),
         starredMessagesLookup(),
-        { $project: { conversation: 0, activityLog: 0 } },
+        cleanConversation,
+      ];
+
+    if (host === "ai")
+      return [
+        matchStage,
+        // ...currentUserReadReceiptLookup(userId),
+        // ...readReceiptLookup(readReceiptEntries),
+        ...conversationLookup(),
+        ...membersLookup(),
+        conversationMessagesLookup(userId, undefined, activatedAt),
+        starredMessagesLookup(),
+        cleanConversation,
       ];
 
     return [];
@@ -341,7 +357,8 @@ const createPipeline = (
 
   if (req.needSync) {
     if (host === "group") pipeline.push(...groupLookup(), ...membersLookup(), starredMessagesLookup());
-    if (host === "user") pipeline.push(...conversationLookup(), ...membersLookup(), starredMessagesLookup());
+    else if (host === "user") pipeline.push(...conversationLookup(), ...membersLookup(), starredMessagesLookup());
+    else pipeline.push(...conversationLookup(), ...membersLookup(), starredMessagesLookup());
   }
 
   if (req.lastKnownMessageTimestamp) {
@@ -355,12 +372,7 @@ const createPipeline = (
   }
 
   if (req.needSync) {
-    pipeline.push({
-      $project: {
-        conversation: 0,
-        activityLog: 0,
-      },
-    });
+    pipeline.push(cleanConversation);
     return pipeline;
   }
 

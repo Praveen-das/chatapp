@@ -3,6 +3,7 @@ import mongoose, { Types, startSession } from "mongoose";
 import { z } from "zod";
 import {
   activityLookup,
+  cleanConversation,
   groupLookup,
   membersLookup,
   messagesLookup,
@@ -19,7 +20,7 @@ import conversationServices from "./conversationServices";
 // createGroup
 async function createGroup(
   { members, ...data }: z.infer<typeof groupSchema>,
-  groupConversations: z.infer<typeof groupConversationsSchema>
+  groupConversations: z.infer<typeof groupConversationsSchema>,
 ) {
   const session = await startSession();
   try {
@@ -115,10 +116,10 @@ async function fetchGroupByInvitationId(groupId: string) {
       ...membersLookup(),
       {
         $lookup: {
-          from: 'users',
-          localField: 'members.userId',
-          foreignField: 'id',
-          as: 'users',
+          from: "users",
+          localField: "members.userId",
+          foreignField: "id",
+          as: "users",
         },
       },
       {
@@ -159,12 +160,7 @@ async function fetchGroupsByUserId(userId: Types.ObjectId) {
 
       starredMessagesLookup(),
 
-      {
-        $project: {
-          conversation: 0,
-          activityLog: 0,
-        },
-      },
+      cleanConversation,
     ]);
 
     console.log("groups------>", groups.length);
@@ -217,7 +213,7 @@ async function updateGroupMemberRole(_groupId: string, _userId: string, isAdmin:
     const updatedGroup = await Group.findOneAndUpdate(
       { id: groupId, "members.userId": userId },
       { $set: { "members.$.isAdmin": isAdmin }, $inc: { version: 1 } },
-      { new: true }
+      { new: true },
     );
 
     return updatedGroup;
@@ -239,7 +235,7 @@ async function addMembersToGroup(groupId: Types.ObjectId, members: z.infer<typeo
           $push: { members: members.map((m) => m._id) },
           $inc: { version: 1 },
         },
-        { session, new: true }
+        { session, new: true },
       );
 
       return [newMember, updatedGroup];
@@ -265,7 +261,7 @@ async function removeMemberFromGroup({ conversationId, userId, memberId }: Remov
           $pull: { members: memberId, admins: userId },
           $inc: { version: 1 },
         },
-        { session, new: true }
+        { session, new: true },
       );
 
       const res2 = await Member.findByIdAndUpdate(memberId, { exitedAt: Date.now() }, { session, new: true });
@@ -284,7 +280,7 @@ async function updateGroup(conversationId: Types.ObjectId, updates: Partial<IGro
     const updatedGroup = await Group.findOneAndUpdate(
       { id: conversationId },
       { ...updates, $inc: { version: 1 } },
-      { new: true }
+      { new: true },
     );
     // return await Group.aggregate([
     //   {
@@ -327,7 +323,7 @@ async function makeUserAdmin(conversationId: Types.ObjectId, userId: Types.Objec
         $push: { admins: userId },
         $inc: { version: 1 },
       },
-      { new: true }
+      { new: true },
     );
 
     return await Group.aggregate([
@@ -358,7 +354,7 @@ async function removeUserAdmin(conversationId: Types.ObjectId, userId: Types.Obj
         $pull: { admins: userId },
         $inc: { version: 1 },
       },
-      { new: true }
+      { new: true },
     );
 
     return await Group.aggregate([
@@ -409,7 +405,7 @@ async function addGroupTag(req: { id: string; tag: string }) {
           tags: req.tag,
         },
         $inc: { version: 1 },
-      }
+      },
     );
 
     return res;
@@ -427,7 +423,7 @@ async function removeGroupTag(req: { id: string; tag: string }) {
           tags: req.tag,
         },
         $inc: { version: 1 },
-      }
+      },
     );
 
     return res;

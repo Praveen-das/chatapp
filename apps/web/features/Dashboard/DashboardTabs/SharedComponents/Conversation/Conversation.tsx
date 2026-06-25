@@ -65,7 +65,7 @@ function Conversation({ conversation, isSelected }: IConve): React.JSX.Element {
           {recentMessage && <RecentMessageTimestamp timestamp={recentMessage.timestamp} />}
         </div>
         <div className="flex justify-between items-center h-5 ">
-          <DisplayRecentMessage recentMessage={recentMessage!} />
+          <DisplayRecentMessage recentMessage={recentMessage!} host={conversation.host} />
           <div className="flex items-center relative">
             <UnreadMessageCount conversationId={conversation.id} isSelected={isSelected} />
             <DropdownMenu conversation={conversation} />
