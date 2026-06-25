@@ -7,7 +7,8 @@
     "dev": "turbo dev",
     "clientOnly": "set NEXT_PUBLIC_CLIENT_ONLY=true && turbo dev --filter=web",
     "web": "turbo dev --filter=web",
-    "server": "turbo dev --filter=backend --filter=socket-service --filter=session-service",
+    "server": "turbo dev --filter=backend --filter=socket-service --filter=session-service --filter=api-gateway",
+    "gateway": "turbo dev --filter=api-gateway",
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },

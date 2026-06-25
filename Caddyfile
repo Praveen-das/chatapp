@@ -1,5 +1,5 @@
 :80 {
-    # CORS headers for API routes (not socket.io — handled by Socket.IO itself)
+    # ── CORS response headers (applied to ALL non-socket.io responses) ──
     @api_routes {
         not path /socket.io*
     }
@@ -8,65 +8,58 @@
         Access-Control-Allow-Headers "Content-Type, Authorization, Cache-Control"
     }
 
-    # Match allowed origins for CORS
-    @cors_api_routes {
+    @cors_origin {
         not path /socket.io*
         header_regexp origin Origin ^(https://chatapp-web-alpha\.vercel\.app|http://localhost:3000)$
     }
-    header @cors_api_routes {
+    header @cors_origin {
         Access-Control-Allow-Origin "{header.Origin}"
         Access-Control-Allow-Credentials "true"
         Vary "Origin"
     }
 
-    # Handle preflight OPTIONS requests
-    @options {
-        method OPTIONS
-        not path /socket.io*
-    }
-    handle @options {
-        header {
-            Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-            Access-Control-Allow-Headers "Content-Type, Authorization, Cache-Control"
-            Access-Control-Max-Age "86400"
+    # ── Routing (order-enforced via route) ──
+    # route disables Caddy's automatic directive re-sorting,
+    # so the OPTIONS handler is guaranteed to run BEFORE handle_path.
+    route {
+        # 1. Intercept ALL preflight OPTIONS requests before they reach backends
+        @options {
+            method OPTIONS
+            not path /socket.io*
         }
-        @options_cors header_regexp origin Origin ^(https://chatapp-web-alpha\.vercel\.app|http://localhost:3000)$
-        header @options_cors {
-            Access-Control-Allow-Origin "{header.Origin}"
-            Access-Control-Allow-Credentials "true"
-            Vary "Origin"
+        handle @options {
+            header Access-Control-Max-Age "86400"
+            respond 204
         }
-        respond 204
-    }
 
-    # Route for backend service (database endpoints)
-    handle_path /db/* {
-        reverse_proxy backend:4000 {
-            header_up Host {host}
-            header_up X-Real-IP {remote}
-            header_up X-Forwarded-For {remote}
-            header_up X-Forwarded-Proto {scheme}
+        # 2. Backend service (database endpoints)
+        handle_path /db/* {
+            reverse_proxy backend:4000 {
+                header_up Host {host}
+                header_up X-Real-IP {remote}
+                header_up X-Forwarded-For {remote}
+                header_up X-Forwarded-Proto {scheme}
+            }
         }
-    }
 
-    # Route for session service
-    handle_path /session/* {
-        reverse_proxy sessionservice:5000 {
-            header_up Host {host}
-            header_up X-Real-IP {remote}
-            header_up X-Forwarded-For {remote}
-            header_up X-Forwarded-Proto {scheme}
+        # 3. Session service
+        handle_path /session/* {
+            reverse_proxy sessionservice:5000 {
+                header_up Host {host}
+                header_up X-Real-IP {remote}
+                header_up X-Forwarded-For {remote}
+                header_up X-Forwarded-Proto {scheme}
+            }
         }
-    }
 
-    # Route for socket.io connection / socket-service
-    # CORS is handled by Socket.IO's built-in cors option
-    handle /socket.io/* {
-        reverse_proxy socket-service:3002 {
-            header_up Host {host}
-            header_up X-Real-IP {remote}
-            header_up X-Forwarded-For {remote}
-            header_up X-Forwarded-Proto {scheme}
+        # 4. Socket.IO — CORS handled by Socket.IO's built-in cors option
+        handle /socket.io/* {
+            reverse_proxy socket-service:3002 {
+                header_up Host {host}
+                header_up X-Real-IP {remote}
+                header_up X-Forwarded-For {remote}
+                header_up X-Forwarded-Proto {scheme}
+            }
         }
     }
 }
