@@ -19,8 +19,6 @@
     }
 
     # ── Routing (order-enforced via route) ──
-    # route disables Caddy's automatic directive re-sorting,
-    # so the OPTIONS handler is guaranteed to run BEFORE handle_path.
     route {
         # 1. Intercept ALL preflight OPTIONS requests before they reach backends
         @options {
@@ -33,7 +31,12 @@
         }
 
         # 2. Backend service (database endpoints)
-        handle_path /db/* {
+        #    Match both /db and /db/* so bare-path calls also route correctly
+        @db_routes {
+            path /db /db/*
+        }
+        handle @db_routes {
+            uri strip_prefix /db
             reverse_proxy backend:4000 {
                 header_up Host {host}
                 header_up X-Real-IP {remote}
@@ -43,7 +46,13 @@
         }
 
         # 3. Session service
-        handle_path /session/* {
+        #    Match both /session and /session/* — critical because
+        #    createTokens() calls POST /session (bare path, no sub-path)
+        @session_routes {
+            path /session /session/*
+        }
+        handle @session_routes {
+            uri strip_prefix /session
             reverse_proxy sessionservice:5000 {
                 header_up Host {host}
                 header_up X-Real-IP {remote}
